@@ -45,14 +45,14 @@ def generate_graph(date_str = None):
     #piw.tick_params(labelsize=8)
     piw.grid(True)
     piw.plot(x, [row[1][4] for row in data], linewidth=0.5)
-    piw.plot(x, [row[1][5] for row in data], linewidth=2)
+    piw.plot(x, [row[1][5] for row in data], linewidth=2,color="r")
 
     bv.set_ylabel(u"バッテリー電圧(V)")
     #bv.set_ylim(10, 15)
     #bv.tick_params(labelsize=8)
     bv.grid(True)
     bv.plot(x, [row[1][10] for row in data], linewidth=0.5)
-    bv.plot(x, [row[1][11] for row in data], linewidth=2)
+    bv.plot(x, [row[1][11] for row in data], linewidth=2,color="r")
 
     kwh.set_ylabel(u"当日発電した電力量(kWh)")
     #kwh.set_ylim(0.0, 1.0)
