@@ -1,10 +1,5 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-"""
-[ebuild  N     ] media-libs/qhull-2012.1-r4::gentoo  USE="-doc -static-libs" 700 KiB
-[ebuild  N     ] media-fonts/stix-fonts-1.1.1::gentoo  USE="-X" 1,792 KiB
-[ebuild  N     ] dev-python/matplotlib-1.4.3::gentoo  USE="-cairo -doc -examples -excel -fltk -gtk -gtk3 -latex -pyside -qt4 -qt5 {-test} -tk -wxwidgets" PYTHON_TARGETS="python2_7 python3_4 (-python3_5) (-python3_6)" 48,764 KiB
-"""
 
 import sys,io,datetime
 import matplotlib.pyplot,matplotlib.dates
@@ -21,7 +16,7 @@ def load_data(date_str = None):
 
         starttime, endtime = cur.fetchone()
 
-        cur.execute("select t,piv,pia,piw,pov,poa,bv,temp,kwh from data where t >= %s and t < %s order by t", (starttime,  endtime))
+        cur.execute("select data1.t,data1.piv,avg(data2.piv),data1.pia,avg(data2.pia),data1.piw,avg(data2.piw),data1.pov,avg(data2.pov),data1.poa,avg(data2.poa),data1.bv,avg(data2.bv),data1.temp,data1.kwh from data as data1,data as data2 where data1.t >= %s and data1.t < %s and data2.t between data1.t - interval 5 minute and data1.t group by data1.t order by data1.t", (starttime,  endtime))
         return (starttime, endtime, [(row[0],row[1:]) for row in cur])
     finally:
         cur.close()
@@ -49,19 +44,21 @@ def generate_graph(date_str = None):
     #piw.set_ylim(0, 150)
     #piw.tick_params(labelsize=8)
     piw.grid(True)
-    piw.plot(x, [row[1][2] for row in data], linewidth=0.5)
+    piw.plot(x, [row[1][4] for row in data], linewidth=0.5)
+    piw.plot(x, [row[1][5] for row in data], linewidth=2)
 
     bv.set_ylabel(u"バッテリー電圧(V)")
     #bv.set_ylim(10, 15)
     #bv.tick_params(labelsize=8)
     bv.grid(True)
-    bv.plot(x, [row[1][5] for row in data], linewidth=0.5)
+    bv.plot(x, [row[1][10] for row in data], linewidth=0.5)
+    bv.plot(x, [row[1][11] for row in data], linewidth=2)
 
     kwh.set_ylabel(u"当日発電した電力量(kWh)")
     #kwh.set_ylim(0.0, 1.0)
     #kwh.tick_params(labelsize=8)
     kwh.grid(True)
-    kwh.plot(x, [row[1][7] for row in data])
+    kwh.plot(x, [row[1][13] for row in data])
 
     buf = io.BytesIO()
     fig.savefig(buf, format="png")
