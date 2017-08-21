@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import sys,io,datetime
+import sys,io,datetime,argparse
 import matplotlib.pyplot,matplotlib.dates
 import MySQLdb
 
@@ -68,6 +68,11 @@ def generate_graph(date_str = None):
     return buf.read()
 
 if __name__ == '__main__':
-    graph = generate_graph(sys.argv[1] if len(sys.argv) > 1 else None)
-    with open("graph.png", "w") as f:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-d", "--date", type = str, dest = "date", default = None)
+    parser.add_argument("-o", "--output", type = str, dest = "output", default="graph.png")
+    args = parser.parse_args()
+
+    graph = generate_graph(args.date)
+    with open(args.output, "w") as f:
         f.write(graph)
