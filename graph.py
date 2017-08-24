@@ -22,7 +22,7 @@ def load_data(date_str = None):
         cur.close()
         conn.close()
 
-def generate_graph(date_str = None, bv_ymin = 10, bv_ymax = 15):
+def generate_graph(date_str = None, bv_ymin = 10.5, bv_ymax = 14.5):
     (starttime, endtime, data) = load_data(date_str)
 
     matplotlib.rc("font", family="VL PGothic")
