@@ -22,7 +22,7 @@ def load_data(date_str = None):
         cur.close()
         conn.close()
 
-def generate_graph(date_str = None):
+def generate_graph(date_str = None, bv_ymin = 10, bv_ymax = 15):
     (starttime, endtime, data) = load_data(date_str)
 
     matplotlib.rc("font", family="VL PGothic")
@@ -49,7 +49,7 @@ def generate_graph(date_str = None):
     piw.legend()
 
     bv.set_ylabel(u"バッテリー電圧(V)")
-    #bv.set_ylim(10, 15)
+    bv.set_ylim(bv_ymin, bv_ymax)
     #bv.tick_params(labelsize=8)
     bv.grid(True)
     bv.plot(x, [row[1][10] for row in data], label=u"リアルタイム(5秒間隔)", linewidth=0.5)
