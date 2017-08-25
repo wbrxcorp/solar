@@ -44,7 +44,7 @@ def generate_graph(date_str = None, bv_ymin = 10.5, bv_ymax = 14.5):
     #piw.set_ylim(0, 150)
     #piw.tick_params(labelsize=8)
     piw.grid(True)
-    piw.plot(x, [row[1][4] for row in data], label=u"リアルタイム(5秒間隔)", linewidth=0.5)
+    piw.plot(x, [row[1][4] for row in data], label=u"5秒間隔", linewidth=0.5)
     piw.plot(x, [row[1][5] for row in data], label=u"5分平均", linewidth=2,color="r")
     piw.legend()
 
@@ -52,7 +52,7 @@ def generate_graph(date_str = None, bv_ymin = 10.5, bv_ymax = 14.5):
     bv.set_ylim(bv_ymin, bv_ymax)
     #bv.tick_params(labelsize=8)
     bv.grid(True)
-    bv.plot(x, [row[1][10] for row in data], label=u"リアルタイム(5秒間隔)", linewidth=0.5)
+    bv.plot(x, [row[1][10] for row in data], label=u"5秒間隔", linewidth=0.5)
     bv.plot(x, [row[1][11] for row in data], label=u"5分平均", linewidth=2,color="r")
     bv.legend()
 
