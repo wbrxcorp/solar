@@ -53,6 +53,7 @@ def generate_graph(hostname, date_str = None, pov_ymin = 10.5, pov_ymax = 15.0):
     bv.set_ylim(pov_ymin, pov_ymax)
     #bv.tick_params(labelsize=8)
     bv.grid(True)
+    bv.axhline(12.0, linestyle="--", color="g")
     bv.plot(x, [row[1][6] for row in data], label=u"5秒間隔", linewidth=0.5)
     bv.plot(x, [row[1][7] for row in data], label=u"5分平均", linewidth=2,color="r")
     bv.legend()
