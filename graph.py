@@ -5,7 +5,7 @@ import sys,io,datetime,argparse
 import matplotlib.pyplot,matplotlib.dates
 import MySQLdb
 
-def load_data(date_str = None):
+def load_data(hostname, date_str = None):
     conn = MySQLdb.connect(db="solar")
     cur = conn.cursor()
     try:
@@ -16,14 +16,14 @@ def load_data(date_str = None):
 
         starttime, endtime = cur.fetchone()
 
-        cur.execute("select data1.t,data1.piv,avg(data2.piv),data1.pia,avg(data2.pia),data1.piw,avg(data2.piw),data1.pov,avg(data2.pov),data1.poa,avg(data2.poa),data1.bv,avg(data2.bv),data1.temp,data1.kwh from data as data1,data as data2 where data1.t >= %s and data1.t < %s and data2.t between data1.t - interval 5 minute and data1.t group by data1.t order by data1.t", (starttime,  endtime))
+        cur.execute("select data1.t,data1.piv,avg(data2.piv),data1.pia,avg(data2.pia),data1.piw,avg(data2.piw),data1.pov,avg(data2.pov),data1.poa,avg(data2.poa),data1.loadw,avg(data2.loadw),data1.temp,data1.kwh,data1.lkwh from data as data1,data as data2 where data1.t >= %s and data1.t < %s and data2.t between data1.t - interval 5 minute and data1.t group by data1.t order by data1.t", (starttime,  endtime))
         return (starttime, endtime, [(row[0],row[1:]) for row in cur])
     finally:
         cur.close()
         conn.close()
 
-def generate_graph(date_str = None, bv_ymin = 10.5, bv_ymax = 15.0):
-    (starttime, endtime, data) = load_data(date_str)
+def generate_graph(hostname, date_str = None, pov_ymin = 10.5, pov_ymax = 15.0):
+    (starttime, endtime, data) = load_data(hostname, date_str)
 
     matplotlib.rc("font", family="VL PGothic")
 
@@ -49,11 +49,11 @@ def generate_graph(date_str = None, bv_ymin = 10.5, bv_ymax = 15.0):
     piw.legend()
 
     bv.set_ylabel(u"バッテリー電圧(V)")
-    bv.set_ylim(bv_ymin, bv_ymax)
+    bv.set_ylim(pov_ymin, pov_ymax)
     #bv.tick_params(labelsize=8)
     bv.grid(True)
-    bv.plot(x, [row[1][10] for row in data], label=u"5秒間隔", linewidth=0.5)
-    bv.plot(x, [row[1][11] for row in data], label=u"5分平均", linewidth=2,color="r")
+    bv.plot(x, [row[1][6] for row in data], label=u"5秒間隔", linewidth=0.5)
+    bv.plot(x, [row[1][7] for row in data], label=u"5分平均", linewidth=2,color="r")
     bv.legend()
 
     kwh.set_ylabel(u"当日発電した電力量(kWh)")
@@ -73,6 +73,7 @@ if __name__ == '__main__':
     parser.add_argument("-o", "--output", type = str, dest = "output", default="graph.png")
     args = parser.parse_args()
 
-    graph = generate_graph(args.date)
+    hostname = "motion"
+    graph = generate_graph(hostname, args.date)
     with open(args.output, "w") as f:
         f.write(graph)

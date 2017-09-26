@@ -10,10 +10,10 @@ registers = [
     "Charging equipment input power",
     "Charging equipment output voltage",
     "Charging equipment output current",
-    "Discharging equipment output voltage",
+    "Discharging equipment output power",
     "Battery Temperature",
     "Generated energy today",
-    "Discharging equipment output power"
+    "Consumed energy today"
 ]
 
 client = EPsolarTracerClient(port = "/dev/ttyXRUSB0")
@@ -23,6 +23,8 @@ response = client.read_device_info()
 print "# Manufacturer:", repr(response.information[0])
 print "# Model:", repr(response.information[1])
 print "# Version:", repr(response.information[2])
+
+hostname = 'motion'
 
 conn = MySQLdb.connect(db="solar")
 conn.autocommit(True)
@@ -35,7 +37,7 @@ try:
         now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         piv = values[0]
 
-    	cur.execute("replace into data(t,piv,pia,piw,pov,poa,bv,temp,kwh) values(%s,%s,%s,%s,%s,%s,%s,%s,%s)", (now_str, piv,values[1],values[2],values[3],values[4],values[5],values[6],values[7]))
+    	cur.execute("replace into data(t,piv,pia,piw,pov,poa,loadw,temp,kwh,lkwh) values(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)", (now_str, piv,values[1],values[2],values[3],values[4],values[5],values[6],values[7],values[8]))
 
         print "%s\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f" % (now_str, piv,values[1],values[2],values[3],values[4],values[5],values[6],values[7],values[8])
         sys.stdout.flush()
