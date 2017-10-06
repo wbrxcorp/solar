@@ -1,0 +1,53 @@
+<html>
+<head>
+  <meta name="robots" content="noindex">
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+  <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.6.6/angular.min.js"></script>
+  <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.6.6/angular-resource.min.js"></script>
+  <script>
+  angular.module("CC", ["ngResource"])
+  .run(["$rootScope","$resource",  function($scope, $resource) {
+    var coins = $resource("coins.json");
+    var user = $resource("https://api.nanopool.org/v1/:coin/user/:address");
+    var price = $resource("https://api.nanopool.org/v1/:coin/prices");
+    $scope.coins = coins.get({}, function(data) {
+      Object.keys(data).forEach(function(key) {
+        if (key[0] == '$') return;
+        var value = data[key];
+        value.user = user.get({"coin":key,"address":value.address});
+        value.price = price.get({"coin":key});
+      });
+    });
+  }]);
+  angular.element(document).ready(function() {
+    angular.bootstrap(document, ['CC']);
+  });  </script>
+</head>
+<body>
+  <div class="container">
+    <h1>Miners</h1>
+    <table class="table">
+      <tr><th>Coin</th><th>Price</th><th>Balance</th><th>Hashrate</th><th># of Workers</th></tr>
+      <tr ng-repeat="(key,value) in coins">
+        <td><a href="https://{{key}}.nanopool.org/account/{{value.address}}" target="_blank">{{key}}</a></td>
+        <td><a href="https://coincheck.com/exchange/tradeview/coincheck/{{key}}jpy" target="_blank">{{value.price.data.price_usd}}</a></td>
+        <td>
+          {{value.user.data.balance}} / {{value.payout}}
+          <div class="progress" style="margin-bottom:0;">
+            <div class="progress-bar progress-bar-striped" role="progressbar" style="width: {{value.user.data.balance * 100 / value.payout}}%;">
+              <span class="sr-only">{{value.user.data.balance}} / {{value.payout}}</span>
+            </div>
+          </div>
+        </td>
+        <td>{{value.user.data.hashrate}}</td>
+        <td>{{value.user.data.workers.length}}</td>
+      </tr>
+    </table>
+    <ul>
+      <li><a href="https://coincheck.com/ja/exchange">Coincheck</a></li>
+      <li><a href="https://poloniex.com/balances">Poloniex</li>
+      <li><a href="https://purse.io/orders">Purse.io</a></li>
+    </ul>
+  </div>
+</body>
+</html>
