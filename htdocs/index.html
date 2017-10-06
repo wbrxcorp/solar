@@ -7,9 +7,16 @@
   <script>
   angular.module("CC", ["ngResource"])
   .run(["$rootScope","$resource",  function($scope, $resource) {
+    var rate = $resource("rate.json");
     var coins = $resource("coins.json");
     var user = $resource("https://api.nanopool.org/v1/:coin/user/:address");
     var price = $resource("https://api.nanopool.org/v1/:coin/prices");
+    $scope.usdjpy = null;
+    rate.get({}, function(data) {
+      data.quotes.forEach(function(pair) {
+        if (pair.currencyPairCode === "USDJPY") $scope.usdjpy = pair.ask;
+      });
+    });
     $scope.coins = coins.get({}, function(data) {
       Object.keys(data).forEach(function(key) {
         if (key[0] == '$') return;
@@ -30,9 +37,9 @@
       <tr><th>Coin</th><th>Price</th><th>Balance</th><th>Hashrate</th><th># of Workers</th></tr>
       <tr ng-repeat="(key,value) in coins">
         <td><a href="https://{{key}}.nanopool.org/account/{{value.address}}" target="_blank">{{key}}</a></td>
-        <td><a href="https://coincheck.com/exchange/tradeview/coincheck/{{key}}jpy" target="_blank">{{value.price.data.price_usd}}</a></td>
+        <td><a href="https://coincheck.com/exchange/tradeview/coincheck/{{key}}jpy" target="_blank">￥{{value.price.data.price_usd * usdjpy|number:0}}</a></td>
         <td>
-          {{value.user.data.balance}} / {{value.payout}}
+          ￥{{value.user.data.balance * value.price.data.price_usd * usdjpy|number:0}} / ￥{{value.payout * value.price.data.price_usd * usdjpy|number:0}} <small>({{value.user.data.balance}} / {{value.payout}}{{key}})</small>
           <div class="progress" style="margin-bottom:0;">
             <div class="progress-bar progress-bar-striped" role="progressbar" style="width: {{value.user.data.balance * 100 / value.payout}}%;">
               <span class="sr-only">{{value.user.data.balance}} / {{value.payout}}</span>
