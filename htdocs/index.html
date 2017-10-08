@@ -8,15 +8,12 @@
   <script>
   angular.module("CC", ["ngResource"])
   .run(["$rootScope","$resource",  function($scope, $resource) {
-    var rate = $resource("rate.json");
+    var rate = $resource("https://query.yahooapis.com/v1/public/yql");
     var coins = $resource("coins.json");
     var user = $resource("https://api.nanopool.org/v1/:coin/user/:address");
     var price = $resource("https://api.nanopool.org/v1/:coin/prices");
-    $scope.usdjpy = null;
-    rate.get({}, function(data) {
-      data.quotes.forEach(function(pair) {
-        if (pair.currencyPairCode === "USDJPY") $scope.usdjpy = pair.ask;
-      });
+    $scope.usdjpy = rate.get({q:'select * from yahoo.finance.xchange where pair in ("USDJPY")',format:'json',env:'store://datatables.org/alltableswithkeys'}, function(data) {
+      $scope.usdjpy = parseFloat(data.query.results.rate.Rate);
     });
     $scope.coins = coins.get({}, function(data) {
       Object.keys(data).forEach(function(key) {
