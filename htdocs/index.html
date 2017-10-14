@@ -10,17 +10,19 @@
   angular.module("CC", ["ngResource"])
   .run(["$rootScope","$resource","$timeout",  function($scope, $resource, $timeout) {
     var rate = $resource("https://api.fixer.io/latest");
+    var btcRate = $resource("https://api.coindesk.com/v1/bpi/currentprice.json");
     var coins = $resource("coins.json");
     var user = $resource("https://api.nanopool.org/v1/:coin/user/:address");
     var userSettings = $resource("https://api.nanopool.org/v1/:coin/usersettings/:address");
     var approxEarnings = $resource("https://:coin.nanopool.org/api/v1/approximated_earnings/:hashrate");
     var price = $resource("https://api.nanopool.org/v1/:coin/prices");
-    $scope.usd = rate.get({base:"USD"});
     $scope.refresh = function(coins) {
       if ($scope.timer) {
           $timeout.cancel($scope.timer);
           $scope.timer = null;
       }
+      $scope.usd = rate.get({base:"USD"});
+      $scope.btc = btcRate.get({});
       coins.forEach(function(coin) {
         if (coin.id[0] == '$') return;
         coin.user = user.get({"coin":coin.id,"address":coin.address}, function(data) {
@@ -44,6 +46,7 @@
     <h1>Miners</h1>
     <table class="table">
       <tr><th>Coin</th><th>Price</th><th>Balance</th><th>Hashrate(6hrs)</th><th># of Workers</th></tr>
+      <tr><td>Bitcoin</td><td><a href="https://www.coingecko.com/ja/%E7%9B%B8%E5%A0%B4%E3%83%81%E3%83%A3%E3%83%BC%E3%83%88/%E3%83%93%E3%83%83%E3%83%88%E3%82%B3%E3%82%A4%E3%83%B3/jpy" target="_blank">￥{{btc.bpi.USD.rate_float * usd.rates.JPY|number:0}}</a></td><td>-</td><td>-</td><td>-</td></tr>
       <tr ng-repeat="coin in coins">
         <td><a href="https://{{coin.id}}.nanopool.org/account/{{coin.address}}" target="_blank">{{coin.name}}</a></td>
         <td><a href="{{coin.chart}}" target="_blank">￥{{coin.price.data.price_usd * usd.rates.JPY|number:0}}</a></td>
@@ -62,7 +65,7 @@
         <td>{{coin.user.data.workers.length}}</td>
       </tr>
       <tr>
-        <td>USD</td><td>￥{{usd.rates.JPY|number:2}}</td><td>0</td><td>0</td><td>0</td>
+        <td>USD</td><td>￥{{usd.rates.JPY|number:2}}</td><td>-</td><td>-</td><td>-</td>
       </tr>
     </table>
     <div class="text-center">
