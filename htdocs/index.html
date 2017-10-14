@@ -47,6 +47,13 @@
       }, 10 * 60 * 1000);
     };
     $scope.coins = coins.query({}, $scope.refresh);
+    $scope.total = function(coins) {
+      var total = 0;
+      coins.forEach(function(coin) {
+        total += coin.approxEarnings.data.day.dollars;
+      });
+      return total;
+    };
   }]);
   angular.element(document).ready(function() {
     angular.bootstrap(document, ['CC']);
@@ -77,6 +84,9 @@
       </tr>
       <tr>
         <td>USD</td><td>￥{{usd.rates.JPY|number:2}}</td><td>-</td><td>-</td><td>-</td>
+      </tr>
+      <tr>
+        <td>Total</td><td>-</td><td>-</td><td>￥{{total(coins) * usd.rates.JPY | number:0}}/day</td><td>-</td>
       </tr>
     </table>
     <div class="text-center">
