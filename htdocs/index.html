@@ -21,15 +21,26 @@
           $timeout.cancel($scope.timer);
           $scope.timer = null;
       }
-      $scope.usd = rate.get({base:"USD"});
-      $scope.btc = btcRate.get({});
+      rate.get({base:"USD"}, function(data) {
+        $scope.usd = data;
+      });
+      btcRate.get({}, function(data) {
+        $scope.btc = data;
+      });
       coins.forEach(function(coin) {
         if (coin.id[0] == '$') return;
-        coin.user = user.get({"coin":coin.id,"address":coin.address}, function(data) {
-          coin.approxEarnings = approxEarnings.get({"coin":coin.id,"hashrate":data.data.avgHashrate.h6});
+        user.get({"coin":coin.id,"address":coin.address}, function(data) {
+          coin.user = data;
+          approxEarnings.get({"coin":coin.id,"hashrate":data.data.avgHashrate.h6}, function(data) {
+            coin.approxEarnings = data;
+          });
         });
-        coin.userSettings = userSettings.get({"coin":coin.id,"address":coin.address});
-        coin.price = price.get({"coin":coin.id});
+        userSettings.get({"coin":coin.id,"address":coin.address}, function(data) {
+          coin.userSettings = data;
+        });
+        price.get({"coin":coin.id}, function(data) {
+          coin.price = data;
+        });
       });
       $scope.timer = $timeout(function() {
         $scope.refresh(coins);
