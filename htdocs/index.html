@@ -1,5 +1,6 @@
 <html>
 <head>
+  <title>Miners</title>
   <meta name="robots" content="noindex">
   <meta charset="utf-8">
   <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
@@ -7,7 +8,7 @@
   <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.6.6/angular-resource.min.js"></script>
   <script>
   angular.module("CC", ["ngResource"])
-  .run(["$rootScope","$resource",  function($scope, $resource) {
+  .run(["$rootScope","$resource","$timeout",  function($scope, $resource, $timeout) {
     var rate = $resource("https://api.fixer.io/latest");
     var coins = $resource("coins.json");
     var user = $resource("https://api.nanopool.org/v1/:coin/user/:address");
@@ -15,8 +16,12 @@
     var approxEarnings = $resource("https://:coin.nanopool.org/api/v1/approximated_earnings/:hashrate");
     var price = $resource("https://api.nanopool.org/v1/:coin/prices");
     $scope.usd = rate.get({base:"USD"});
-    $scope.coins = coins.query({}, function(data) {
-      data.forEach(function(coin) {
+    $scope.refresh = function(coins) {
+      if ($scope.timer) {
+          $timeout.cancel($scope.timer);
+          $scope.timer = null;
+      }
+      coins.forEach(function(coin) {
         if (coin.id[0] == '$') return;
         coin.user = user.get({"coin":coin.id,"address":coin.address}, function(data) {
           coin.approxEarnings = approxEarnings.get({"coin":coin.id,"hashrate":data.data.avgHashrate.h6});
@@ -24,7 +29,11 @@
         coin.userSettings = userSettings.get({"coin":coin.id,"address":coin.address});
         coin.price = price.get({"coin":coin.id});
       });
-    });
+      $scope.timer = $timeout(function() {
+        $scope.refresh(coins);
+      }, 10 * 60 * 1000);
+    };
+    $scope.coins = coins.query({}, $scope.refresh);
   }]);
   angular.element(document).ready(function() {
     angular.bootstrap(document, ['CC']);
@@ -39,7 +48,7 @@
         <td><a href="https://{{coin.id}}.nanopool.org/account/{{coin.address}}" target="_blank">{{coin.name}}</a></td>
         <td><a href="{{coin.chart}}" target="_blank">￥{{coin.price.data.price_usd * usd.rates.JPY|number:0}}</a></td>
         <td>
-          ￥{{coin.user.data.balance * coin.price.data.price_usd * usd.rates.JPY|number:0}} / ￥{{coin.userSettings.data.payout * coin.price.data.price_usd * usd.rates.JPY|number:0}} <small>({{coin.user.data.balance}} / {{coin.userSettings.data.payout}}{{key}})</small>
+          ￥{{coin.user.data.balance * coin.price.data.price_usd * usd.rates.JPY|number:0}} / ￥{{coin.userSettings.data.payout * coin.price.data.price_usd * usd.rates.JPY|number:0}} <small>({{coin.user.data.balance}} / {{coin.userSettings.data.payout}}{{coin.id}})</small>
           <div class="progress" style="margin-bottom:0;">
             <div class="progress-bar progress-bar-striped" role="progressbar" style="width: {{coin.user.data.balance * 100 / coin.userSettings.data.payout}}%;">
               {{coin.user.data.balance * 100 / coin.userSettings.data.payout | number:1}}%
@@ -56,11 +65,16 @@
         <td>USD</td><td>￥{{usd.rates.JPY|number:2}}</td><td>0</td><td>0</td><td>0</td>
       </tr>
     </table>
-    <ul>
-      <li><a href="https://coincheck.com/ja/exchange" target="_blank">Coincheck</a></li>
-      <li><a href="https://poloniex.com/balances" target="_blank">Poloniex</li>
-      <li><a href="https://purse.io/orders" target="_blank">Purse.io</a></li>
-    </ul>
+    <div class="text-center">
+      <button class="btn btn-default" ng-click="refresh(coins)"><span class="glyphicon glyphicon-refresh"></span> Refresh now</button>
+    </div>
+    <div>
+      <ul>
+        <li><a href="https://coincheck.com/ja/exchange" target="_blank">Coincheck</a></li>
+        <li><a href="https://poloniex.com/balances" target="_blank">Poloniex</li>
+        <li><a href="https://purse.io/orders" target="_blank">Purse.io</a></li>
+      </ul>
+    </div>
     <ng-include src="'contents.html'"></ng-include>
   </div>
 </body>
