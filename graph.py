@@ -16,10 +16,12 @@ def load_data(hostname, date_str = None):
 
         starttime, endtime = cur.fetchone()
 
-        cur.execute("create temporary table tmpdata(t datetime primary key,t5 datetime unique,piv float,pia float,piw float,pov float,poa float,loadw float,temp float,kwh float,lkwh float) engine memory")
-        cur.execute("insert into tmpdata(t,t5,piv,pia,piw,pov,poa,loadw,temp,kwh,lkwh) select t,t - interval 5 minute,piv,pia,piw,pov,poa,loadw,temp,kwh,lkwh from data where data.t >= %s and data.t < %s", (starttime, endtime))
+        cur.execute("create temporary table data1(t datetime primary key,t5 datetime unique,piv float,pia float,piw float,pov float,poa float,loadw float,temp float,kwh float,lkwh float) engine memory")
+        cur.execute("create temporary table data2(t datetime primary key,piv float,pia float,piw float,pov float,poa float,loadw float,temp float,kwh float,lkwh float) engine memory")
+        cur.execute("insert into data1(t,t5,piv,pia,piw,pov,poa,loadw,temp,kwh,lkwh) select t,t - interval 5 minute,piv,pia,piw,pov,poa,loadw,temp,kwh,lkwh from data where data.t >= %s and data.t < %s", (starttime, endtime))
+        cur.execute("insert into data2(t,piv,pia,piw,pov,poa,loadw,temp,kwh,lkwh) select t,piv,pia,piw,pov,poa,loadw,temp,kwh,lkwh from data where data.t >= %s - interval 5 minute and data.t < %s", (starttime, endtime))
 
-        cur.execute("select data1.t,data1.piv,avg(data2.piv),data1.pia,avg(data2.pia),data1.piw,avg(data2.piw),data1.pov,avg(data2.pov),data1.poa,avg(data2.poa),data1.loadw,avg(data2.loadw),data1.temp,data1.kwh,data1.lkwh from tmpdata as data1,tmpdata as data2 where data2.t between data1.t5 and data1.t group by data1.t order by data1.t")
+        cur.execute("select data1.t,data1.piv,avg(data2.piv),data1.pia,avg(data2.pia),data1.piw,avg(data2.piw),data1.pov,avg(data2.pov),data1.poa,avg(data2.poa),data1.loadw,avg(data2.loadw),data1.temp,data1.kwh,data1.lkwh from data1,data2 where data2.t between data1.t5 and data1.t group by data1.t order by data1.t")
         return (starttime, endtime, [(row[0],row[1:]) for row in cur])
     finally:
         cur.close()
