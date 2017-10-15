@@ -37,7 +37,7 @@ try:
         now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         piv = values[0]
 
-    	cur.execute("replace into data(hostname,t,piv,pia,piw,pov,poa,loadw,temp,kwh,lkwh) values(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)", (hostname,now_str, piv,values[1],values[2],values[3],values[4],values[5],values[6],values[7],values[8]))
+    	cur.execute("replace into data(hostname,t,piv,pia,piw,pov,poa,loadw,temp,kwh,lkwh) values(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)", (hostname,now_str, piv,values[1],values[2],values[3],values[4],values[5],values[6],values[7],values[8]))
 
         print "%s\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f" % (now_str, piv,values[1],values[2],values[3],values[4],values[5],values[6],values[7],values[8])
         sys.stdout.flush()
