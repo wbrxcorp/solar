@@ -45,10 +45,19 @@ def generate_graph(hostname, date_str = None, pov_ymin = 10.5, pov_ymax = 15.0):
     fig.suptitle(starttime.strftime('%Y-%m-%d (%a)'))
     #fig.tight_layout()
 
+    hrs = list(data[0][0].replace(hour=hr,minute=0,second=0) for hr in [0,6,12,18])
+    hrs.append(hrs[0] + datetime.timedelta(days=1))
+
+    for sp in [piw,bv,kwh]:
+        sp.axvline(hrs[2],linestyle="-", color="grey")
+        sp.axvspan(hrs[0],hrs[1],facecolor="lightgrey", edgecolor="none")
+        sp.axvspan(hrs[3],hrs[4],facecolor="lightgrey", edgecolor="none")
+
     piw.set_ylabel(u"電力(W)")
     piw.xaxis.set_major_locator(xloc)
     piw.xaxis.set_major_formatter(xfmt)
     piw.set_xlim(starttime, endtime)
+
     #piw.set_ylim(0, 150)
     #piw.tick_params(labelsize=8)
     piw.grid(True)
@@ -61,10 +70,11 @@ def generate_graph(hostname, date_str = None, pov_ymin = 10.5, pov_ymax = 15.0):
     bv.set_ylim(pov_ymin, pov_ymax)
     #bv.tick_params(labelsize=8)
     bv.grid(True)
-    bv.axhline(12.0, linestyle="--", color="g")
+    bv.axhline(12.0, linestyle="--", color="green")
+    bv.axhline(11.1, linestyle="--", color="red")
     bv.plot(x, [row[1][6] for row in data], label=u"5秒間隔", linewidth=0.5)
     bv.plot(x, [row[1][7] for row in data], label=u"5分平均", linewidth=2,color="r")
-    bv.legend()
+    bv.legend(loc="best")
 
     kwh.set_ylabel(u"当日の電力量(kWh)")
     #kwh.set_ylim(0.0, 1.0)
@@ -72,7 +82,9 @@ def generate_graph(hostname, date_str = None, pov_ymin = 10.5, pov_ymax = 15.0):
     kwh.grid(True)
     kwh.plot(x, [row[1][13] for row in data], label=u"発電", color="g")
     kwh.plot(x, [row[1][14] for row in data], label=u"消費", color="r")
-    kwh.legend()
+    kwh.plot(x, [row[1][13] - row[1][14] for row in data], label=u"充電(発電-消費)", color="b")
+    kwh.axhline(0.0, linestyle="-", color="grey")
+    kwh.legend(loc="best")
 
     buf = io.BytesIO()
     fig.savefig(buf, format="png")
