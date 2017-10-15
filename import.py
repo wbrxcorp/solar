@@ -14,6 +14,9 @@ create table data(
 	kwh float,
 	lkwh float
 );
+
+alter table data add column hostname varchar(32) not null default 'motion' FIRST;
+alter table data drop primary key,add primary key(hostname,t), change column hostname hostname varchar(32) not null;
 '''
 
 hostname = 'motion'
@@ -26,7 +29,7 @@ cur = conn.cursor()
 for line in iter(sys.stdin.readline, ""):
 	if line[0] == '#': continue
 	splitted = line.strip().split('\t')
-	cur.execute("replace into data(t,piv,pia,piw,pov,poa,loadw,temp,kwh,lkwh) values(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)", (splitted[0], float(splitted[1]),float(splitted[2]),float(splitted[3]),float(splitted[4]),float(splitted[5]),float(splitted[6]),float(splitted[7]),float(splitted[8]),float(splitted[9])))
+	cur.execute("replace into data(hostname,t,piv,pia,piw,pov,poa,loadw,temp,kwh,lkwh) values(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)", (hostname,splitted[0], float(splitted[1]),float(splitted[2]),float(splitted[3]),float(splitted[4]),float(splitted[5]),float(splitted[6]),float(splitted[7]),float(splitted[8]),float(splitted[9])))
 
 conn.commit()
 cur.close()
