@@ -7,18 +7,22 @@
 
 //#define DEBUG_AT_COMMANDS
 
-static const int WIFI_RX_SOCKET = 2;
-static const int WIFI_TX_SOCKET = 3;
+#define WIFI_RX_SOCKET 2
+#define WIFI_TX_SOCKET 3
+#define PW_SW_SOCKET 4
+#define PW_LED_SOCKET 5
+#define RS485_RX_SOCKET 6
+#define RS485_TX_SOCKET 7
+#define RS485_RTS_SOCKET 8
 
-static const int PW_SW_SOCKET = 4;
-static const int PW_LED_SOCKET = 5;
+#define REPORT_INTERVAL 5000
+#define COMM_BUF_MAX 64   // set max line size to serial's internal buffer size
 
-static const int RS485_RX_SOCKET = 6;
-static const int RS485_TX_SOCKET = 7;
-static const int RS485_RTS_SOCKET = 8;
-
-static const int REPORT_INTERVAL = 5000;
-static const size_t COMM_BUF_MAX = 128;   // set max line size to serial's internal buffer size
+#define DEFAULT_NODENAME "kennel01"
+#define DEFAULT_SSID "YOUR_ESSID"
+#define DEFAULT_WPA_KEY "YOUR_WPA_KEY"
+#define DEFAULT_SERVERNAME "your.server"
+#define DEFAULT_PORT 29574
 
 SoftwareSerial WiFi(WIFI_RX_SOCKET, WIFI_TX_SOCKET); // RX, TX
 SoftwareSerial RS485(RS485_RX_SOCKET, RS485_TX_SOCKET, 0); // RX, TX
@@ -268,11 +272,11 @@ size_t get_stream_length()
 
 void input_config()
 {
-  strcpy(config.nodename, "kennel01");
-  strcpy(config.ssid, "YOUR_ESSID");
-  strcpy(config.key, "YOUR_WPA_KEY");
-  strcpy(config.servername, "your.server");
-  config.port = 29574;
+  strcpy(config.nodename, DEFAULT_NODENAME);
+  strcpy(config.ssid, DEFAULT_SSID);
+  strcpy(config.key, DEFAULT_WPA_KEY);
+  strcpy(config.servername, DEFAULT_SERVERNAME);
+  config.port = DEFAULT_PORT;
 }
 
 void setup() {
@@ -466,7 +470,7 @@ void loop()
     float temp;
     double lkwh;
     double kwh;
-    char buf[COMM_BUF_MAX] = "NODATA\n";
+    char buf[128] = "NODATA\n";
 
     if (get_register(0x3100, 6, reg)) {
       piv = reg.getFloatValue(0);
