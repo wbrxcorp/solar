@@ -2,16 +2,26 @@
 #include <EEPROM.h>
 #include <util/crc16.h>
 
+#define HIBYTE(word) ((uint8_t)((word & long(255*256L)) >> 8))
+#define LOBYTE(word) ((uint8_t)(word & 255))
+
 //#define DEBUG_AT_COMMANDS
 
-SoftwareSerial WiFi(10, 11); // RX, TX
+static const int WIFI_RX_SOCKET = 2;
+static const int WIFI_TX_SOCKET = 3;
 
-static const int SW_SOCKET = 2;
-static const int PW_SW_SOCKET = 3;
-static const int PW_LED_SOCKET = 4;
-static const int LED_SOCKET = 5;
+static const int PW_SW_SOCKET = 4;
+static const int PW_LED_SOCKET = 5;
+
+static const int RS485_RX_SOCKET = 6;
+static const int RS485_TX_SOCKET = 7;
+static const int RS485_RTS_SOCKET = 8;
+
 static const int REPORT_INTERVAL = 5000;
-static const size_t COMM_BUF_MAX = 64;   // set max line size to serial's internal buffer size
+static const size_t COMM_BUF_MAX = 128;   // set max line size to serial's internal buffer size
+
+SoftwareSerial WiFi(WIFI_RX_SOCKET, WIFI_TX_SOCKET); // RX, TX
+SoftwareSerial RS485(RS485_RX_SOCKET, RS485_TX_SOCKET, 0); // RX, TX
 
 char line_buffer[COMM_BUF_MAX];
 char receive_buffer[COMM_BUF_MAX];
@@ -51,6 +61,63 @@ public:
   }
 
   operator bool() const { return memcmp(this->buf, this->expect, this->len) == 0; }
+};
+
+class EPSolarTracerInputRegister {
+  uint8_t* _data;
+  size_t _size;
+
+  inline uint16_t MKWORD(uint8_t hi, uint8_t lo) const {
+    return ((uint16_t)hi) << 8 | lo;
+  }
+  inline uint32_t MKDWORD(uint16_t hi, uint16_t lo) const {
+    return ((uint32_t)hi) << 16 | lo;
+  }
+public:
+  EPSolarTracerInputRegister() : _data(NULL), _size(0) {
+  }
+  EPSolarTracerInputRegister(const uint8_t* data, size_t size) {
+    setData(data, size);
+  }
+  EPSolarTracerInputRegister(const EPSolarTracerInputRegister& other) {
+    setData(other.data(), other.size());
+  }
+  ~EPSolarTracerInputRegister() {
+    if (_data) delete []_data;
+  }
+  void setData(const uint8_t* data, size_t size) {
+    if (_data) delete []_data;
+    _data = new uint8_t[size];
+    memcpy(_data, data, size);
+    _size = size;
+  }
+  size_t size() const { return _size; }
+  const uint8_t* data() const { return _data; }
+
+  float getFloatValue(size_t offset) const {
+    if (offset > _size - 2) return 0.0f;
+    return (float)MKWORD(_data[offset], _data[offset + 1]) / 100.0f;
+  }
+
+  double getDoubleValue(size_t offset) const {
+    if (offset > _size - 4) return 0.0;
+    return (double)MKDWORD(MKWORD(_data[offset + 2], _data[offset + 3]), MKWORD(_data[offset], _data[offset + 1])) / 100.0;
+  }
+
+  uint64_t getRTCValue(size_t offset) const {
+    if (offset > _size - 6) return 0L;
+    uint16_t r9013 = MKWORD(_data[offset], _data[offset + 1]);
+    uint16_t r9014 = MKWORD(_data[offset + 2], _data[offset + 3]);
+    uint16_t r9015 = MKWORD(_data[offset + 4], _data[offset + 5]);
+    uint16_t year = 2000 + (r9015 >> 8);
+    uint8_t month = r9015 & 0x00ff;
+    uint8_t day = r9014 >> 8;
+    uint8_t hour = r9014 & 0x00ff;
+    uint8_t minute = r9013 >> 8;
+    uint8_t second = r9013 & 0x00ff;
+    return year * 10000000000 + month * 100000000 + day * 1000000L
+      + hour * 10000L + minute * 100 + second;
+  }
 };
 
 char* readline()
@@ -143,7 +210,7 @@ void connect()
       Serial.println("Connecting to the server...");
       sprintf(buf, "AT+CIPSTART=\"TCP\",\"%s\",%d,10", config.servername, config.port);
       if (issue_at_command(buf)) {
-        sprintf(buf, "NODENAME\t%s\n", config.nodename);
+        sprintf(buf, "INIT\tnodename:%s\n", config.nodename);
         if (send_textdata(buf)) {
           Serial.println("Connection established.");
           return;
@@ -209,12 +276,12 @@ void input_config()
 }
 
 void setup() {
-  pinMode(SW_SOCKET, INPUT_PULLUP); // ON BOARD SWITCH
   pinMode(PW_SW_SOCKET, OUTPUT); // PC PWR BTN
   pinMode(PW_LED_SOCKET, INPUT_PULLUP); // PC PWR LED
-  pinMode(LED_SOCKET, OUTPUT); // ON BOARD LED
 
   Serial.begin(9600);
+  RS485.begin(115200);
+  pinMode(RS485_RTS_SOCKET, OUTPUT);
 
   if (false/*TODO: check if reset jumper is close*/) {
     // break crc on purpose
@@ -260,6 +327,8 @@ void setup() {
   //WiFi.begin(115200);
   //WiFi.write("AT+UART_DEF=9600,8,1,0,0\r\n");
   WiFi.begin(9600);
+
+  issue_at_command("AT");
   issue_at_command("AT+CWQAP");
   issue_at_command("AT+CWMODE_CUR=1");
   connect();
@@ -271,11 +340,73 @@ void process_message(const char* message)
   Serial.println(message);
 }
 
+uint16_t update_crc(uint16_t crc, uint8_t val)
+{
+  crc ^= (uint16_t)val;
+  for (int i = 8; i != 0; i--) {
+    if ((crc & 0x0001) != 0) {
+      crc >>= 1;
+      crc ^= 0xA001;
+    } else {
+      crc >>= 1;
+    }
+  }
+  return crc;
+}
+
+bool get_register(uint16_t addr, uint8_t num, EPSolarTracerInputRegister& reg, int max_retry = 10)
+{
+  uint8_t function_code = 0x04; // Read Input Register
+  if (addr >= 0x9000 && addr < 0x9100) function_code = 0x03; // Read Holding Register
+
+  byte message[] = {0x01, function_code, HIBYTE(addr), LOBYTE(addr), 0x00, num, 0x00, 0x00 };
+  // calc crc
+  uint16_t crc = 0xFFFF;
+  for (int pos = 0; pos < sizeof(message) - 2; pos++) {
+    crc = update_crc(crc, message[pos]);
+  }
+  message[sizeof(message) - 2] = LOBYTE(crc);
+  message[sizeof(message) - 1] = HIBYTE(crc);
+
+  for (int i = 0; i < max_retry; i++) {
+    digitalWrite(RS485_RTS_SOCKET,HIGH);
+    delay(1);
+    RS485.write(message, sizeof(message));
+    delay(1);
+    digitalWrite(RS485_RTS_SOCKET,LOW);
+    uint8_t hdr[3];
+    if (RS485.readBytes(hdr, sizeof(hdr)) == sizeof(hdr)) {
+      if (hdr[0] == message[0] && hdr[1] == message[1]) { // check function code and slave address
+        size_t data_size = (size_t)hdr[2];
+        if (data_size < 128) { // too big data
+          uint8_t buf[data_size];
+          if (RS485.readBytes(buf, sizeof(buf)) == sizeof(buf)) {
+            uint8_t rx_crc[2] = {0, 0};
+            if (RS485.readBytes(rx_crc, sizeof(rx_crc)) == sizeof(rx_crc) && !RS485.available()) {
+              // crc check
+              crc = update_crc(update_crc(update_crc(0xFFFF,hdr[0]), hdr[1]), hdr[2]);
+              for (int i = 0; i < sizeof(buf); i++) crc = update_crc(crc, buf[i]);
+              if (rx_crc[0] == LOBYTE(crc) && rx_crc[1] == HIBYTE(crc)) {
+                reg.setData(buf, data_size);
+                return true;
+              }
+            }
+          }
+        }
+      }
+    }
+    // else
+    while (RS485.available()) RS485.read(); // discard remaining bytes
+    delay(50);
+  }
+  return false;
+}
+
 void loop()
 {
   // ATX power control
-  digitalWrite(PW_SW_SOCKET, digitalRead(SW_SOCKET)? LOW : HIGH); // digitalRead(*):  OFF=1 ON=0
-  digitalWrite(LED_SOCKET, digitalRead(PW_LED_SOCKET)? LOW : HIGH);
+  //digitalWrite(PW_SW_SOCKET, digitalRead(SW_SOCKET)? LOW : HIGH); // digitalRead(*):  OFF=1 ON=0
+  //digitalWrite(LED_SOCKET, digitalRead(PW_LED_SOCKET)? LOW : HIGH);
 
   // process messages if any data is in serial input buffer
   while (WiFi.available()) {
@@ -317,9 +448,78 @@ void loop()
     wait_for("OK\r\n");
     */
 
-    char buf[COMM_BUF_MAX];
-    sprintf(buf, "DATA\ttime:%ld\n", current_time);
+    /*"Charging equipment input voltage": 0x3100
+      "Charging equipment input current": 0x3101
+      "Charging equipment input power": 0x3102, 0x3103
+      "Charging equipment output voltage": 0x3104,
+      "Charging equipment output current": 0x3105,
+      "Discharging equipment output power": 0x310E, 0x310F
+      "Battery Temperature": 0x3110
+      "Consumed energy today": 0x3304,0x3305
+      "Generated energy today": 0x330C, 0x330D
+    */
+    RS485.listen();
+    EPSolarTracerInputRegister reg;
+    float piv,pia,bv,poa;
+    double piw;
+    double load;
+    float temp;
+    double lkwh;
+    double kwh;
+    char buf[COMM_BUF_MAX] = "NODATA\n";
+
+    if (get_register(0x3100, 6, reg)) {
+      piv = reg.getFloatValue(0);
+      pia = reg.getFloatValue(2);
+      piw = reg.getDoubleValue(4);
+      bv = reg.getFloatValue(8);
+      poa = reg.getFloatValue(10);
+      delay(50);
+      if (get_register(0x310e, 3, reg)) {
+        load = reg.getDoubleValue(0);
+        temp = reg.getFloatValue(4);
+        delay(50);
+        if (get_register(0x3304, 1, reg)) {
+          lkwh = reg.getDoubleValue(0);
+          delay(50);
+          if (get_register(0x330c, 1, reg)) {
+            kwh = reg.getDoubleValue(0);
+
+            strcpy(buf, "DATA\tpiv:");
+            dtostrf(piv, 4, 2, buf + strlen(buf));
+            strcat(buf, "\tpia:");
+            dtostrf(pia, 4, 2, buf + strlen(buf));
+            strcat(buf, "\tpiw:");
+            dtostrf(piw, 4, 2, buf + strlen(buf));
+            strcat(buf, "\tbv:");
+            dtostrf(bv, 4, 2, buf + strlen(buf));
+            strcat(buf, "\tpoa:");
+            dtostrf(poa, 4, 2, buf + strlen(buf));
+            strcat(buf, "\tload:");
+            dtostrf(load, 4, 2, buf + strlen(buf));
+            strcat(buf, "\ttemp:");
+            dtostrf(temp, 4, 2, buf + strlen(buf));
+            strcat(buf, "\tlkwh:");
+            dtostrf(lkwh, 4, 2, buf + strlen(buf));
+            strcat(buf, "\tkwh:");
+            dtostrf(kwh, 4, 2, buf + strlen(buf));
+            strcat(buf, "\n");
+          }
+        }
+      }
+    }
+
+#if 0
+    uint64_t rtc;
+    if (get_register(0x9013/*Real Time Clock*/, 3, reg)) {
+      rtc = reg.getRTCValue(0);
+    }
+#endif
+
+    WiFi.listen();
+    //sprintf(buf, "DATA\ttime:%ld\n", current_time);
     send_textdata_with_autoreconnect(buf);
+
     last_report_time = current_time;
   }
 }
