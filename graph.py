@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import sys,io,datetime,argparse
+import sys,io,datetime,argparse,socket
 import matplotlib.pyplot,matplotlib.dates
 import MySQLdb
 
@@ -31,6 +31,9 @@ def load_data(hostname, date_str = None):
 
 def generate_graph(hostname, date_str = None, pov_ymin = 10.5, pov_ymax = 15.0):
     (starttime, endtime, data) = load_data(hostname, date_str)
+    if len(data) == 0:
+        print "No data."
+        return None
 
     matplotlib.rc("font", family="VL PGothic")
 
@@ -94,9 +97,10 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("-d", "--date", type = str, dest = "date", default = None)
     parser.add_argument("-o", "--output", type = str, dest = "output", default="graph.png")
+    parser.add_argument("-n", "--nodename", type = str, dest = "nodename", default=socket.gethostname())
     args = parser.parse_args()
 
-    hostname = "motion"
-    graph = generate_graph(hostname, args.date)
-    with open(args.output, "w") as f:
-        f.write(graph)
+    graph = generate_graph(args.nodename, args.date)
+    if graph is not None:
+        with open(args.output, "w") as f:
+            f.write(graph)
