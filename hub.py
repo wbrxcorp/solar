@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-import sys,socket,threading,traceback,datetime
+import sys,socket,threading,traceback,datetime,time
 import MySQLdb
 
 PORT = 29574
@@ -31,6 +31,7 @@ def save_data(nodename, data):
 
 def process_connection(conn, addr):
     print "# New connection from %s" % addr[0]
+    last_time = 0.0
     try:
         nodename = None
         sock_as_file = conn.makefile()
@@ -45,8 +46,12 @@ def process_connection(conn, addr):
                     print "# NODATA from node '%s'" % nodename
             elif data_splitted[0] == "DATA" and nodename is not None:
                 data = parse_data(data_splitted[1:])
-                now_str = save_data(nodename,data)
-                print "%s\t%s\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f" % (nodename,now_str,float(data["piv"]),float(data["pia"]),float(data["piw"]),float(data["bv"]),float(data["poa"]),float(data["load"]),float(data["temp"]),float(data["kwh"]),float(data["lkwh"]))
+                piv = float(data["piv"])
+                current_time = time.time()
+                if piv > 0.0 or current_time >= last_time + 60:
+                    now_str = save_data(nodename,data)
+                    print "%s\t%s\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f" % (nodename,now_str,piv,float(data["pia"]),float(data["piw"]),float(data["bv"]),float(data["poa"]),float(data["load"]),float(data["temp"]),float(data["kwh"]),float(data["lkwh"]))
+                    last_time = current_time
             elif data_splitted[0] == "INIT":
                 parsed_data = parse_data(data_splitted[1:])
                 if "nodename" in parsed_data:
