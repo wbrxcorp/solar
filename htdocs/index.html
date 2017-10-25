@@ -50,7 +50,7 @@
     $scope.total = function(coins) {
       var total = 0;
       coins.forEach(function(coin) {
-        total += coin.approxEarnings.data.day.dollars;
+        if (coin.approxEarnings && coin.approxEarnings.data && coin.approxEarnings.data.day) total += coin.approxEarnings.data.day.dollars;
       });
       return total;
     };
