@@ -5,6 +5,21 @@ import MySQLdb
 
 PORT = 29574
 
+class DatabaseConnection:
+    def __init__(self, dbname = "solar", autocommit = True):
+        self.dbname = dbname
+        self.autocommit = autocommit
+
+    def __enter__(self):
+        self.conn = MySQLdb.connect(db=self.dbname)
+        self.conn.autocommit(self.autocommit)
+        self.cursor = self.conn.cursor()
+        return self.cursor
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.cursor.close()
+        self.conn.close()
+
 def parse_data(data):
     parsed_data = {}
     for col in data:
@@ -29,6 +44,17 @@ def save_data(nodename, data):
         conn.close()
     return now_str
 
+def get_node_config(nodename):
+    with DatabaseConnection() as cur:
+        cur.execute("select battery_type,battery_capacity from nodes where nodename=%s", (nodename,))
+        row = cur.fetchone()
+        if row is None: return None
+        # else
+        battery_type, battery_capacity = row
+        # battery_type : Battery type(1=Sealed,2=Gel,3=Flooded)
+        # battery_capacity : Battery capacity in Ah
+        return {"bt":int(battery_type), "bc":int(battery_capacity)}
+
 def process_connection(conn, addr):
     print "# New connection from %s" % addr[0]
     last_time = 0.0
@@ -39,6 +65,7 @@ def process_connection(conn, addr):
             line = sock_as_file.readline()
             if line == "": break
             data_splitted = line.strip().split('\t')
+            response_data = {}
             if data_splitted[0] == "NODATA":
                 if nodename is None:
                     print "# NODATA from unknown node"
@@ -57,9 +84,22 @@ def process_connection(conn, addr):
                 if "nodename" in parsed_data:
                     nodename = parsed_data["nodename"]
                     print "# Node name set to '%s'" % nodename
+                # send controller params
+                now = datetime.datetime.now()
+                d = now.strftime("%Y%m%d")
+                t = now.strftime("%H%M%S")
+                response_data["d"] = d
+                response_data["t"] = t
+                node_config = get_node_config(nodename)
+                if node_config is not None:
+                    for k,v in node_config.iteritems():
+                        if v is not None: response_data[k] = v
 
             sys.stdout.flush()
-            conn.send("OK\n")
+            conn.send("OK")
+            for k,v in response_data.iteritems():
+                conn.send("\t%s:%s" % (k, str(v)))
+            conn.send("\n")
     finally:
         conn.close()
     print "# Connection from %s(%s) closed." % (nodename if nodename is not None else "Unknwon node", addr[0])
