@@ -369,7 +369,7 @@ bool put_registers(uint16_t addr, uint16_t* data, uint16_t num)
 {
   uint8_t data_size_in_bytes = (uint8_t)(sizeof(*data) * num);
   size_t message_size = 9/*slave address, func code, start addr(H+L), num(H+L), length in bytes, ... , crc(L/H)*/ + data_size_in_bytes;
-  byte* message = new byte[message_size];
+  byte message[message_size];
   message[0] = 0x01;
   message[1] = 0x10;
   message[2] = HIBYTE(addr);
@@ -485,40 +485,38 @@ void process_message(const char* message)
   while (*pt) {
     const char* ptcolon = strchr(pt, ':');
     if (ptcolon == NULL) break; // end parsing string if there's no colon anymore
-    char* key = new char[ptcolon - pt + 1];
+    char key[ptcolon - pt + 1];
     strncpy(key, pt, ptcolon - pt);
     key[ptcolon - pt] = '\0';
     pt = ptcolon + 1;
     const char* ptdelim = strchr(pt, '\t');
     if (ptdelim == NULL) ptdelim = strchr(pt, '\0');
     // ptdelim can't be NULL here
-    char* value = new char[ptdelim - pt + 1];
+    char value[ptdelim - pt + 1];
     strncpy(value, pt, ptdelim - pt);
     value[ptdelim - pt] = '\0';
     pt = (*ptdelim != '\0') ? ptdelim + 1 : ptdelim;
 
-    if (strcmp(key, "d") == 0 && strlen(value) == 8) {
+    if (strcmp(key, "d") == 0 && strlen(value) == 8 && isdigit(value[0])) {
       date = atol(value);
-    } else if (strcmp(key, "t") == 0 && strlen(value) > 0) {
+    } else if (strcmp(key, "t") == 0 && strlen(value) > 0 && isdigit(value[0])) {
       time = atol(value);
     } else if (strcmp(key, "bt") == 0) {
       int battery_type = atoi(value);
       RS485.listen();
       put_register(0x9000/*Battery type*/, (uint16_t)battery_type);
       WiFi.listen();
-      Serial.print(F("Battery type: "));
+      Serial.print(F("Battery type saved: "));
       Serial.println(battery_type);
     } else if (strcmp(key, "bc") == 0) {
       int battery_capacity= atoi(value);
       RS485.listen();
       put_register(0x9001/*Battery capacity*/, (uint16_t)battery_capacity);
       WiFi.listen();
-      Serial.print(F("Battery capacity: "));
+      Serial.print(F("Battery capacity saved: "));
       Serial.print(battery_capacity);
       Serial.println(F("Ah"));
     }
-    delete [] key;
-    delete [] value;
   }
 
   if (date > 20170101L && time >= 0) {
@@ -534,9 +532,9 @@ void process_message(const char* message)
       data[0/*0x9013*/] = minute << 8 | second;
       data[1/*0x9014*/] = day << 8 | hour;
       data[2/*0x9015*/] = year << 8 | month;
-      //put_registers(0x9013/*Real Time Clock*/, data, 3);
+      put_registers(0x9013/*Real Time Clock*/, data, 3);
       char buf[32];
-      sprintf_P(buf, PSTR("Date: 20%02u-%02u-%02u %02u:%02u:%02u"), year, month, day, hour, minute, second);
+      sprintf_P(buf, PSTR("Date saved: 20%02u-%02u-%02u %02u:%02u:%02u"), year, month, day, hour, minute, second);
       Serial.println(buf);
     }
   }
