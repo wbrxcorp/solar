@@ -511,7 +511,7 @@ void process_message(const char* message)
     } else if (strcmp(key, "bc") == 0) {
       int battery_capacity= atoi(value);
       RS485.listen();
-      put_register(0x9001/*Battery type*/, (uint16_t)battery_capacity);
+      put_register(0x9001/*Battery capacity*/, (uint16_t)battery_capacity);
       WiFi.listen();
       Serial.print(F("Battery capacity: "));
       Serial.print(battery_capacity);
