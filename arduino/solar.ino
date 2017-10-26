@@ -18,11 +18,11 @@
 #define REPORT_INTERVAL 5000
 #define COMM_BUF_MAX 64   // set max line size to serial's internal buffer size
 
-#define DEFAULT_NODENAME "kennel01"
-#define DEFAULT_SSID "YOUR_ESSID"
-#define DEFAULT_WPA_KEY "YOUR_WPA_KEY"
-#define DEFAULT_SERVERNAME "your.server"
-#define DEFAULT_PORT 29574
+const char DEFAULT_NODENAME[] PROGMEM = "kennel01";
+const char DEFAULT_SSID[] PROGMEM = "YOUR_ESSID";
+const char DEFAULT_WPA_KEY[] PROGMEM = "YOUR_WPA_KEY";
+const char DEFAULT_SERVERNAME[] PROGMEM = "your.server";
+const uint16_t DEFAULT_PORT = 29574;
 
 SoftwareSerial WiFi(WIFI_RX_SOCKET, WIFI_TX_SOCKET); // RX, TX
 SoftwareSerial RS485(RS485_RX_SOCKET, RS485_TX_SOCKET, 0); // RX, TX
@@ -98,6 +98,11 @@ public:
   size_t size() const { return _size; }
   const uint8_t* data() const { return _data; }
 
+  int getIntValue(size_t offset) const {
+    if (offset > _size - 2) return 0;
+    return (int)MKWORD(_data[offset], _data[offset + 1]);
+  }
+
   float getFloatValue(size_t offset) const {
     if (offset > _size - 2) return 0.0f;
     return (float)MKWORD(_data[offset], _data[offset + 1]) / 100.0f;
@@ -119,7 +124,7 @@ public:
     uint8_t hour = r9014 & 0x00ff;
     uint8_t minute = r9013 >> 8;
     uint8_t second = r9013 & 0x00ff;
-    return year * 10000000000 + month * 100000000 + day * 1000000L
+    return year * 10000000000LL + month * 100000000LL + day * 1000000L
       + hour * 10000L + minute * 100 + second;
   }
 };
@@ -191,7 +196,7 @@ bool issue_at_command(const char* cmd, const char* failCharSeq = "\r\nERROR\r\n"
 bool send_textdata(const char* data)
 {
   char buf[19];
-  sprintf(buf, "AT+CIPSEND=%d\r\n", strlen(data));
+  sprintf_P(buf, PSTR("AT+CIPSEND=%d\r\n"), strlen(data));
   WiFi.write(buf);
   if (wait_for_result("\r\nOK\r\n> ", "\r\nERROR\r\n")) {
     WiFi.write(data, strlen(data));
@@ -204,31 +209,31 @@ void connect()
   int retry_delay = 1;/*sec*/
   char buf[128];
   while (true) {
-    Serial.println("Connecting to WiFi AP...");
+    Serial.println(F("Connecting to WiFi AP..."));
     strcpy(buf, "AT+CWJAP_CUR=\"");
     strcat(buf, config.ssid);
-    strcat(buf, "\",\"");
+    strcat_P(buf, PSTR("\",\""));
     strcat(buf, config.key);
-    strcat(buf, "\"");
+    strcat_P(buf, PSTR("\""));
     if (issue_at_command(buf, "\r\nFAIL\r\n")) {
-      Serial.println("Connecting to the server...");
-      sprintf(buf, "AT+CIPSTART=\"TCP\",\"%s\",%d,10", config.servername, config.port);
+      Serial.println(F("Connecting to the server..."));
+      sprintf_P(buf, PSTR("AT+CIPSTART=\"TCP\",\"%s\",%d,10"), config.servername, config.port);
       if (issue_at_command(buf)) {
-        sprintf(buf, "INIT\tnodename:%s\n", config.nodename);
+        sprintf_P(buf, PSTR("INIT\tnodename:%s\n"), config.nodename);
         if (send_textdata(buf)) {
-          Serial.println("Connection established.");
+          Serial.println(F("Connection established."));
           return;
         }
       } else {
         // "ERROR"
         wait_for("CLOSED\r\n");
-        Serial.println("Connecting to server failed.");
+        Serial.println(F("Connecting to server failed."));
       }
     } else {
-      Serial.println("Connecting to WiFi AP failed.");
+      Serial.println(F("Connecting to WiFi AP failed."));
     }
     // retry
-    Serial.println("Performing retry...");
+    Serial.println(F("Performing retry..."));
     delay(retry_delay * 1000);
     retry_delay *= 2;
     if (retry_delay > 60) retry_delay = 60;
@@ -239,7 +244,7 @@ void send_textdata_with_autoreconnect(const char* data)
 {
   int reconnect_delay = 1; /*sec*/
   while (!send_textdata(data)) {
-    Serial.println("Connection error. performing autoreconnect...");
+    Serial.println(F("Connection error. performing autoreconnect..."));
     // retry
     delay(reconnect_delay * 1000);
     connect();
@@ -272,11 +277,120 @@ size_t get_stream_length()
 
 void input_config()
 {
-  strcpy(config.nodename, DEFAULT_NODENAME);
-  strcpy(config.ssid, DEFAULT_SSID);
-  strcpy(config.key, DEFAULT_WPA_KEY);
-  strcpy(config.servername, DEFAULT_SERVERNAME);
+  strcpy_P(config.nodename, DEFAULT_NODENAME);
+  strcpy_P(config.ssid, DEFAULT_SSID);
+  strcpy_P(config.key, DEFAULT_WPA_KEY);
+  strcpy_P(config.servername, DEFAULT_SERVERNAME);
   config.port = DEFAULT_PORT;
+}
+
+uint16_t update_crc(uint16_t crc, uint8_t val)
+{
+  crc ^= (uint16_t)val;
+  for (int i = 8; i != 0; i--) {
+    if ((crc & 0x0001) != 0) {
+      crc >>= 1;
+      crc ^= 0xA001;
+    } else {
+      crc >>= 1;
+    }
+  }
+  return crc;
+}
+
+void put_crc(uint8_t* message, size_t payload_size)
+{
+  uint16_t crc = 0xFFFF;
+  for (int pos = 0; pos < payload_size; pos++) {
+    crc = update_crc(crc, message[pos]);
+  }
+  message[payload_size] = LOBYTE(crc);
+  message[payload_size + 1] = HIBYTE(crc);
+}
+
+bool get_register(uint16_t addr, uint8_t num, EPSolarTracerInputRegister& reg, int max_retry = 10)
+{
+  uint8_t function_code = 0x04; // Read Input Register
+  if (addr >= 0x9000 && addr < 0x9100) function_code = 0x03; // Read Holding Register
+
+  byte message[] = {0x01, function_code, HIBYTE(addr), LOBYTE(addr), 0x00, num, 0x00, 0x00 };
+  put_crc(message, sizeof(message) - 2);
+
+  for (int i = 0; i < max_retry; i++) {
+    digitalWrite(RS485_RTS_SOCKET,HIGH);
+    delay(1);
+    RS485.write(message, sizeof(message));
+    delay(1);
+    digitalWrite(RS485_RTS_SOCKET,LOW);
+    uint8_t hdr[3];
+    if (RS485.readBytes(hdr, sizeof(hdr)) == sizeof(hdr)) {
+      if (hdr[0] == message[0] && hdr[1] == message[1]) { // check function code and slave address
+        size_t data_size = (size_t)hdr[2];
+        if (data_size < 128) { // too big data
+          uint8_t buf[data_size];
+          if (RS485.readBytes(buf, sizeof(buf)) == sizeof(buf)) {
+            uint8_t rx_crc[2] = {0, 0};
+            if (RS485.readBytes(rx_crc, sizeof(rx_crc)) == sizeof(rx_crc) && !RS485.available()) {
+              // crc check
+              uint16_t crc = update_crc(update_crc(update_crc(0xFFFF,hdr[0]), hdr[1]), hdr[2]);
+              for (int i = 0; i < sizeof(buf); i++) crc = update_crc(crc, buf[i]);
+              if (rx_crc[0] == LOBYTE(crc) && rx_crc[1] == HIBYTE(crc)) {
+                reg.setData(buf, data_size);
+                return true;
+              }
+            }
+          }
+        }
+      }
+    }
+    // else
+    while (RS485.available()) RS485.read(); // discard remaining bytes
+    delay(50);
+  }
+  return false;
+}
+
+bool put_register(uint16_t addr, uint16_t data)
+{
+  byte message[] = {0x01, 0x06/*Preset Single Register(06)*/, HIBYTE(addr), LOBYTE(addr), HIBYTE(data), LOBYTE(data), 0x00, 0x00 };
+  put_crc(message, sizeof(message) - 2);
+
+  digitalWrite(RS485_RTS_SOCKET,HIGH);
+  delay(1);
+  RS485.write(message, sizeof(message));
+  delay(1);
+  digitalWrite(RS485_RTS_SOCKET,LOW);
+  delay(50);
+  while (RS485.available()) RS485.read(); // simply discard response(TODO: check the response)
+  return true;
+}
+
+bool put_registers(uint16_t addr, uint16_t* data, uint16_t num)
+{
+  uint8_t data_size_in_bytes = (uint8_t)(sizeof(*data) * num);
+  size_t message_size = 9/*slave address, func code, start addr(H+L), num(H+L), length in bytes, ... , crc(L/H)*/ + data_size_in_bytes;
+  byte* message = new byte[message_size];
+  message[0] = 0x01;
+  message[1] = 0x10;
+  message[2] = HIBYTE(addr);
+  message[3] = LOBYTE(addr);
+  message[4] = HIBYTE(num);
+  message[5] = LOBYTE(num);
+  message[6] = data_size_in_bytes;
+  for (int i = 0; i < num; i++) {
+    message[7 + i * 2] = HIBYTE(data[i]);
+    message[8 + i * 2] = LOBYTE(data[i]);
+  }
+  put_crc(message, message_size - 2);
+
+  digitalWrite(RS485_RTS_SOCKET,HIGH);
+  delay(1);
+  RS485.write(message, sizeof(message));
+  delay(1);
+  digitalWrite(RS485_RTS_SOCKET,LOW);
+  delay(50);
+  while (RS485.available()) RS485.read(); // simply discard response(TODO: check the response)
+  return true;
 }
 
 void setup() {
@@ -302,11 +416,11 @@ void setup() {
     crc = _crc16_update(crc, p[i]);
   }
   if (crc != config.crc) {
-    Serial.write("Checksum mismatch(expected=");
+    Serial.print(F("Checksum mismatch(expected="));
     Serial.print(crc);
-    Serial.write(", actual=");
+    Serial.print(F(", actual="));
     Serial.print(config.crc);
-    Serial.println(")");
+    Serial.println(F(")"));
 
     memset(&config, 0, sizeof(config));
     input_config();
@@ -314,23 +428,45 @@ void setup() {
     for (size_t i = 0; i < sizeof(config) - sizeof(config.crc); i++) {
       config.crc = _crc16_update(config.crc, p[i]);
     }
-    Serial.println("Writing config...");
+    Serial.println(F("Writing config..."));
     EEPROM.put(0, config);
   }
-  Serial.println("Done.");
-  Serial.write("Nodename: ");
+  Serial.println(F("Done."));
+  Serial.print(F("Nodename: "));
   Serial.println(config.nodename);
-  Serial.write("WiFi SSID: ");
+  Serial.print(("WiFi SSID: "));
   Serial.println(config.ssid);
-  Serial.println("WiFi Password: *");
-  Serial.write("Server name: ");
+  Serial.println(F("WiFi Password: *"));
+  Serial.print(F("Server name: "));
   Serial.println(config.servername);
-  Serial.write("Server port: ");
+  Serial.print(F("Server port: "));
   Serial.println(config.port);
+
+  // get info from caharge controller
+  RS485.listen();
+  EPSolarTracerInputRegister reg;
+  if (get_register(0x9013/*Real Time Clock*/, 3, reg)) {
+    uint64_t rtc = reg.getRTCValue(0);
+    char buf[32];
+    sprintf_P(buf, PSTR("RTC: %lu %06lu"), (uint32_t)(rtc / 1000000L), (uint32_t)(rtc % 1000000LL));
+    Serial.println(buf);
+    if (get_register(0x9000/*battery type, battery capacity*/, 2, reg)) {
+      const char* battery_type_str[] = { PSTR("User Defined"), PSTR("Sealed"), PSTR("GEL"), PSTR("Flooded") };
+      int battery_type = reg.getIntValue(0);
+      int battery_capacity = reg.getIntValue(2);
+      sprintf_P(buf, PSTR("Battery type: %d("), battery_type);
+      strcat_P(buf, battery_type_str[battery_type]);
+      sprintf_P(buf + strlen(buf), PSTR("), %dAh"), battery_capacity);
+      Serial.println(buf);
+    }
+  } else {
+    Serial.println(F("Charge controller is not connected!"));
+  }
 
   //WiFi.begin(115200);
   //WiFi.write("AT+UART_DEF=9600,8,1,0,0\r\n");
   WiFi.begin(9600);
+  WiFi.listen();
 
   issue_at_command("AT");
   issue_at_command("AT+CWQAP");
@@ -340,70 +476,71 @@ void setup() {
 
 void process_message(const char* message)
 {
-  Serial.write("Received: ");
+  Serial.print(F("Received: "));
   Serial.println(message);
-}
+  if (strlen(message) < 3 || strncmp_P(message, PSTR("OK\t"), 3) != 0) return;
+  // else
+  const char* pt = message + 3;
+  int32_t date = -1, time = -1;
+  while (*pt) {
+    const char* ptcolon = strchr(pt, ':');
+    if (ptcolon == NULL) break; // end parsing string if there's no colon anymore
+    char* key = new char[ptcolon - pt + 1];
+    strncpy(key, pt, ptcolon - pt);
+    key[ptcolon - pt] = '\0';
+    pt = ptcolon + 1;
+    const char* ptdelim = strchr(pt, '\t');
+    if (ptdelim == NULL) ptdelim = strchr(pt, '\0');
+    // ptdelim can't be NULL here
+    char* value = new char[ptdelim - pt + 1];
+    strncpy(value, pt, ptdelim - pt);
+    value[ptdelim - pt] = '\0';
+    pt = (*ptdelim != '\0') ? ptdelim + 1 : ptdelim;
 
-uint16_t update_crc(uint16_t crc, uint8_t val)
-{
-  crc ^= (uint16_t)val;
-  for (int i = 8; i != 0; i--) {
-    if ((crc & 0x0001) != 0) {
-      crc >>= 1;
-      crc ^= 0xA001;
-    } else {
-      crc >>= 1;
+    if (strcmp(key, "d") == 0 && strlen(value) == 8) {
+      date = atol(value);
+    } else if (strcmp(key, "t") == 0 && strlen(value) > 0) {
+      time = atol(value);
+    } else if (strcmp(key, "bt") == 0) {
+      int battery_type = atoi(value);
+      RS485.listen();
+      put_register(0x9000/*Battery type*/, (uint16_t)battery_type);
+      WiFi.listen();
+      Serial.print(F("Battery type: "));
+      Serial.println(battery_type);
+    } else if (strcmp(key, "bc") == 0) {
+      int battery_capacity= atoi(value);
+      RS485.listen();
+      put_register(0x9001/*Battery type*/, (uint16_t)battery_capacity);
+      WiFi.listen();
+      Serial.print(F("Battery capacity: "));
+      Serial.print(battery_capacity);
+      Serial.println(F("Ah"));
+    }
+    delete [] key;
+    delete [] value;
+  }
+
+  if (date > 20170101L && time >= 0) {
+    uint16_t data[3];
+    uint16_t year = date / 10000 - 2000;
+    uint16_t month = date % 10000 / 100;
+    uint16_t day = date % 100;
+    uint16_t hour = time / 10000;
+    uint16_t minute = time % 10000 / 100;
+    uint16_t second = time % 100;
+
+    if (year < 100 && month > 0 && month < 13 && day > 0 && day < 32 && hour < 24 && minute < 60 && second < 60) {
+      data[0/*0x9013*/] = minute << 8 | second;
+      data[1/*0x9014*/] = day << 8 | hour;
+      data[2/*0x9015*/] = year << 8 | month;
+      //put_registers(0x9013/*Real Time Clock*/, data, 3);
+      char buf[32];
+      sprintf_P(buf, PSTR("Date: 20%02u-%02u-%02u %02u:%02u:%02u"), year, month, day, hour, minute, second);
+      Serial.println(buf);
     }
   }
-  return crc;
-}
 
-bool get_register(uint16_t addr, uint8_t num, EPSolarTracerInputRegister& reg, int max_retry = 10)
-{
-  uint8_t function_code = 0x04; // Read Input Register
-  if (addr >= 0x9000 && addr < 0x9100) function_code = 0x03; // Read Holding Register
-
-  byte message[] = {0x01, function_code, HIBYTE(addr), LOBYTE(addr), 0x00, num, 0x00, 0x00 };
-  // calc crc
-  uint16_t crc = 0xFFFF;
-  for (int pos = 0; pos < sizeof(message) - 2; pos++) {
-    crc = update_crc(crc, message[pos]);
-  }
-  message[sizeof(message) - 2] = LOBYTE(crc);
-  message[sizeof(message) - 1] = HIBYTE(crc);
-
-  for (int i = 0; i < max_retry; i++) {
-    digitalWrite(RS485_RTS_SOCKET,HIGH);
-    delay(1);
-    RS485.write(message, sizeof(message));
-    delay(1);
-    digitalWrite(RS485_RTS_SOCKET,LOW);
-    uint8_t hdr[3];
-    if (RS485.readBytes(hdr, sizeof(hdr)) == sizeof(hdr)) {
-      if (hdr[0] == message[0] && hdr[1] == message[1]) { // check function code and slave address
-        size_t data_size = (size_t)hdr[2];
-        if (data_size < 128) { // too big data
-          uint8_t buf[data_size];
-          if (RS485.readBytes(buf, sizeof(buf)) == sizeof(buf)) {
-            uint8_t rx_crc[2] = {0, 0};
-            if (RS485.readBytes(rx_crc, sizeof(rx_crc)) == sizeof(rx_crc) && !RS485.available()) {
-              // crc check
-              crc = update_crc(update_crc(update_crc(0xFFFF,hdr[0]), hdr[1]), hdr[2]);
-              for (int i = 0; i < sizeof(buf); i++) crc = update_crc(crc, buf[i]);
-              if (rx_crc[0] == LOBYTE(crc) && rx_crc[1] == HIBYTE(crc)) {
-                reg.setData(buf, data_size);
-                return true;
-              }
-            }
-          }
-        }
-      }
-    }
-    // else
-    while (RS485.available()) RS485.read(); // discard remaining bytes
-    delay(50);
-  }
-  return false;
 }
 
 void loop()
@@ -424,7 +561,7 @@ void loop()
       if (receive_buffer_len < sizeof(receive_buffer) - 2 && c != '\n') {
         receive_buffer_len++;
       } else if (receive_buffer_len >= sizeof(receive_buffer) - 2) {
-        Serial.write("Receive buffer exceeded!");
+        Serial.println(F("Receive buffer exceeded!"));
       }
       receive_buffer[receive_buffer_len] = '\0';
 
@@ -489,25 +626,25 @@ void loop()
           if (get_register(0x330c, 1, reg)) {
             kwh = reg.getDoubleValue(0);
 
-            strcpy(buf, "DATA\tpiv:");
+            strcpy_P(buf, PSTR("DATA\tpiv:"));
             dtostrf(piv, 4, 2, buf + strlen(buf));
-            strcat(buf, "\tpia:");
+            strcat_P(buf, PSTR("\tpia:"));
             dtostrf(pia, 4, 2, buf + strlen(buf));
-            strcat(buf, "\tpiw:");
+            strcat_P(buf, PSTR("\tpiw:"));
             dtostrf(piw, 4, 2, buf + strlen(buf));
-            strcat(buf, "\tbv:");
+            strcat_P(buf, PSTR("\tbv:"));
             dtostrf(bv, 4, 2, buf + strlen(buf));
-            strcat(buf, "\tpoa:");
+            strcat_P(buf, PSTR("\tpoa:"));
             dtostrf(poa, 4, 2, buf + strlen(buf));
-            strcat(buf, "\tload:");
+            strcat_P(buf, PSTR("\tload:"));
             dtostrf(load, 4, 2, buf + strlen(buf));
-            strcat(buf, "\ttemp:");
+            strcat_P(buf, PSTR("\ttemp:"));
             dtostrf(temp, 4, 2, buf + strlen(buf));
-            strcat(buf, "\tlkwh:");
+            strcat_P(buf, PSTR("\tlkwh:"));
             dtostrf(lkwh, 4, 2, buf + strlen(buf));
-            strcat(buf, "\tkwh:");
+            strcat_P(buf, PSTR("\tkwh:"));
             dtostrf(kwh, 4, 2, buf + strlen(buf));
-            strcat(buf, "\n");
+            strcat_P(buf, PSTR("\n"));
           }
         }
       }
