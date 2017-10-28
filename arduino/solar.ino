@@ -14,8 +14,12 @@
 #define RS485_RX_SOCKET 6
 #define RS485_TX_SOCKET 7
 #define RS485_RTS_SOCKET 8
+#define PW_IND_LED_SOCKET 9
+#define CONFIG_RESET_SOCKET 10
 
 #define REPORT_INTERVAL 5000
+#define ACPI_SHUTDOWN_TIMEOUT 10000
+#define FORCE_SHUTDOWN_TIMEOUT 6000
 #define COMM_BUF_MAX 64   // set max line size to serial's internal buffer size
 
 const char DEFAULT_NODENAME[] PROGMEM = "kennel01";
@@ -396,12 +400,13 @@ bool put_registers(uint16_t addr, uint16_t* data, uint16_t num)
 void setup() {
   pinMode(PW_SW_SOCKET, OUTPUT); // PC PWR BTN
   pinMode(PW_LED_SOCKET, INPUT_PULLUP); // PC PWR LED
+  pinMode(CONFIG_RESET_SOCKET, INPUT_PULLUP); // Short to reset EEPROM
 
   Serial.begin(9600);
   RS485.begin(115200);
   pinMode(RS485_RTS_SOCKET, OUTPUT);
 
-  if (false/*TODO: check if reset jumper is close*/) {
+  if (digitalRead(CONFIG_RESET_SOCKET) == LOW) { // LOW == SHORT(pulled up)
     // break crc on purpose
     EEPROM.put(sizeof(config) - sizeof(config.crc), (uint16_t)0);
   }
@@ -474,6 +479,13 @@ void setup() {
   connect();
 }
 
+bool read_pw1()
+{
+  bool pw1_on = digitalRead(PW_LED_SOCKET) == LOW;
+  digitalWrite(PW_IND_LED_SOCKET, pw1_on? HIGH : LOW);
+  return pw1_on;
+}
+
 void process_message(const char* message)
 {
   Serial.print(F("Received: "));
@@ -516,6 +528,41 @@ void process_message(const char* message)
       Serial.print(F("Battery capacity saved: "));
       Serial.print(battery_capacity);
       Serial.println(F("Ah"));
+    } else if (strcmp(key, "pw1") == 0 && isdigit(value[0])) {
+      int pw1 = atoi(value);
+      bool pw1_on = read_pw1();
+      if (pw1_on && pw1 == 0) { // power off
+        Serial.println(F("Power OFF"));
+        digitalWrite(PW_SW_SOCKET, LOW);
+        delay(100);
+        digitalWrite(PW_SW_SOCKET, HIGH);
+        delay(200);
+        digitalWrite(PW_SW_SOCKET, LOW);
+        // Wait for ACPI shutdown
+        unsigned long time = millis();
+        while (pw1_on = read_pw1()) {
+          if (millis() - time > ACPI_SHUTDOWN_TIMEOUT) {
+            // force OFF
+            time = millis();
+            digitalWrite(PW_SW_SOCKET, HIGH);
+            while (pw1_on = read_pw1()) {
+              if (millis() - time > FORCE_SHUTDOWN_TIMEOUT) break;
+              // else
+              delay(100);
+            }
+            digitalWrite(PW_SW_SOCKET, LOW);
+            break;
+          }
+          delay(100);
+        }
+      } else if (!pw1_on && pw1 == 1) { // power on
+        Serial.println(F("Power ON"));
+        digitalWrite(PW_SW_SOCKET, LOW);
+        delay(100);
+        digitalWrite(PW_SW_SOCKET, HIGH);
+        delay(200);
+        digitalWrite(PW_SW_SOCKET, LOW);
+      }
     }
   }
 
@@ -543,9 +590,7 @@ void process_message(const char* message)
 
 void loop()
 {
-  // ATX power control
-  //digitalWrite(PW_SW_SOCKET, digitalRead(SW_SOCKET)? LOW : HIGH); // digitalRead(*):  OFF=1 ON=0
-  //digitalWrite(LED_SOCKET, digitalRead(PW_LED_SOCKET)? LOW : HIGH);
+  bool pw1_on = read_pw1();
 
   // process messages if any data is in serial input buffer
   while (WiFi.available()) {
@@ -642,18 +687,13 @@ void loop()
             dtostrf(lkwh, 4, 2, buf + strlen(buf));
             strcat_P(buf, PSTR("\tkwh:"));
             dtostrf(kwh, 4, 2, buf + strlen(buf));
+            sprintf_P(buf + strlen(buf), PSTR("\tpw1:%d"), pw1_on? 1 : 0);
+
             strcat_P(buf, PSTR("\n"));
           }
         }
       }
     }
-
-#if 0
-    uint64_t rtc;
-    if (get_register(0x9013/*Real Time Clock*/, 3, reg)) {
-      rtc = reg.getRTCValue(0);
-    }
-#endif
 
     WiFi.listen();
     //sprintf(buf, "DATA\ttime:%ld\n", current_time);
