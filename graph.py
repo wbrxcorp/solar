@@ -22,7 +22,7 @@ def load_data(hostname, date_str = None):
         cur.execute("insert into data2(t,piv,pia,piw,pov,poa,loadw,temp,kwh,lkwh) select t,piv,pia,piw,pov,poa,loadw,temp,kwh,lkwh from data where hostname = %s and data.t >= %s - interval 5 minute and data.t < %s", (hostname, starttime, endtime))
         cur.execute("create index idx_t on data2(t) using btree")
 
-        cur.execute("select data1.t,data1.piv,avg(data2.piv),data1.pia,avg(data2.pia),data1.piw,avg(data2.piw),data1.pov,avg(data2.pov),data1.poa,avg(data2.poa),data1.loadw,avg(data2.loadw),data1.temp,data1.kwh,data1.lkwh from data1,data2 where data2.t between data1.t - interval 5 minute and data1.t group by data1.t order by data1.t")
+        cur.execute("select data1.t,data1.piv,avg(data2.piv),data1.pia,avg(data2.pia),data1.piw,avg(data2.piw),data1.pov,avg(data2.pov),data1.poa,avg(data2.poa),data1.loadw,avg(data2.loadw),data1.temp,avg(data2.temp),data1.kwh,data1.lkwh from data1,data2 where data2.t between data1.t - interval 5 minute and data1.t group by data1.t order by data1.t")
 
         return (starttime, endtime, [(row[0],row[1:]) for row in cur])
     finally:
@@ -42,7 +42,7 @@ def generate_graph(hostname, date_str = None, pov_ymin = 10.5, pov_ymax = 15.0):
     xfmt = matplotlib.dates.DateFormatter("%H")
     xloc = matplotlib.dates.HourLocator()
 
-    fig, (piw,bv,kwh) = matplotlib.pyplot.subplots(ncols=1, nrows=3,figsize=(12,10), sharex=True)
+    fig, (piw,bv,kwh,temp) = matplotlib.pyplot.subplots(ncols=1, nrows=4,figsize=(12,12), sharex=True)
 
     fig.suptitle("Hostname: '%s'\nDate:%s" % (hostname, starttime.strftime('%Y-%m-%d (%a)')))
     #fig.tight_layout()
@@ -50,7 +50,7 @@ def generate_graph(hostname, date_str = None, pov_ymin = 10.5, pov_ymax = 15.0):
     hrs = list(data[0][0].replace(hour=hr,minute=0,second=0) for hr in [0,6,12,18])
     hrs.append(hrs[0] + datetime.timedelta(days=1))
 
-    for sp in [piw,bv,kwh]:
+    for sp in [piw,bv,kwh,temp]:
         sp.axvline(hrs[2],linestyle="-", color="grey")
         sp.axvspan(hrs[0],hrs[1],facecolor="lightgrey", edgecolor="none")
         sp.axvspan(hrs[3],hrs[4],facecolor="lightgrey", edgecolor="none")
@@ -82,11 +82,17 @@ def generate_graph(hostname, date_str = None, pov_ymin = 10.5, pov_ymax = 15.0):
     #kwh.set_ylim(0.0, 1.0)
     #kwh.tick_params(labelsize=8)
     kwh.grid(True)
-    kwh.plot(x, [row[1][13] for row in data], label=u"発電", color="g")
-    kwh.plot(x, [row[1][14] for row in data], label=u"消費", color="r")
-    kwh.plot(x, [row[1][13] - row[1][14] for row in data], label=u"充電(発電-消費)", color="b")
+    kwh.plot(x, [row[1][14] for row in data], label=u"発電", color="g")
+    kwh.plot(x, [row[1][15] for row in data], label=u"消費", color="r")
+    kwh.plot(x, [row[1][14] - row[1][15] for row in data], label=u"充電(発電-消費)", color="b")
     kwh.axhline(0.0, linestyle="-", color="grey")
     kwh.legend(loc="best")
+
+    temp.set_ylabel(u"温度(℃)")
+    temp.grid(True)
+    temp.plot(x, [row[1][12] for row in data], label=u"5秒間隔", linewidth=0.5)
+    temp.plot(x, [row[1][13] for row in data], label=u"5分平均", linewidth=2,color="r")
+    temp.legend(loc="best")
 
     buf = io.BytesIO()
     fig.savefig(buf, format="png")
