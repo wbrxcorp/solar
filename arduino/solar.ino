@@ -1,3 +1,6 @@
+// arduino --upload --board arduino:avr:uno --port /dev/ttyACM0 solar.ino
+// arduino --upload --board arduino:avr:mega:cpu=atmega2560 --port /dev/ttyACM0 solar.ino
+
 #include <SoftwareSerial.h>
 #include <EEPROM.h>
 #include <util/crc16.h>
@@ -7,19 +10,35 @@
 
 //#define DEBUG_AT_COMMANDS
 
-#define WIFI_RX_SOCKET 2
-#define WIFI_TX_SOCKET 3
-#define PW_SW_SOCKET 4
-#define PW_LED_SOCKET 5
-#define RS485_RX_SOCKET 6
-#define RS485_TX_SOCKET 7
-#define RS485_RTS_SOCKET 8
-#define PW_IND_LED_SOCKET 9
-#define CONFIG_RESET_SOCKET 10
+#ifdef ARDUINO_AVR_UNO
+  #define WIFI_RX_SOCKET 2
+  #define WIFI_TX_SOCKET 3
+  #define PW_SW_SOCKET 4
+  #define PW_LED_SOCKET 5
+  #define RS485_RX_SOCKET 6
+  #define RS485_TX_SOCKET 7
+  #define RS485_RTS_SOCKET 8
+  #define PW_IND_LED_SOCKET 9
+  #define COMMAND_LINE_ONLY_MODE_SOCKET 10
+#elif defined(ARDUINO_AVR_MEGA) || defined(ARDUINO_AVR_MEGA2560)
+  #define RS485_RTS_SOCKET 2
+  #define PW_SW_SOCKET 3
+  #define PW_LED_SOCKET 4
+  #define PW_IND_LED_SOCKET 5
+  #define COMMAND_LINE_ONLY_MODE_SOCKET 7
+#endif
+
 
 #define REPORT_INTERVAL 5000
 #define ACPI_SHUTDOWN_TIMEOUT 10000
 #define FORCE_SHUTDOWN_TIMEOUT 6000
+#define MESSAGE_TIMEOUT 10000
+
+#define OPERATION_MODE_NORMAL 0
+#define OPERATION_MODE_COMMAND_LINE 1
+#define OPERATION_MODE_COMMAND_LINE_ONLY 2
+#define OPERATION_MODE_WIFI_DIRECT 3
+
 #define COMM_BUF_MAX 64   // set max line size to serial's internal buffer size
 
 const char DEFAULT_NODENAME[] PROGMEM = "kennel01";
@@ -28,13 +47,15 @@ const char DEFAULT_WPA_KEY[] PROGMEM = "YOUR_WPA_KEY";
 const char DEFAULT_SERVERNAME[] PROGMEM = "your.server";
 const uint16_t DEFAULT_PORT = 29574;
 
-SoftwareSerial WiFi(WIFI_RX_SOCKET, WIFI_TX_SOCKET); // RX, TX
-SoftwareSerial RS485(RS485_RX_SOCKET, RS485_TX_SOCKET, 0); // RX, TX
+#ifdef ARDUINO_AVR_UNO
+  SoftwareSerial WiFi(WIFI_RX_SOCKET, WIFI_TX_SOCKET); // RX, TX
+  SoftwareSerial RS485(RS485_RX_SOCKET, RS485_TX_SOCKET, 0); // RX, TX
+#elif defined(ARDUINO_AVR_MEGA) || defined(ARDUINO_AVR_MEGA2560)
+  #define WiFi Serial1
+  #define RS485 Serial2
+#endif
 
-char line_buffer[COMM_BUF_MAX];
-char receive_buffer[COMM_BUF_MAX];
-size_t receive_buffer_len = 0;
-
+uint8_t operation_mode = OPERATION_MODE_NORMAL;
 unsigned long last_report_time = 0;
 
 struct {
@@ -45,6 +66,107 @@ struct {
   uint16_t port;
   uint16_t crc;
 } config;
+
+class LineBuffer {
+  char* buf = NULL;
+  size_t max_size = 0;
+  size_t size = 0;
+  char terminator = '\n';
+public:
+  LineBuffer(size_t _max_size, char _terminator = '\n') : max_size(_max_size), terminator(_terminator) {
+    this->buf = new char[_max_size];
+  }
+  ~LineBuffer() {
+    delete [] buf;
+  }
+  bool push(char c) { // returns true if completed(terminated by \n)
+    if (size < max_size - 1) buf[size++] = c;
+    if (c == this->terminator && size == max_size) buf[max_size - 1] = this->terminator;
+    return memchr(buf, this->terminator, size) != NULL;
+  }
+  bool push(const char* str) {
+    for (const char* pt = str; *pt != '\0'; pt++) {
+      if (size < max_size - 1) buf[size++] = *pt;
+      if (*pt == this->terminator && size == max_size) buf[max_size - 1] = this->terminator;
+    }
+    return memchr(buf, this->terminator, size) != NULL;
+  }
+  bool push(const char* str, size_t len) {
+    for (int i = 0; i < len; i++) {
+      if (size < max_size - 1) buf[size++] = str[i];
+      if (str[i] == this->terminator && size == max_size) buf[max_size - 1] = this->terminator;
+    }
+    return memchr(buf, this->terminator, size) != NULL;
+  }
+  int get_line_size() const {
+    const char* pos = (const char*)memchr(buf, this->terminator, size);
+    if (pos == NULL) return -1;
+    return pos - buf;
+  }
+  bool pop(char* dst, size_t dstsize) {
+    if (this->get_line_size() < 0) return false;
+    const char* pt = this->buf;
+    while (*pt != this->terminator) {
+      if (pt - this->buf < dstsize - 1) *dst++ = *pt++;
+    }
+    *dst = '\0';
+
+    pt++;
+    size_t pos = (pt - this->buf);
+    memmove(this->buf, pt, this->size - pos);
+    this->size -= pos;
+
+    return true;
+  }
+  void clear() { this->size = 0; }
+};
+
+class LineParser {
+  char* buf = NULL;
+  size_t len = 0;
+  int count = 0;
+
+protected:
+  inline bool is_whitespace(char c) { return (c == ' ' || c == '\t'); }
+public:
+  LineParser(const char* line) {
+    while (is_whitespace(*line)) line++;
+    this->len = strlen(line);
+    this->buf = new char[this->len + 1];
+    strcpy(this->buf, line);
+    for (int i = 0; i < len; i++) {
+      if (is_whitespace(this->buf[i])) this->buf[i] = '\0';
+    }
+    const char* pt = this->buf;
+    while (pt - this->buf < len) {
+      if (*pt) {
+        this->count++;
+        pt = strchr(pt, '\0');
+      } else {
+        while (pt - this->buf < len && *pt == '\0') pt++;
+      }
+    }
+  }
+  ~LineParser() {
+    delete [] buf;
+  }
+
+  int get_count() const { return this->count; }
+
+  const char* operator[](int index) const {
+    if (index >= count) return NULL;
+    // else
+    const char* pt = this->buf;
+    for (int i = 0; i < index; i++) {
+      while (*pt) pt++;
+      while (!*pt) pt++;
+    }
+    return pt;
+  }
+};
+
+LineBuffer receive_buffer(COMM_BUF_MAX);
+LineBuffer cmdline_buffer(COMM_BUF_MAX, '\r'/*cu sends \r instead of \n*/);
 
 class ExpectedCharSeq {
   const char* expect = NULL;
@@ -131,27 +253,27 @@ public:
     return year * 10000000000LL + month * 100000000LL + day * 1000000L
       + hour * 10000L + minute * 100 + second;
   }
+
+  bool getBoolValue(uint16_t bit_index) const { // for coils
+    uint8_t byte_index = bit_index / 8;
+    if (byte_index >= _size) return false;
+    bit_index = bit_index % 8;
+    return (_data[byte_index] >> bit_index) > 0;
+  }
 };
 
-char* readline()
+void listen_rs485()
 {
-  int len = 0;
-  ExpectedCharSeq term = ExpectedCharSeq("\r\n");
+  #ifdef ARDUINO_AVR_UNO
+  RS485.listen();
+  #endif
+}
 
-  while (true) {
-    while (WiFi.available()) {
-      char c = WiFi.read();
-#ifdef DEBUG_AT_COMMANDS
-        Serial.write(c);
-#endif
-      if (len < sizeof(line_buffer) - 1) line_buffer[len++] = c;
-      if (term.push(c)) goto out;
-    }
-    delay(100); // wait for next batch of chars
-  }
-out:;
-  line_buffer[len - 2] = '\0'; // overwrite '\r' with terminater
-  return line_buffer;
+void listen_wifi()
+{
+  #ifdef ARDUINO_AVR_UNO
+  WiFi.listen();
+  #endif
 }
 
 void wait_for(const char* expectedCharSeq)
@@ -197,15 +319,45 @@ bool issue_at_command(const char* cmd, const char* failCharSeq = "\r\nERROR\r\n"
   return wait_for_result("\r\nOK\r\n", failCharSeq);
 }
 
-bool send_textdata(const char* data)
+void leave_transparent_transmission_mode()
 {
-  char buf[19];
-  sprintf_P(buf, PSTR("AT+CIPSEND=%d\r\n"), strlen(data));
-  WiFi.write(buf);
-  if (wait_for_result("\r\nOK\r\n> ", "\r\nERROR\r\n")) {
-    WiFi.write(data, strlen(data));
-    return wait_for_result("\r\nSEND OK\r\n", "\r\nERROR\r\n");
-  } else return false;
+  delay(30); // at least 20ms delay
+  WiFi.write("+++");
+  delay(30);
+}
+
+bool send_message(const char* message)
+{
+  WiFi.write("AT+CIPSEND\r\n");
+  if (!wait_for_result("\r\nOK\r\n\r\n>", "\r\nERROR\r\n")) return false;
+
+  WiFi.write(message, strlen(message));
+  WiFi.write('\n');
+
+  while (true) { // wait for response
+    int available;
+    long t = millis();
+    while ((available = WiFi.available()) == 0) {
+      delay(100);
+      if (millis() > t + MESSAGE_TIMEOUT) {
+        Serial.println("Message timeout.");
+        leave_transparent_transmission_mode();
+        return false;
+      }
+    }
+    char buf[available];
+    int r = WiFi.readBytes(buf, available);
+    if (receive_buffer.push(buf, r)) {
+      int line_size;
+      while ((line_size = receive_buffer.get_line_size()) >= 0) {
+        char line[line_size + 1];
+        receive_buffer.pop(line, line_size + 1);
+        process_message(line);
+      }
+      leave_transparent_transmission_mode();
+      return true;
+    }
+  }
 }
 
 void connect()
@@ -223,8 +375,10 @@ void connect()
       Serial.println(F("Connecting to the server..."));
       sprintf_P(buf, PSTR("AT+CIPSTART=\"TCP\",\"%s\",%d,10"), config.servername, config.port);
       if (issue_at_command(buf)) {
-        sprintf_P(buf, PSTR("INIT\tnodename:%s\n"), config.nodename);
-        if (send_textdata(buf)) {
+        strcpy_P(buf, PSTR("AT+CIPMODE=1"));
+        issue_at_command(buf);
+        sprintf_P(buf, PSTR("INIT\tnodename:%s"), config.nodename);
+        if (send_message(buf)) {
           Serial.println(F("Connection established."));
           return;
         }
@@ -244,10 +398,10 @@ void connect()
   }
 }
 
-void send_textdata_with_autoreconnect(const char* data)
+void send_message_with_autoreconnect(const char* message)
 {
   int reconnect_delay = 1; /*sec*/
-  while (!send_textdata(data)) {
+  while (!send_message(message)) {
     Serial.println(F("Connection error. performing autoreconnect..."));
     // retry
     delay(reconnect_delay * 1000);
@@ -269,23 +423,18 @@ size_t get_stream_length()
 #ifdef DEBUG_AT_COMMANDS
         Serial.write(c);
 #endif
-        if (c == ':') return (size_t)bytes;
+        if (c == ':') {
+          //Serial.print("Stream length:");
+          //Serial.println(bytes);
+          return (size_t)bytes;
+        }
         if (c >= '0' && c <= '9') {
           bytes *= 10;
           bytes += (c - '0');
         }
       }
-    } else delay(100);
+    } else delay(10);
   }
-}
-
-void input_config()
-{
-  strcpy_P(config.nodename, DEFAULT_NODENAME);
-  strcpy_P(config.ssid, DEFAULT_SSID);
-  strcpy_P(config.key, DEFAULT_WPA_KEY);
-  strcpy_P(config.servername, DEFAULT_SERVERNAME);
-  config.port = DEFAULT_PORT;
 }
 
 uint16_t update_crc(uint16_t crc, uint8_t val)
@@ -316,6 +465,7 @@ bool get_register(uint16_t addr, uint8_t num, EPSolarTracerInputRegister& reg, i
 {
   uint8_t function_code = 0x04; // Read Input Register
   if (addr >= 0x9000 && addr < 0x9100) function_code = 0x03; // Read Holding Register
+  if (addr < 0x2000) function_code = 0x01; // Read Coil Status
 
   byte message[] = {0x01, function_code, HIBYTE(addr), LOBYTE(addr), 0x00, num, 0x00, 0x00 };
   put_crc(message, sizeof(message) - 2);
@@ -356,7 +506,9 @@ bool get_register(uint16_t addr, uint8_t num, EPSolarTracerInputRegister& reg, i
 
 bool put_register(uint16_t addr, uint16_t data)
 {
-  byte message[] = {0x01, 0x06/*Preset Single Register(06)*/, HIBYTE(addr), LOBYTE(addr), HIBYTE(data), LOBYTE(data), 0x00, 0x00 };
+  uint8_t function_code = 0x06; // Preset Single Register(06)
+  if (addr < 0x2000) function_code = 0x05; // Force Single Coil
+  byte message[] = {0x01, function_code, HIBYTE(addr), LOBYTE(addr), HIBYTE(data), LOBYTE(data), 0x00, 0x00 };
   put_crc(message, sizeof(message) - 2);
 
   digitalWrite(RS485_RTS_SOCKET,HIGH);
@@ -400,16 +552,14 @@ bool put_registers(uint16_t addr, uint16_t* data, uint16_t num)
 void setup() {
   pinMode(PW_SW_SOCKET, OUTPUT); // PC PWR BTN
   pinMode(PW_LED_SOCKET, INPUT_PULLUP); // PC PWR LED
-  pinMode(CONFIG_RESET_SOCKET, INPUT_PULLUP); // Short to reset EEPROM
+  pinMode(COMMAND_LINE_ONLY_MODE_SOCKET, INPUT_PULLUP); // Short to enter command line only mode
 
   Serial.begin(9600);
   RS485.begin(115200);
   pinMode(RS485_RTS_SOCKET, OUTPUT);
-
-  if (digitalRead(CONFIG_RESET_SOCKET) == LOW) { // LOW == SHORT(pulled up)
-    // break crc on purpose
-    EEPROM.put(sizeof(config) - sizeof(config.crc), (uint16_t)0);
-  }
+  //WiFi.begin(115200);
+  //WiFi.write("AT+UART_DEF=9600,8,1,0,0\r\n");
+  WiFi.begin(9600);
 
   // read config from EEPROM
   Serial.write("Loading config from EEPROM...");
@@ -425,16 +575,15 @@ void setup() {
     Serial.print(crc);
     Serial.print(F(", actual="));
     Serial.print(config.crc);
-    Serial.println(F(")"));
-
+    Serial.print(F("). entering command line only mode.\r\n# "));
     memset(&config, 0, sizeof(config));
-    input_config();
-    config.crc = 0;
-    for (size_t i = 0; i < sizeof(config) - sizeof(config.crc); i++) {
-      config.crc = _crc16_update(config.crc, p[i]);
-    }
-    Serial.println(F("Writing config..."));
-    EEPROM.put(0, config);
+    strcpy_P(config.nodename, DEFAULT_NODENAME);
+    strcpy_P(config.ssid, DEFAULT_SSID);
+    strcpy_P(config.key, DEFAULT_WPA_KEY);
+    strcpy_P(config.servername, DEFAULT_SERVERNAME);
+    config.port = DEFAULT_PORT;
+    operation_mode = OPERATION_MODE_COMMAND_LINE_ONLY;
+    return;
   }
   Serial.println(F("Done."));
   Serial.print(F("Nodename: "));
@@ -447,8 +596,14 @@ void setup() {
   Serial.print(F("Server port: "));
   Serial.println(config.port);
 
+  if (digitalRead(COMMAND_LINE_ONLY_MODE_SOCKET) == LOW) { // LOW == SHORT(pulled up)
+    Serial.print("Entering command line only mode...\r\n# ");
+    operation_mode = OPERATION_MODE_COMMAND_LINE_ONLY;
+    return;
+  }
+
   // get info from caharge controller
-  RS485.listen();
+  listen_rs485();
   EPSolarTracerInputRegister reg;
   if (get_register(0x9013/*Real Time Clock*/, 3, reg)) {
     uint64_t rtc = reg.getRTCValue(0);
@@ -464,17 +619,25 @@ void setup() {
       sprintf_P(buf + strlen(buf), PSTR("), %dAh"), battery_capacity);
       Serial.println(buf);
     }
+    if (get_register(0x903d, 1, reg)) {
+      int load_controlling_mode = reg.getIntValue(0);
+      sprintf_P(buf, PSTR("Load controlling mode: %d"), load_controlling_mode);
+      Serial.println(buf);
+    }
+    if (get_register(0x906a, 1, reg)) {
+      int default_load_on_off = reg.getIntValue(0);
+      sprintf_P(buf, PSTR("Default load on/off in manual mode: %d"), default_load_on_off);
+      Serial.println(buf);
+    }
   } else {
     Serial.println(F("Charge controller is not connected!"));
   }
 
-  //WiFi.begin(115200);
-  //WiFi.write("AT+UART_DEF=9600,8,1,0,0\r\n");
-  WiFi.begin(9600);
-  WiFi.listen();
+  listen_wifi();
 
+  leave_transparent_transmission_mode();
   issue_at_command("AT");
-  issue_at_command("AT+CWQAP");
+  issue_at_command("AT+CWQAP"); // disconnect from AP (error if not connected but no harm)
   issue_at_command("AT+CWMODE_CUR=1");
   connect();
 }
@@ -515,19 +678,28 @@ void process_message(const char* message)
       time = atol(value);
     } else if (strcmp(key, "bt") == 0) {
       int battery_type = atoi(value);
-      RS485.listen();
+      listen_rs485();
       put_register(0x9000/*Battery type*/, (uint16_t)battery_type);
-      WiFi.listen();
+      listen_wifi();
       Serial.print(F("Battery type saved: "));
       Serial.println(battery_type);
     } else if (strcmp(key, "bc") == 0) {
       int battery_capacity= atoi(value);
-      RS485.listen();
+      listen_rs485();
       put_register(0x9001/*Battery capacity*/, (uint16_t)battery_capacity);
-      WiFi.listen();
+      listen_wifi();
       Serial.print(F("Battery capacity saved: "));
       Serial.print(battery_capacity);
       Serial.println(F("Ah"));
+    } else if (strcmp(key, "pw") == 0) {
+      int manual_load_control = atoi(value);
+      if (isdigit(value[0]) && manual_load_control < 2) {
+        listen_rs485();
+        put_register(0x0002/*manual load control*/, (uint16_t)0xff00 * manual_load_control);
+        listen_wifi();
+        Serial.print(F("Manual Load control saved: "));
+        Serial.println(manual_load_control);
+      }
     } else if (strcmp(key, "pw1") == 0 && isdigit(value[0])) {
       int pw1 = atoi(value);
       bool pw1_on = read_pw1();
@@ -588,61 +760,155 @@ void process_message(const char* message)
 
 }
 
-void loop()
+bool process_command_line(const char* line) // true = go to next line,  false = go to next loop
 {
-  bool pw1_on = read_pw1();
+  LineParser lineparser(line);
+  if (lineparser.get_count() == 0 || lineparser[0][0] =='#') return true;
 
-  // process messages if any data is in serial input buffer
-  while (WiFi.available()) {
-    size_t stream_length = get_stream_length();
-    if (stream_length == 0) break; // something other than stream from server detected
-    char buf[stream_length]; // Oh No.
-    int r = WiFi.readBytes(buf, sizeof(buf));
-    for (int i = 0; i < r; i++) {
-      char c = buf[i];
-      receive_buffer[receive_buffer_len] = c;
-      if (receive_buffer_len < sizeof(receive_buffer) - 2 && c != '\n') {
-        receive_buffer_len++;
-      } else if (receive_buffer_len >= sizeof(receive_buffer) - 2) {
-        Serial.println(F("Receive buffer exceeded!"));
-      }
-      receive_buffer[receive_buffer_len] = '\0';
+  if (strcmp_P(lineparser[0], PSTR("exit")) == 0 || strcmp_P(lineparser[0], PSTR("quit")) == 0) {
+    if (operation_mode == OPERATION_MODE_COMMAND_LINE_ONLY) {
+      Serial.println(F("This is 'command line only' mode. make sure wifi config is right and restart system."));
+      return true;
+    }
+    // else
+    operation_mode = OPERATION_MODE_NORMAL;
+    Serial.println(F("Exitting command line mode."));
+    return false;
+  } else if (strcmp_P(lineparser[0], PSTR("nodename")) == 0) {
+    if (lineparser.get_count() < 2) {
+      Serial.print(F("Current nodename is '"));
+      Serial.print(config.nodename);
+      Serial.println(F("'."));
+      return true;
+    }
+    // else
+    // TODO: validation
+    strncpy(config.nodename, lineparser[1], sizeof(config.nodename));
+    config.nodename[sizeof(config.nodename) - 1] = '\0'; // ensure null terminated as strncpy may not put it on tail
+    Serial.print(F("Nodename set to '"));
+    Serial.print(config.nodename);
+    Serial.println(F("'. save and reboot the system to take effects."));
+  } else if (strcmp_P(lineparser[0], PSTR("ssid")) == 0) {
+    if (lineparser.get_count() < 2) {
+      Serial.print(F("Current SSID is '"));
+      Serial.print(config.ssid);
+      Serial.println(F("'."));
+      return true;
+    }
+    // else
+    strncpy(config.ssid, lineparser[1], sizeof(config.ssid));
+    config.ssid[sizeof(config.ssid) - 1] = '\0';
+    Serial.print(F("SSID set to '"));
+    Serial.print(config.ssid);
+    Serial.println(F("'. save and reboot the system to take effects."));
+  } else if (strcmp_P(lineparser[0], PSTR("key")) == 0) {
+    if (lineparser.get_count() < 2) {
+      Serial.print(F("Current WPA Key is '"));
+      Serial.print(config.key);
+      Serial.println(F("'."));
+      return true;
+    }
+    // else
+    strncpy(config.key, lineparser[1], sizeof(config.key));
+    config.key[sizeof(config.key) - 1] = '\0';
+    Serial.print(F("WPA Key set to '"));
+    Serial.print(config.key);
+    Serial.println(F("'. save and reboot the system to take effects."));
+  } else if (strcmp_P(lineparser[0], PSTR("servername")) == 0) {
+    if (lineparser.get_count() < 2) {
+      Serial.print(F("Current Server name is '"));
+      Serial.print(config.servername);
+      Serial.println(F("'."));
+      return true;
+    }
+    // else
+    strncpy(config.servername, lineparser[1], sizeof(config.servername));
+    config.servername[sizeof(config.servername) - 1] = '\0';
+    Serial.print(F("Server name set to '"));
+    Serial.print(config.servername);
+    Serial.println(F("'. save and reboot the system to take effects."));
+  } else if (strcmp_P(lineparser[0], PSTR("port")) == 0) {
+    if (lineparser.get_count() < 2) {
+      Serial.print(F("Current port is "));
+      Serial.print(config.port);
+      Serial.println('.');
+      return true;
+    }
+    // else
+    long port = atol(lineparser[1]);
+    if (port < 1 || port > 65535) {
+      Serial.println(F("Invalid port number."));
+      return true;
+    }
+    // else
+    config.port = (uint16_t)port;
+    Serial.print(F("Server port set to "));
+    Serial.print(port);
+    Serial.println(F(". save and reboot the system to take effects."));
+  } else if (strcmp_P(lineparser[0], PSTR("save")) == 0) {
+    uint8_t* p = (uint8_t*)&config;
+    config.crc = 0;
+    for (size_t i = 0; i < sizeof(config) - sizeof(config.crc); i++) {
+      config.crc = _crc16_update(config.crc, p[i]);
+    }
+    Serial.print(F("Writing config to EEPROM..."));
+    EEPROM.put(0, config);
 
-      if (c == '\n') {
-        receive_buffer_len = 0;
-        process_message(receive_buffer);
+    Serial.println(F("Done."));
+  } else if (strcmp_P(lineparser[0], PSTR("wifidirect")) == 0) {
+    if (operation_mode != OPERATION_MODE_COMMAND_LINE_ONLY) {
+      Serial.println("Switching to WiFi Direct mode is available only in command line only mode.");
+      return true;
+    }
+    Serial.println(F("Entering WiFi Direct mode. Ctrl-] to exit."));
+    operation_mode = OPERATION_MODE_WIFI_DIRECT;
+    return false;
+  } else if (strcmp_P(lineparser[0], PSTR("?")) == 0 || strcmp_P(lineparser[0], PSTR("help")) == 0) {
+    Serial.println(F("Available commands: nodename ssid key servername port exit"));
+  } else {
+    Serial.println(F("Unrecognized command."));
+  }
+  return true;
+}
+
+void loop_command_line()
+{
+  int available = Serial.available();
+  if (available > 0) {
+    char buf[available];
+    size_t len = Serial.readBytes(buf, available);
+    Serial.write(buf, len); // echo back
+    if (cmdline_buffer.push(buf, len)) {
+      int line_size; // can't be size_t as it can be negative value
+      while ((line_size = cmdline_buffer.get_line_size()) >= 0) {
+        char line[line_size + 1];
+        cmdline_buffer.pop(line, line_size + 1);
+        Serial.println();
+        if (!process_command_line(line)) {
+          cmdline_buffer.clear();
+          return;
+        }
+        // else
+        Serial.print(F("# "));
       }
     }
+  }
+  delay(50);
+}
+
+void loop_normal()
+{
+  // enter command line mode when enter presses
+  if (Serial.available() && Serial.read() == '\r') {
+    operation_mode = OPERATION_MODE_COMMAND_LINE;
+    Serial.println(F("Entering command line mode. '?' to help, 'exit' to exit."));
+    Serial.print(F("# "));
+    return;
   }
 
   unsigned long current_time = millis();
   if (current_time - last_report_time >= REPORT_INTERVAL) {
-    /*
-    WiFi.write("AT+CWJAP_CUR?\r\n");
-    wait_for("+CWJAP_CUR:");
-    const char* line = readline();
-    const char* pt = line;
-    int comma_cnt = 0;
-    while (comma_cnt < 3) {
-      if (*pt == ',') comma_cnt++;
-      pt++;
-    }
-    char rssi[strlen(pt)];
-    strcpy(pt, rssi);
-    wait_for("OK\r\n");
-    */
-
-    /*"Charging equipment input voltage": 0x3100
-      "Charging equipment input current": 0x3101
-      "Charging equipment input power": 0x3102, 0x3103
-      "Charging equipment output voltage": 0x3104,
-      "Charging equipment output current": 0x3105,
-      "Discharging equipment output power": 0x310E, 0x310F
-      "Battery Temperature": 0x3110
-      "Consumed energy today": 0x3304,0x3305
-      "Generated energy today": 0x330C, 0x330D
-    */
-    RS485.listen();
+    listen_rs485();
     EPSolarTracerInputRegister reg;
     float piv,pia,bv,poa;
     double piw;
@@ -650,6 +916,7 @@ void loop()
     float temp;
     double lkwh;
     double kwh;
+    int pw;
     char buf[128] = "NODATA\n";
 
     if (get_register(0x3100, 6, reg)) {
@@ -668,37 +935,71 @@ void loop()
           delay(50);
           if (get_register(0x330c, 1, reg)) {
             kwh = reg.getDoubleValue(0);
-
-            strcpy_P(buf, PSTR("DATA\tpiv:"));
-            dtostrf(piv, 4, 2, buf + strlen(buf));
-            strcat_P(buf, PSTR("\tpia:"));
-            dtostrf(pia, 4, 2, buf + strlen(buf));
-            strcat_P(buf, PSTR("\tpiw:"));
-            dtostrf(piw, 4, 2, buf + strlen(buf));
-            strcat_P(buf, PSTR("\tbv:"));
-            dtostrf(bv, 4, 2, buf + strlen(buf));
-            strcat_P(buf, PSTR("\tpoa:"));
-            dtostrf(poa, 4, 2, buf + strlen(buf));
-            strcat_P(buf, PSTR("\tload:"));
-            dtostrf(load, 4, 2, buf + strlen(buf));
-            strcat_P(buf, PSTR("\ttemp:"));
-            dtostrf(temp, 4, 2, buf + strlen(buf));
-            strcat_P(buf, PSTR("\tlkwh:"));
-            dtostrf(lkwh, 4, 2, buf + strlen(buf));
-            strcat_P(buf, PSTR("\tkwh:"));
-            dtostrf(kwh, 4, 2, buf + strlen(buf));
-            sprintf_P(buf + strlen(buf), PSTR("\tpw1:%d"), pw1_on? 1 : 0);
-
-            strcat_P(buf, PSTR("\n"));
+            if (get_register(0x0002, 1, reg)) { // Manual control the load
+              pw = reg.getBoolValue(0)? 1 : 0;
+              strcpy_P(buf, PSTR("DATA\tpiv:"));
+              dtostrf(piv, 4, 2, buf + strlen(buf));
+              strcat_P(buf, PSTR("\tpia:"));
+              dtostrf(pia, 4, 2, buf + strlen(buf));
+              strcat_P(buf, PSTR("\tpiw:"));
+              dtostrf(piw, 4, 2, buf + strlen(buf));
+              strcat_P(buf, PSTR("\tbv:"));
+              dtostrf(bv, 4, 2, buf + strlen(buf));
+              strcat_P(buf, PSTR("\tpoa:"));
+              dtostrf(poa, 4, 2, buf + strlen(buf));
+              strcat_P(buf, PSTR("\tload:"));
+              dtostrf(load, 4, 2, buf + strlen(buf));
+              strcat_P(buf, PSTR("\ttemp:"));
+              dtostrf(temp, 4, 2, buf + strlen(buf));
+              strcat_P(buf, PSTR("\tlkwh:"));
+              dtostrf(lkwh, 4, 2, buf + strlen(buf));
+              strcat_P(buf, PSTR("\tkwh:"));
+              dtostrf(kwh, 4, 2, buf + strlen(buf));
+              sprintf_P(buf + strlen(buf), PSTR("\tpw:%d"), pw);
+              sprintf_P(buf + strlen(buf), PSTR("\tpw1:%d"), read_pw1()? 1 : 0);
+            }
           }
         }
       }
     }
 
-    WiFi.listen();
-    //sprintf(buf, "DATA\ttime:%ld\n", current_time);
-    send_textdata_with_autoreconnect(buf);
+    listen_wifi();
+    send_message_with_autoreconnect(buf);
 
     last_report_time = current_time;
+  }
+}
+
+void loop_wifi_direct()
+{
+  while(WiFi.available()) Serial.write(WiFi.read());
+  while(Serial.available()) {
+    char c = Serial.read();
+    if (c == 0x1d/*Ctrl-]*/) {
+      Serial.print("Returning to command line.\r\n# ");
+      operation_mode = OPERATION_MODE_COMMAND_LINE_ONLY;
+      return;
+    }
+    // else
+    WiFi.write(c);
+    if (c == '\r') WiFi.write('\n');
+  }
+}
+
+void loop()
+{
+  read_pw1();
+  switch (operation_mode) {
+    case OPERATION_MODE_NORMAL:
+      loop_normal();
+      break;
+    case OPERATION_MODE_COMMAND_LINE:
+    case OPERATION_MODE_COMMAND_LINE_ONLY:
+      loop_command_line();
+      break;
+    case OPERATION_MODE_WIFI_DIRECT:
+      loop_wifi_direct();
+    default:
+      break;
   }
 }

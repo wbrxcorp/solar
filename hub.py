@@ -77,7 +77,9 @@ def process_connection(conn, addr):
                 current_time = time.time()
                 if piv > 0.0 or current_time >= last_time + 60:
                     now_str = save_data(nodename,data)
-                    print "%s\t%s\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f" % (nodename,now_str,piv,float(data["pia"]),float(data["piw"]),float(data["bv"]),float(data["poa"]),float(data["load"]),float(data["temp"]),float(data["kwh"]),float(data["lkwh"]))
+                    if "pw" not in data: data["pw"] = 0
+                    if "pw1" not in data: data["pw1"] = 0
+                    print "%s\t%s\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t#%d\t%d" % (nodename,now_str,piv,float(data["pia"]),float(data["piw"]),float(data["bv"]),float(data["poa"]),float(data["load"]),float(data["temp"]),float(data["kwh"]),float(data["lkwh"]),int(data["pw"]),int(data["pw1"]))
                     last_time = current_time
             elif data_splitted[0] == "INIT":
                 parsed_data = parse_data(data_splitted[1:])
@@ -90,6 +92,7 @@ def process_connection(conn, addr):
                 t = now.strftime("%H%M%S")
                 response_data["d"] = d
                 response_data["t"] = t
+                response_data["pw"] = 1
                 node_config = get_node_config(nodename)
                 if node_config is not None:
                     for k,v in node_config.iteritems():
