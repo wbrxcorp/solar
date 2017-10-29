@@ -336,7 +336,7 @@ bool send_message(const char* message)
 
   while (true) { // wait for response
     int available;
-    long t = millis();
+    unsigned long t = millis();
     while ((available = WiFi.available()) == 0) {
       delay(100);
       if (millis() > t + MESSAGE_TIMEOUT) {
