@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-import sys,socket,threading,traceback,datetime,time
+import sys,socket,threading,traceback,datetime,time,uuid
 import MySQLdb
 
 PORT = 29574
@@ -59,7 +59,6 @@ def process_connection(conn, addr):
     print "# New connection from %s" % addr[0]
     last_time = 0.0
     try:
-        nodename = None
         sock_as_file = conn.makefile()
         while True:
             line = sock_as_file.readline()
@@ -67,36 +66,41 @@ def process_connection(conn, addr):
             data_splitted = line.strip().split('\t')
             response_data = {}
             if data_splitted[0] == "NODATA":
-                if nodename is None:
-                    print "# NODATA from unknown node"
+                parsed_data = parse_data(data_splitted[1:])
+                if "nodename" in parsed_data:
+                    print "# NODATA from node '%s'" % parsed_data["nodename"]
                 else:
-                    print "# NODATA from node '%s'" % nodename
-            elif data_splitted[0] == "DATA" and nodename is not None:
+                    print "# NODATA from unknown node"
+            elif data_splitted[0] == "DATA":
                 data = parse_data(data_splitted[1:])
-                piv = float(data["piv"])
-                current_time = time.time()
-                if piv > 0.0 or current_time >= last_time + 60:
-                    now_str = save_data(nodename,data)
-                    if "pw" not in data: data["pw"] = 0
-                    if "pw1" not in data: data["pw1"] = 0
-                    print "%s\t%s\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t#%d\t%d" % (nodename,now_str,piv,float(data["pia"]),float(data["piw"]),float(data["bv"]),float(data["poa"]),float(data["load"]),float(data["temp"]),float(data["kwh"]),float(data["lkwh"]),int(data["pw"]),int(data["pw1"]))
-                    last_time = current_time
+                if "nodename" in data:
+                    nodename = data["nodename"]
+                    piv = float(data["piv"])
+                    current_time = time.time()
+                    if piv > 0.0 or current_time >= last_time + 60:
+                        now_str = save_data(nodename,data)
+                        if "pw" not in data: data["pw"] = 0
+                        if "pw1" not in data: data["pw1"] = 0
+                        print "%s\t%s\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t#%d\t%d" % (nodename,now_str,piv,float(data["pia"]),float(data["piw"]),float(data["bv"]),float(data["poa"]),float(data["load"]),float(data["temp"]),float(data["kwh"]),float(data["lkwh"]),int(data["pw"]),int(data["pw1"]))
+                        last_time = current_time
             elif data_splitted[0] == "INIT":
                 parsed_data = parse_data(data_splitted[1:])
                 if "nodename" in parsed_data:
                     nodename = parsed_data["nodename"]
-                    print "# Node name set to '%s'" % nodename
-                # send controller params
-                now = datetime.datetime.now()
-                d = now.strftime("%Y%m%d")
-                t = now.strftime("%H%M%S")
-                response_data["d"] = d
-                response_data["t"] = t
-                response_data["pw"] = 1
-                node_config = get_node_config(nodename)
-                if node_config is not None:
-                    for k,v in node_config.iteritems():
-                        if v is not None: response_data[k] = v
+                    print "# Node name is'%s'" % nodename
+                    # send controller params
+                    session_id = uuid.uuid4().hex[:8]
+                    response_data["session"] = session_id
+                    now = datetime.datetime.now()
+                    d = now.strftime("%Y%m%d")
+                    t = now.strftime("%H%M%S")
+                    response_data["d"] = d
+                    response_data["t"] = t
+                    response_data["pw"] = 1
+                    node_config = get_node_config(nodename)
+                    if node_config is not None:
+                        for k,v in node_config.iteritems():
+                            if v is not None: response_data[k] = v
 
             sys.stdout.flush()
             conn.send("OK")
@@ -105,7 +109,7 @@ def process_connection(conn, addr):
             conn.send("\n")
     finally:
         conn.close()
-    print "# Connection from %s(%s) closed." % (nodename if nodename is not None else "Unknwon node", addr[0])
+    print "# Connection from %s closed." % (naddr[0],)
 
 if __name__ == '__main__':
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

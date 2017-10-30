@@ -57,6 +57,7 @@ const uint16_t DEFAULT_PORT = 29574;
 
 uint8_t operation_mode = OPERATION_MODE_NORMAL;
 unsigned long last_report_time = 0;
+char session_id[48];
 
 struct {
   char nodename[32];
@@ -328,9 +329,6 @@ void leave_transparent_transmission_mode()
 
 bool send_message(const char* message)
 {
-  WiFi.write("AT+CIPSEND\r\n");
-  if (!wait_for_result("\r\nOK\r\n\r\n>", "\r\nERROR\r\n")) return false;
-
   WiFi.write(message, strlen(message));
   WiFi.write('\n');
 
@@ -354,7 +352,6 @@ bool send_message(const char* message)
         receive_buffer.pop(line, line_size + 1);
         process_message(line);
       }
-      leave_transparent_transmission_mode();
       return true;
     }
   }
@@ -377,11 +374,16 @@ void connect()
       if (issue_at_command(buf)) {
         strcpy_P(buf, PSTR("AT+CIPMODE=1"));
         issue_at_command(buf);
-        sprintf_P(buf, PSTR("INIT\tnodename:%s"), config.nodename);
-        if (send_message(buf)) {
-          Serial.println(F("Connection established."));
-          return;
-        }
+
+      	WiFi.write("AT+CIPSEND\r\n");
+      	if (wait_for_result("\r\n>", "\r\nERROR\r\n")) {
+          session_id[0] = '\0'; // clear session id
+      	  sprintf_P(buf, PSTR("INIT\tnodename:%s"), config.nodename);
+      	  if (send_message(buf)) {
+      	    Serial.println(F("Connection established."));
+      	    return;
+      	  }
+      	}
       } else {
         // "ERROR"
         wait_for("CLOSED\r\n");
@@ -636,6 +638,7 @@ void setup() {
   listen_wifi();
 
   leave_transparent_transmission_mode();
+  delay(970);
   issue_at_command("AT");
   issue_at_command("AT+CWQAP"); // disconnect from AP (error if not connected but no harm)
   issue_at_command("AT+CWMODE_CUR=1");
@@ -647,6 +650,32 @@ bool read_pw1()
   bool pw1_on = digitalRead(PW_LED_SOCKET) == LOW;
   digitalWrite(PW_IND_LED_SOCKET, pw1_on? HIGH : LOW);
   return pw1_on;
+}
+
+void poweroff_pw1()
+{
+  digitalWrite(PW_SW_SOCKET, LOW);
+  delay(100);
+  digitalWrite(PW_SW_SOCKET, HIGH);
+  delay(200);
+  digitalWrite(PW_SW_SOCKET, LOW);
+  // Wait for ACPI shutdown
+  unsigned long time = millis();
+  while (read_pw1()) {
+    if (millis() - time > ACPI_SHUTDOWN_TIMEOUT) {
+      // force OFF
+      time = millis();
+      digitalWrite(PW_SW_SOCKET, HIGH);
+      while (read_pw1()) {
+        if (millis() - time > FORCE_SHUTDOWN_TIMEOUT) break;
+        // else
+        delay(100);
+      }
+      digitalWrite(PW_SW_SOCKET, LOW);
+      break;
+    }
+    delay(100);
+  }
 }
 
 void process_message(const char* message)
@@ -672,7 +701,10 @@ void process_message(const char* message)
     value[ptdelim - pt] = '\0';
     pt = (*ptdelim != '\0') ? ptdelim + 1 : ptdelim;
 
-    if (strcmp(key, "d") == 0 && strlen(value) == 8 && isdigit(value[0])) {
+    if (strcmp(key, "session") == 0) {
+      strncpy(session_id, value, sizeof(session_id));
+      session_id[sizeof(session_id) - 1] = '\0';
+    } else if (strcmp(key, "d") == 0 && strlen(value) == 8 && isdigit(value[0])) {
       date = atol(value);
     } else if (strcmp(key, "t") == 0 && strlen(value) > 0 && isdigit(value[0])) {
       time = atol(value);
@@ -691,44 +723,28 @@ void process_message(const char* message)
       Serial.print(F("Battery capacity saved: "));
       Serial.print(battery_capacity);
       Serial.println(F("Ah"));
-    } else if (strcmp(key, "pw") == 0) {
-      int manual_load_control = atoi(value);
-      if (isdigit(value[0]) && manual_load_control < 2) {
+    } else if (strcmp(key, "pw") == 0 && isdigit(value[0])) {
+      int pw = atoi(value);
+      if (pw == 0) {
+        Serial.println(F("Power OFF"));
+        if (read_pw1()) poweroff_pw1();
         listen_rs485();
-        put_register(0x0002/*manual load control*/, (uint16_t)0xff00 * manual_load_control);
+        put_register(0x0002/*manual load control*/, (uint16_t)0x0000);
         listen_wifi();
-        Serial.print(F("Manual Load control saved: "));
-        Serial.println(manual_load_control);
+      } else if (pw == 1) {
+        Serial.println(F("Power ON"));
+        listen_rs485();
+        put_register(0x0002/*manual load control*/, (uint16_t)0xff00);
+        listen_wifi();
       }
-    } else if (strcmp(key, "pw1") == 0 && isdigit(value[0])) {
+    } else if (strcmp(key, "pw1") == 0 && (isdigit(value[0]) || value[0] == '-')) {
       int pw1 = atoi(value);
       bool pw1_on = read_pw1();
       if (pw1_on && pw1 == 0) { // power off
-        Serial.println(F("Power OFF"));
-        digitalWrite(PW_SW_SOCKET, LOW);
-        delay(100);
-        digitalWrite(PW_SW_SOCKET, HIGH);
-        delay(200);
-        digitalWrite(PW_SW_SOCKET, LOW);
-        // Wait for ACPI shutdown
-        unsigned long time = millis();
-        while (pw1_on = read_pw1()) {
-          if (millis() - time > ACPI_SHUTDOWN_TIMEOUT) {
-            // force OFF
-            time = millis();
-            digitalWrite(PW_SW_SOCKET, HIGH);
-            while (pw1_on = read_pw1()) {
-              if (millis() - time > FORCE_SHUTDOWN_TIMEOUT) break;
-              // else
-              delay(100);
-            }
-            digitalWrite(PW_SW_SOCKET, LOW);
-            break;
-          }
-          delay(100);
-        }
+        Serial.println(F("Power1 OFF"));
+        poweroff_pw1();
       } else if (!pw1_on && pw1 == 1) { // power on
-        Serial.println(F("Power ON"));
+        Serial.println(F("Power1 ON"));
         digitalWrite(PW_SW_SOCKET, LOW);
         delay(100);
         digitalWrite(PW_SW_SOCKET, HIGH);
@@ -917,7 +933,7 @@ void loop_normal()
     double lkwh;
     double kwh;
     int pw;
-    char buf[128] = "NODATA\n";
+    char buf[256] = "NODATA\n";
 
     if (get_register(0x3100, 6, reg)) {
       piv = reg.getFloatValue(0);
@@ -937,7 +953,12 @@ void loop_normal()
             kwh = reg.getDoubleValue(0);
             if (get_register(0x0002, 1, reg)) { // Manual control the load
               pw = reg.getBoolValue(0)? 1 : 0;
-              strcpy_P(buf, PSTR("DATA\tpiv:"));
+              sprintf_P(buf, PSTR("DATA\tnodename:%s"), config.nodename);
+              if (session_id[0]) {
+                strcat_P(buf, PSTR("\tsession:"));
+                strcat(buf, session_id);
+              }
+              strcat_P(buf, PSTR("\tpiv:"));
               dtostrf(piv, 4, 2, buf + strlen(buf));
               strcat_P(buf, PSTR("\tpia:"));
               dtostrf(pia, 4, 2, buf + strlen(buf));
