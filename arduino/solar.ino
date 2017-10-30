@@ -645,6 +645,13 @@ void setup() {
   connect();
 }
 
+void poweron_pw()
+{
+  listen_rs485();
+  put_register(0x0002/*manual load control*/, (uint16_t)0xff00);
+  listen_wifi();
+}
+
 bool read_pw1()
 {
   bool pw1_on = digitalRead(PW_LED_SOCKET) == LOW;
@@ -723,21 +730,19 @@ void process_message(const char* message)
       Serial.print(F("Battery capacity saved: "));
       Serial.print(battery_capacity);
       Serial.println(F("Ah"));
-    } else if (strcmp(key, "pw") == 0 && isdigit(value[0])) {
+    } else if (strcmp(key, "pw") == 0 && isdigit(value[0])) { // main power
       int pw = atoi(value);
       if (pw == 0) {
         Serial.println(F("Power OFF"));
-        if (read_pw1()) poweroff_pw1();
+        if (read_pw1()) poweroff_pw1(); // atx power off
         listen_rs485();
         put_register(0x0002/*manual load control*/, (uint16_t)0x0000);
         listen_wifi();
       } else if (pw == 1) {
         Serial.println(F("Power ON"));
-        listen_rs485();
-        put_register(0x0002/*manual load control*/, (uint16_t)0xff00);
-        listen_wifi();
+        poweron_pw();
       }
-    } else if (strcmp(key, "pw1") == 0 && (isdigit(value[0]) || value[0] == '-')) {
+    } else if (strcmp(key, "pw1") == 0 && (isdigit(value[0]) || value[0] == '-')) { // atx power
       int pw1 = atoi(value);
       bool pw1_on = read_pw1();
       if (pw1_on && pw1 == 0) { // power off
@@ -746,7 +751,8 @@ void process_message(const char* message)
       } else if (!pw1_on && pw1 == 1) { // power on
         Serial.println(F("Power1 ON"));
         digitalWrite(PW_SW_SOCKET, LOW);
-        delay(100);
+        poweron_pw(); // main power on
+        delay(500);
         digitalWrite(PW_SW_SOCKET, HIGH);
         delay(200);
         digitalWrite(PW_SW_SOCKET, LOW);
