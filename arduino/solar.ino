@@ -559,9 +559,14 @@ void setup() {
   Serial.begin(9600);
   RS485.begin(115200);
   pinMode(RS485_RTS_SOCKET, OUTPUT);
+
+#if defined(ARDUINO_AVR_MEGA) || defined(ARDUINO_AVR_MEGA2560)
+  WiFi.begin(115200);
+#else
   //WiFi.begin(115200);
   //WiFi.write("AT+UART_DEF=9600,8,1,0,0\r\n");
   WiFi.begin(9600);
+#endif
 
   // read config from EEPROM
   Serial.write("Loading config from EEPROM...");
