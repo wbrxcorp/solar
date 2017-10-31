@@ -16,16 +16,23 @@ def parse_data(data):
 def process_data(nodename, data):
     now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     response_data = {}
+    saved = False
 
     with database.Connection() as cur:
-        cur.execute("replace into data(hostname,t,piv,pia,piw,pov,poa,loadw,temp,kwh,lkwh) values(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)", (nodename,now_str, float(data["piv"]),float(data["pia"]),float(data["piw"]),float(data["bv"]),float(data["poa"]),float(data["load"]),float(data["temp"]),float(data["kwh"]),float(data["lkwh"])))
+        cur.execute("select max(t) from data where hostname=%s", (nodename,))
+        last_data_time = cur.fetchone()[0]
+        piv = float(data["piv"])
+        if last_data_time is None or datetime.datetime.now() - last_data_time >= datetime.timedelta(minutes=1) or piv > 0.0:
+            cur.execute("replace into data(hostname,t,piv,pia,piw,pov,poa,loadw,temp,kwh,lkwh) values(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)", (nodename,now_str, piv,float(data["pia"]),float(data["piw"]),float(data["bv"]),float(data["poa"]),float(data["load"]),float(data["temp"]),float(data["kwh"]),float(data["lkwh"])))
+            saved = True
+
         cur.execute("select id,`key`,int_value from schedule where nodename=%s and (t is null or t <= now())", (nodename,))
         for row in cur:
             id,key,int_value = row
             response_data[key] = int_value
             cur.execute("delete from schedule where id=%s", (id,))
 
-    return (now_str, response_data)
+    return (now_str, response_data, saved)
 
 def get_node_config(nodename):
     with database.Connection() as cur:
@@ -59,15 +66,14 @@ def process_connection(conn, addr):
                 if "nodename" in data:
                     nodename = data["nodename"]
                     piv = float(data["piv"])
-                    current_time = time.time()
-                    if piv > 0.0 or current_time >= last_time + 60:
-                        now_str,_response_data = process_data(nodename,data)
+
+                    now_str,_response_data,saved = process_data(nodename,data)
+                    if saved:
                         for k,v in _response_data.iteritems():
                             if v is not None: response_data[k] = v
                         if "pw" not in data: data["pw"] = 0
                         if "pw1" not in data: data["pw1"] = 0
                         print "%s\t%s\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t#%d\t%d" % (nodename,now_str,piv,float(data["pia"]),float(data["piw"]),float(data["bv"]),float(data["poa"]),float(data["load"]),float(data["temp"]),float(data["kwh"]),float(data["lkwh"]),int(data["pw"]),int(data["pw1"]))
-                        last_time = current_time
             elif data_splitted[0] == "INIT":
                 parsed_data = parse_data(data_splitted[1:])
                 if "nodename" in parsed_data:
