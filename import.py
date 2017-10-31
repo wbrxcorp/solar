@@ -23,6 +23,16 @@ create table nodes(
 	battery_type int,
 	battery_capacity int
 );
+
+create table schedule(
+	id serial primary key,
+	nodename varchar(64) not null,
+	t datetime,
+	`key` varchar(16) not null,
+	int_value int,
+	created_at datetime not null,
+	unique(nodename,t,`key`)
+);
 '''
 
 hostname = 'motion'

@@ -1,24 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 import sys,socket,threading,traceback,datetime,time,uuid
-import MySQLdb
+import database
 
 PORT = 29574
-
-class DatabaseConnection:
-    def __init__(self, dbname = "solar", autocommit = True):
-        self.dbname = dbname
-        self.autocommit = autocommit
-
-    def __enter__(self):
-        self.conn = MySQLdb.connect(db=self.dbname)
-        self.conn.autocommit(self.autocommit)
-        self.cursor = self.conn.cursor()
-        return self.cursor
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        self.cursor.close()
-        self.conn.close()
 
 def parse_data(data):
     parsed_data = {}
@@ -28,24 +13,22 @@ def parse_data(data):
         parsed_data[col_splitted[0]] = col_splitted[1]
     return parsed_data
 
-def save_data(nodename, data):
-    conn = MySQLdb.connect(db="solar")
-    conn.autocommit(True)
-    cur = conn.cursor()
+def process_data(nodename, data):
     now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    response_data = {}
 
-    try:
-	   cur.execute("replace into data(hostname,t,piv,pia,piw,pov,poa,loadw,temp,kwh,lkwh) values(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)", (nodename,now_str, float(data["piv"]),float(data["pia"]),float(data["piw"]),float(data["bv"]),float(data["poa"]),float(data["load"]),float(data["temp"]),float(data["kwh"]),float(data["lkwh"])))
-    except:
-        print "# Database error!"
-        print traceback.format_exc()
-    finally:
-        cur.close()
-        conn.close()
-    return now_str
+    with database.Connection() as cur:
+        cur.execute("replace into data(hostname,t,piv,pia,piw,pov,poa,loadw,temp,kwh,lkwh) values(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)", (nodename,now_str, float(data["piv"]),float(data["pia"]),float(data["piw"]),float(data["bv"]),float(data["poa"]),float(data["load"]),float(data["temp"]),float(data["kwh"]),float(data["lkwh"])))
+        cur.execute("select id,`key`,int_value from schedule where nodename=%s and (t is null or t <= now())", (nodename,))
+        for row in cur:
+            id,key,int_value = row
+            response_data[key] = int_value
+            cur.execute("delete from schedule where id=%s", (id,))
+
+    return (now_str, response_data)
 
 def get_node_config(nodename):
-    with DatabaseConnection() as cur:
+    with database.Connection() as cur:
         cur.execute("select battery_type,battery_capacity from nodes where nodename=%s", (nodename,))
         row = cur.fetchone()
         if row is None: return None
@@ -78,7 +61,9 @@ def process_connection(conn, addr):
                     piv = float(data["piv"])
                     current_time = time.time()
                     if piv > 0.0 or current_time >= last_time + 60:
-                        now_str = save_data(nodename,data)
+                        now_str,_response_data = process_data(nodename,data)
+                        for k,v in _response_data.iteritems():
+                            if v is not None: response_data[k] = v
                         if "pw" not in data: data["pw"] = 0
                         if "pw1" not in data: data["pw1"] = 0
                         print "%s\t%s\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t#%d\t%d" % (nodename,now_str,piv,float(data["pia"]),float(data["piw"]),float(data["bv"]),float(data["poa"]),float(data["load"]),float(data["temp"]),float(data["kwh"]),float(data["lkwh"]),int(data["pw"]),int(data["pw1"]))
