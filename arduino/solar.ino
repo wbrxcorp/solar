@@ -892,6 +892,32 @@ bool process_command_line(const char* line) // true = go to next line,  false = 
     return false;
   } else if (strcmp_P(lineparser[0], PSTR("?")) == 0 || strcmp_P(lineparser[0], PSTR("help")) == 0) {
     Serial.println(F("Available commands: nodename ssid key servername port exit"));
+#if defined(ARDUINO_AVR_MEGA) || defined(ARDUINO_AVR_MEGA2560)
+  } else if (strcmp_P(lineparser[0], PSTR("readcc")) == 0) {
+    Serial.println("Reading values from charge controller...");
+    EPSolarTracerInputRegister reg;
+    char buf[128];
+    if (get_register(0x3100, 6, reg)) {
+      float piv = reg.getFloatValue(0);
+      float pia = reg.getFloatValue(2);
+      double piw = reg.getDoubleValue(4);
+      float bv = reg.getFloatValue(8);
+      float poa = reg.getFloatValue(10);
+      strcpy_P(buf, PSTR("\tpiv:"));
+      dtostrf(piv, 4, 2, buf + strlen(buf));
+      strcat_P(buf, PSTR("\tpia:"));
+      dtostrf(pia, 4, 2, buf + strlen(buf));
+      strcat_P(buf, PSTR("\tpiw:"));
+      dtostrf(piw, 4, 2, buf + strlen(buf));
+      strcat_P(buf, PSTR("\tbv:"));
+      dtostrf(bv, 4, 2, buf + strlen(buf));
+      strcat_P(buf, PSTR("\tpoa:"));
+      dtostrf(poa, 4, 2, buf + strlen(buf));
+      Serial.println(buf);
+    } else {
+      Serial.println("Reading register failed.");
+    }
+#endif
   } else {
     Serial.println(F("Unrecognized command."));
   }
@@ -944,7 +970,7 @@ void loop_normal()
     double lkwh;
     double kwh;
     int pw;
-    char buf[256] = "NODATA\n";
+    char buf[256] = "NODATA";
 
     if (get_register(0x3100, 6, reg)) {
       piv = reg.getFloatValue(0);
@@ -964,12 +990,7 @@ void loop_normal()
             kwh = reg.getDoubleValue(0);
             if (get_register(0x0002, 1, reg)) { // Manual control the load
               pw = reg.getBoolValue(0)? 1 : 0;
-              sprintf_P(buf, PSTR("DATA\tnodename:%s"), config.nodename);
-              if (session_id[0]) {
-                strcat_P(buf, PSTR("\tsession:"));
-                strcat(buf, session_id);
-              }
-              strcat_P(buf, PSTR("\tpiv:"));
+              strcpy_P(buf, PSTR("DATA\tpiv:"));
               dtostrf(piv, 4, 2, buf + strlen(buf));
               strcat_P(buf, PSTR("\tpia:"));
               dtostrf(pia, 4, 2, buf + strlen(buf));
@@ -993,6 +1014,13 @@ void loop_normal()
           }
         }
       }
+    }
+
+    strcat_P(buf, "\tnodename:");
+    strcat(buf, config.nodename);
+    if (session_id[0]) {
+      strcat_P(buf, "\tsession:");
+      strcat(buf, session_id);
     }
 
     listen_wifi();
