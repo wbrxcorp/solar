@@ -68,9 +68,9 @@ def process_connection(conn, addr):
                     piv = float(data["piv"])
 
                     now_str,_response_data,saved = process_data(nodename,data)
+                    for k,v in _response_data.iteritems():
+                        if v is not None: response_data[k] = v
                     if saved:
-                        for k,v in _response_data.iteritems():
-                            if v is not None: response_data[k] = v
                         if "pw" not in data: data["pw"] = 0
                         if "pw1" not in data: data["pw1"] = 0
                         print "%s\t%s\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t#%d\t%d" % (nodename,now_str,piv,float(data["pia"]),float(data["piw"]),float(data["bv"]),float(data["poa"]),float(data["load"]),float(data["temp"]),float(data["kwh"]),float(data["lkwh"]),int(data["pw"]),int(data["pw1"]))
