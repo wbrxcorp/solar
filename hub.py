@@ -100,7 +100,7 @@ def process_connection(conn, addr):
             conn.send("\n")
     finally:
         conn.close()
-    print "# Connection from %s closed." % (naddr[0],)
+    print "# Connection from %s closed." % (addr[0],)
 
 if __name__ == '__main__':
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
