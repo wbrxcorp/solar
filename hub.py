@@ -94,10 +94,11 @@ def process_connection(conn, addr):
                             if v is not None: response_data[k] = v
 
             sys.stdout.flush()
-            conn.send("OK")
+
+            response = "OK"
             for k,v in response_data.iteritems():
-                conn.send("\t%s:%s" % (k, str(v)))
-            conn.send("\n")
+                if v is not None: response += "\t%s:%s" % (k, str(v))
+            conn.send(response + "\n")
     finally:
         conn.close()
     print "# Connection from %s closed." % (addr[0],)
