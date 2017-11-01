@@ -217,8 +217,10 @@ public:
     if (_data) delete []_data;
   }
   void setData(const uint8_t* data, size_t size) {
-    if (_data) delete []_data;
-    _data = new uint8_t[size];
+    if (_data && size > _size) {
+      delete []_data;
+      _data = new uint8_t[size];
+    }
     memcpy(_data, data, size);
     _size = size;
   }
@@ -298,6 +300,7 @@ bool wait_for_result(const char* successCharSeq, const char* failCharSeq)
 {
   ExpectedCharSeq success(successCharSeq);
   ExpectedCharSeq fail(failCharSeq);
+  ExpectedCharSeq ready("\r\nready\r\n"); // for unexpected esp8266 reset
   while (true) {
     int available = WiFi.available();
     if (available > 0) {
@@ -307,7 +310,7 @@ bool wait_for_result(const char* successCharSeq, const char* failCharSeq)
         Serial.write(c);
 #endif
         if (success.push(c)) return true;
-        if (fail.push(c)) return false;
+        if (fail.push(c) || ready.push(c)) return false;
       }
     } else delay(100);
   }
@@ -363,7 +366,7 @@ void connect()
   char buf[128];
   while (true) {
     Serial.println(F("Connecting to WiFi AP..."));
-    strcpy(buf, "AT+CWJAP_CUR=\"");
+    strcpy_P(buf, PSTR("AT+CWJAP_CUR=\""));
     strcat(buf, config.ssid);
     strcat_P(buf, PSTR("\",\""));
     strcat(buf, config.key);
@@ -402,14 +405,10 @@ void connect()
 
 void send_message_with_autoreconnect(const char* message)
 {
-  int reconnect_delay = 1; /*sec*/
   while (!send_message(message)) {
     Serial.println(F("Connection error. performing autoreconnect..."));
-    // retry
-    delay(reconnect_delay * 1000);
+    delay(970);
     connect();
-    reconnect_delay *= 2;
-    if (reconnect_delay > 60) reconnect_delay = 60;
   }
 }
 
@@ -1016,10 +1015,10 @@ void loop_normal()
       }
     }
 
-    strcat_P(buf, "\tnodename:");
+    strcat_P(buf, PSTR("\tnodename:"));
     strcat(buf, config.nodename);
     if (session_id[0]) {
-      strcat_P(buf, "\tsession:");
+      strcat_P(buf, PSTR("\tsession:"));
       strcat(buf, session_id);
     }
 
