@@ -362,7 +362,7 @@ bool send_message(const char* message)
 
 void connect()
 {
-  int retry_delay = 1;/*sec*/
+  unsigned long retry_delay = 1;/*sec*/
   char buf[128];
   while (true) {
     Serial.println(F("Connecting to WiFi AP..."));
@@ -396,7 +396,9 @@ void connect()
       Serial.println(F("Connecting to WiFi AP failed."));
     }
     // retry
-    Serial.println(F("Performing retry..."));
+    Serial.print(F("Performing retry ("));
+    Serial.print(retry_delay);
+    Serial.println(F("sec)..."));
     delay(retry_delay * 1000);
     retry_delay *= 2;
     if (retry_delay > 60) retry_delay = 60;
