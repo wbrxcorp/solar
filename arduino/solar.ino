@@ -219,6 +219,9 @@ public:
   void setData(const uint8_t* data, size_t size) {
     if (_data && size > _size) {
       delete []_data;
+      _data = NULL;
+    }
+    if (_data == NULL) {
       _data = new uint8_t[size];
     }
     memcpy(_data, data, size);
@@ -405,15 +408,6 @@ void connect()
   }
 }
 
-void send_message_with_autoreconnect(const char* message)
-{
-  while (!send_message(message)) {
-    Serial.println(F("Connection error. performing autoreconnect..."));
-    delay(970);
-    connect();
-  }
-}
-
 size_t get_stream_length()
 {
   if (!wait_for_result("\r\n+IPD,", "CLOSED\r\n")) return 0; // can be "CLOSED" when TCP session is lost
@@ -475,9 +469,9 @@ bool get_register(uint16_t addr, uint8_t num, EPSolarTracerInputRegister& reg, i
 
   for (int i = 0; i < max_retry; i++) {
     digitalWrite(RS485_RTS_SOCKET,HIGH);
-    delay(1);
+    delay(10);
     RS485.write(message, sizeof(message));
-    delay(1);
+    RS485.flush();
     digitalWrite(RS485_RTS_SOCKET,LOW);
     uint8_t hdr[3];
     if (RS485.readBytes(hdr, sizeof(hdr)) == sizeof(hdr)) {
@@ -1025,7 +1019,12 @@ void loop_normal()
     }
 
     listen_wifi();
-    send_message_with_autoreconnect(buf);
+    while (!send_message(buf)) {
+      // Perform autoreconnect when something fails
+      Serial.println(F("Connection error. performing autoreconnect..."));
+      delay(970);
+      connect();
+    }
 
     last_report_time = current_time;
   }
