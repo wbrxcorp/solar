@@ -268,6 +268,42 @@ public:
   }
 };
 
+class EPSolarTracerDeviceInfo {
+  char* vendor_name;
+  char* product_code;
+  char* revision;
+public:
+  EPSolarTracerDeviceInfo() : vendor_name(NULL), product_code(NULL), revision(NULL) {
+    ;
+  }
+  ~EPSolarTracerDeviceInfo() {
+    if (vendor_name) delete [] vendor_name;
+    if (product_code) delete [] product_code;
+    if (revision) delete[] revision;
+  }
+  void set_value(uint8_t object_id, uint8_t object_length, const uint8_t* object_value) {
+    if (object_id == 0x00/*VendorName*/) {
+      if (vendor_name) delete[] vendor_name;
+      vendor_name = new char[object_length + 1];
+      memcpy(vendor_name, object_value, object_length);
+      vendor_name[object_length] = '\0';
+    } else if (object_id == 0x01/*ProductCode*/) {
+      if (product_code) delete[] product_code;
+      product_code = new char[object_length + 1];
+      memcpy(product_code, object_value, object_length);
+      product_code[object_length] = '\0';
+    } else if (object_id == 0x02/*MajorMinorRevision*/) {
+      if (revision) delete[] revision;
+      revision = new char[object_length + 1];
+      memcpy(revision, object_value, object_length);
+      revision[object_length] = '\0';
+    };
+  }
+  const char* get_vendor_name() const { return vendor_name; }
+  const char* get_product_code() const { return product_code; }
+  const char* get_revision() const { return revision; }
+};
+
 void listen_rs485()
 {
   #ifdef ARDUINO_AVR_UNO
@@ -458,6 +494,40 @@ void put_crc(uint8_t* message, size_t payload_size)
   message[payload_size + 1] = HIBYTE(crc);
 }
 
+// http://www.modbus.org/docs/Modbus_Application_Protocol_V1_1b.pdf
+bool get_device_info(EPSolarTracerDeviceInfo& info)
+{
+  byte message[] = {0x01, 0x2b, 0x0e, 0x01/*basic info*/,0x00, 0x00, 0x00 };
+  put_crc(message, sizeof(message) - 2);
+
+  digitalWrite(RS485_RTS_SOCKET,HIGH);
+  delay(10);
+  RS485.write(message, sizeof(message));
+  RS485.flush();
+  digitalWrite(RS485_RTS_SOCKET,LOW);
+
+  byte hdr[8];
+  if (RS485.readBytes(hdr, sizeof(hdr)) && memcmp(hdr, message, 4) == 0) {
+    uint16_t crc = 0xffff;
+    for (int i = 0; i < sizeof(hdr); i++) crc = update_crc(crc, hdr[i]);
+
+    uint8_t num_objects = hdr[7];
+    for (int i = 0; i < num_objects; i++) {
+      uint8_t object_hdr[2];
+      if (RS485.readBytes(object_hdr, sizeof(object_hdr)) != sizeof(object_hdr)) break;
+      crc = update_crc(update_crc(crc, object_hdr[0]), object_hdr[1]);
+      uint8_t object_value[object_hdr[1]];
+      if (RS485.readBytes(object_value, sizeof(object_value)) != sizeof(object_value)) break;
+      for (int i = 0; i < sizeof(object_value); i++) crc = update_crc(crc, object_value[i]);
+      info.set_value(object_hdr[0], object_hdr[1], object_value);
+    }
+    // crc check
+    uint8_t rx_crc[2] = {0, 0};
+    if (RS485.readBytes(rx_crc, sizeof(rx_crc)) != sizeof(rx_crc) || RS485.available() || rx_crc[0] != LOBYTE(crc) || rx_crc[1] != HIBYTE(crc)) return false;
+  }
+  return true;
+}
+
 bool get_register(uint16_t addr, uint8_t num, EPSolarTracerInputRegister& reg, int max_retry = 10)
 {
   uint8_t function_code = 0x04; // Read Input Register
@@ -509,9 +579,8 @@ bool put_register(uint16_t addr, uint16_t data)
   put_crc(message, sizeof(message) - 2);
 
   digitalWrite(RS485_RTS_SOCKET,HIGH);
-  delay(1);
   RS485.write(message, sizeof(message));
-  delay(1);
+  RS485.flush();
   digitalWrite(RS485_RTS_SOCKET,LOW);
   delay(50);
   while (RS485.available()) RS485.read(); // simply discard response(TODO: check the response)
@@ -537,9 +606,8 @@ bool put_registers(uint16_t addr, uint16_t* data, uint16_t num)
   put_crc(message, message_size - 2);
 
   digitalWrite(RS485_RTS_SOCKET,HIGH);
-  delay(1);
   RS485.write(message, sizeof(message));
-  delay(1);
+  RS485.flush();
   digitalWrite(RS485_RTS_SOCKET,LOW);
   delay(50);
   while (RS485.available()) RS485.read(); // simply discard response(TODO: check the response)
@@ -606,6 +674,18 @@ void setup() {
 
   // get info from caharge controller
   listen_rs485();
+  EPSolarTracerDeviceInfo info;
+  if (get_device_info(info)) {
+    Serial.print("Vendor: ");
+    Serial.println(info.get_vendor_name());
+    Serial.print("Product: ");
+    Serial.println(info.get_product_code());
+    Serial.print("Revision: ");
+    Serial.println(info.get_revision());
+  } else {
+    Serial.println(F("Getting charge controller device info failed!"));
+  }
+
   EPSolarTracerInputRegister reg;
   if (get_register(0x9013/*Real Time Clock*/, 3, reg)) {
     uint64_t rtc = reg.getRTCValue(0);
@@ -632,7 +712,7 @@ void setup() {
       Serial.println(buf);
     }
   } else {
-    Serial.println(F("Charge controller is not connected!"));
+    Serial.println(F("Getting charge controller settings failed!"));
   }
 
   listen_wifi();
@@ -890,6 +970,7 @@ bool process_command_line(const char* line) // true = go to next line,  false = 
 #if defined(ARDUINO_AVR_MEGA) || defined(ARDUINO_AVR_MEGA2560)
   } else if (strcmp_P(lineparser[0], PSTR("readcc")) == 0) {
     Serial.println("Reading values from charge controller...");
+
     EPSolarTracerInputRegister reg;
     char buf[128];
     if (get_register(0x3100, 6, reg)) {
