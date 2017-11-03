@@ -539,7 +539,7 @@ bool get_register(uint16_t addr, uint8_t num, EPSolarTracerInputRegister& reg, i
     // else
     while (RS485.available()) RS485.read(); // discard remaining bytes
     Serial.println("Retrying...");
-    delay(50);
+    delay(200);
   }
   return false;
 }
@@ -1012,7 +1012,8 @@ void loop_normal()
     double lkwh;
     double kwh;
     int pw;
-    char buf[256] = "NODATA";
+
+    bool success = false;
 
     if (get_register(0x3100, 6, reg)) {
       piv = reg.getFloatValue(0);
@@ -1032,41 +1033,72 @@ void loop_normal()
             kwh = reg.getDoubleValue(0);
             if (get_register(0x0002, 1, reg)) { // Manual control the load
               pw = reg.getBoolValue(0)? 1 : 0;
-              strcpy_P(buf, PSTR("DATA\tpiv:"));
-              dtostrf(piv, 4, 2, buf + strlen(buf));
-              strcat_P(buf, PSTR("\tpia:"));
-              dtostrf(pia, 4, 2, buf + strlen(buf));
-              strcat_P(buf, PSTR("\tpiw:"));
-              dtostrf(piw, 4, 2, buf + strlen(buf));
-              strcat_P(buf, PSTR("\tbv:"));
-              dtostrf(bv, 4, 2, buf + strlen(buf));
-              strcat_P(buf, PSTR("\tpoa:"));
-              dtostrf(poa, 4, 2, buf + strlen(buf));
-              strcat_P(buf, PSTR("\tload:"));
-              dtostrf(load, 4, 2, buf + strlen(buf));
-              strcat_P(buf, PSTR("\ttemp:"));
-              dtostrf(temp, 4, 2, buf + strlen(buf));
-              strcat_P(buf, PSTR("\tlkwh:"));
-              dtostrf(lkwh, 4, 2, buf + strlen(buf));
-              strcat_P(buf, PSTR("\tkwh:"));
-              dtostrf(kwh, 4, 2, buf + strlen(buf));
-              sprintf_P(buf + strlen(buf), PSTR("\tpw:%d"), pw);
-              sprintf_P(buf + strlen(buf), PSTR("\tpw1:%d"), read_pw1()? 1 : 0);
+              success = true;
             }
           }
         }
       }
     }
 
-    strcat_P(buf, PSTR("\tnodename:"));
-    strcat(buf, config.nodename);
-    if (session_id[0]) {
-      strcat_P(buf, PSTR("\tsession:"));
-      strcat(buf, session_id);
-    }
-
     listen_wifi();
-    while (!send_message(buf)) {
+    while (true) {
+      char buf[64];
+      if (success) {
+        strcpy_P(buf, PSTR("DATA\tpiv:"));
+        dtostrf(piv, 4, 2, buf + strlen(buf));
+        WiFi.write(buf);
+
+        strcpy_P(buf, PSTR("\tpia:"));
+        dtostrf(pia, 4, 2, buf + strlen(buf));
+        WiFi.write(buf);
+
+        strcpy_P(buf, PSTR("\tpiw:"));
+        dtostrf(piw, 4, 2, buf + strlen(buf));
+        WiFi.write(buf);
+
+        strcpy_P(buf, PSTR("\tbv:"));
+        dtostrf(bv, 4, 2, buf + strlen(buf));
+        WiFi.write(buf);
+
+        strcpy_P(buf, PSTR("\tpoa:"));
+        dtostrf(poa, 4, 2, buf + strlen(buf));
+        WiFi.write(buf);
+
+        strcpy_P(buf, PSTR("\tload:"));
+        dtostrf(load, 4, 2, buf + strlen(buf));
+        WiFi.write(buf);
+
+        strcpy_P(buf, PSTR("\ttemp:"));
+        dtostrf(temp, 4, 2, buf + strlen(buf));
+        WiFi.write(buf);
+
+        strcpy_P(buf, PSTR("\tlkwh:"));
+        dtostrf(lkwh, 4, 2, buf + strlen(buf));
+        WiFi.write(buf);
+
+        strcpy_P(buf, PSTR("\tkwh:"));
+        dtostrf(kwh, 4, 2, buf + strlen(buf));
+        WiFi.write(buf);
+
+        sprintf_P(buf, PSTR("\tpw:%d"), pw);
+        sprintf_P(buf + strlen(buf), PSTR("\tpw1:%d"), read_pw1()? 1 : 0);
+        WiFi.write(buf);
+      } else {
+        WiFi.write("NODATA");
+      }
+
+      strcpy_P(buf, PSTR("\tnodename:"));
+      strcat(buf, config.nodename);
+      WiFi.write(buf);
+
+      if (session_id[0]) {
+        strcpy_P(buf, PSTR("\tsession:"));
+        strcat(buf, session_id);
+        WiFi.write(buf);
+      }
+
+      if (send_message("")) break;
+      //else
       // Perform autoreconnect when something fails
       Serial.println(F("Connection error. performing autoreconnect..."));
       delay(970);
