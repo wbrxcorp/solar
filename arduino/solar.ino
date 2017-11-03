@@ -21,13 +21,13 @@
   #define PW_IND_LED_SOCKET 9
   #define COMMAND_LINE_ONLY_MODE_SOCKET 10
 #elif defined(ARDUINO_AVR_MEGA) || defined(ARDUINO_AVR_MEGA2560)
+  #define USE_HARDWARE_SERIAL
   #define RS485_RTS_SOCKET 2
   #define PW_SW_SOCKET 3
   #define PW_LED_SOCKET 4
   #define PW_IND_LED_SOCKET 5
   #define COMMAND_LINE_ONLY_MODE_SOCKET 7
 #endif
-
 
 #define REPORT_INTERVAL 5000
 #define ACPI_SHUTDOWN_TIMEOUT 10000
@@ -41,18 +41,14 @@
 
 #define COMM_BUF_MAX 64   // set max line size to serial's internal buffer size
 
-const char DEFAULT_NODENAME[] PROGMEM = "kennel01";
-const char DEFAULT_SSID[] PROGMEM = "YOUR_ESSID";
-const char DEFAULT_WPA_KEY[] PROGMEM = "YOUR_WPA_KEY";
-const char DEFAULT_SERVERNAME[] PROGMEM = "your.server";
-const uint16_t DEFAULT_PORT = 29574;
+const uint16_t DEFAULT_PORT = 29574; // default server port number
 
-#ifdef ARDUINO_AVR_UNO
-  SoftwareSerial WiFi(WIFI_RX_SOCKET, WIFI_TX_SOCKET); // RX, TX
-  SoftwareSerial RS485(RS485_RX_SOCKET, RS485_TX_SOCKET, 0); // RX, TX
-#elif defined(ARDUINO_AVR_MEGA) || defined(ARDUINO_AVR_MEGA2560)
+#ifdef USE_HARDWARE_SERIAL
   #define WiFi Serial1
   #define RS485 Serial2
+#else
+  SoftwareSerial WiFi(WIFI_RX_SOCKET, WIFI_TX_SOCKET); // RX, TX
+  SoftwareSerial RS485(RS485_RX_SOCKET, RS485_TX_SOCKET); // RX, TX
 #endif
 
 uint8_t operation_mode = OPERATION_MODE_NORMAL;
@@ -304,18 +300,26 @@ public:
   const char* get_revision() const { return revision; }
 };
 
-void listen_rs485()
-{
-  #ifdef ARDUINO_AVR_UNO
-  RS485.listen();
-  #endif
-}
+#ifdef USE_HARDWARE_SERIAL
+  // Hardware Serial doesn't need to listen explicitly
+  void listen_rs485() { ; }
+  void listen_wifi(){ ; }
+#else
+  void listen_rs485() { RS485.listen(); }
+  void listen_wifi(){ WiFi.listen(); }
+#endif
 
-void listen_wifi()
+void send_modbus_message(const uint8_t* message, size_t size)
 {
-  #ifdef ARDUINO_AVR_UNO
-  WiFi.listen();
-  #endif
+  digitalWrite(RS485_RTS_SOCKET,HIGH);
+  delay(1);
+  RS485.write(message, size);
+#ifdef USE_HARDWARE_SERIAL
+  RS485.flush();
+#else
+  delay(1);
+#endif
+  digitalWrite(RS485_RTS_SOCKET,LOW);
 }
 
 void wait_for(const char* expectedCharSeq)
@@ -444,32 +448,6 @@ void connect()
   }
 }
 
-size_t get_stream_length()
-{
-  if (!wait_for_result("\r\n+IPD,", "CLOSED\r\n")) return 0; // can be "CLOSED" when TCP session is lost
-  int bytes = 0;
-  while(true) {
-    int available = WiFi.available();
-    if (available > 0) {
-      for (int i = 0; i < available; i++) {
-        char c = WiFi.read();
-#ifdef DEBUG_AT_COMMANDS
-        Serial.write(c);
-#endif
-        if (c == ':') {
-          //Serial.print("Stream length:");
-          //Serial.println(bytes);
-          return (size_t)bytes;
-        }
-        if (c >= '0' && c <= '9') {
-          bytes *= 10;
-          bytes += (c - '0');
-        }
-      }
-    } else delay(10);
-  }
-}
-
 uint16_t update_crc(uint16_t crc, uint8_t val)
 {
   crc ^= (uint16_t)val;
@@ -500,11 +478,7 @@ bool get_device_info(EPSolarTracerDeviceInfo& info)
   byte message[] = {0x01, 0x2b, 0x0e, 0x01/*basic info*/,0x00, 0x00, 0x00 };
   put_crc(message, sizeof(message) - 2);
 
-  digitalWrite(RS485_RTS_SOCKET,HIGH);
-  delay(10);
-  RS485.write(message, sizeof(message));
-  RS485.flush();
-  digitalWrite(RS485_RTS_SOCKET,LOW);
+  send_modbus_message(message, sizeof(message));
 
   byte hdr[8];
   if (RS485.readBytes(hdr, sizeof(hdr)) && memcmp(hdr, message, 4) == 0) {
@@ -538,11 +512,7 @@ bool get_register(uint16_t addr, uint8_t num, EPSolarTracerInputRegister& reg, i
   put_crc(message, sizeof(message) - 2);
 
   for (int i = 0; i < max_retry; i++) {
-    digitalWrite(RS485_RTS_SOCKET,HIGH);
-    delay(10);
-    RS485.write(message, sizeof(message));
-    RS485.flush();
-    digitalWrite(RS485_RTS_SOCKET,LOW);
+    send_modbus_message(message, sizeof(message));
     uint8_t hdr[3];
     if (RS485.readBytes(hdr, sizeof(hdr)) == sizeof(hdr)) {
       if (hdr[0] == message[0] && hdr[1] == message[1]) { // check function code and slave address
@@ -558,6 +528,8 @@ bool get_register(uint16_t addr, uint8_t num, EPSolarTracerInputRegister& reg, i
               if (rx_crc[0] == LOBYTE(crc) && rx_crc[1] == HIBYTE(crc)) {
                 reg.setData(buf, data_size);
                 return true;
+              } else {
+                Serial.println("CRC doesn't match");
               }
             }
           }
@@ -566,6 +538,7 @@ bool get_register(uint16_t addr, uint8_t num, EPSolarTracerInputRegister& reg, i
     }
     // else
     while (RS485.available()) RS485.read(); // discard remaining bytes
+    Serial.println("Retrying...");
     delay(50);
   }
   return false;
@@ -578,10 +551,7 @@ bool put_register(uint16_t addr, uint16_t data)
   byte message[] = {0x01, function_code, HIBYTE(addr), LOBYTE(addr), HIBYTE(data), LOBYTE(data), 0x00, 0x00 };
   put_crc(message, sizeof(message) - 2);
 
-  digitalWrite(RS485_RTS_SOCKET,HIGH);
-  RS485.write(message, sizeof(message));
-  RS485.flush();
-  digitalWrite(RS485_RTS_SOCKET,LOW);
+  send_modbus_message(message, sizeof(message));
   delay(50);
   while (RS485.available()) RS485.read(); // simply discard response(TODO: check the response)
   return true;
@@ -605,10 +575,7 @@ bool put_registers(uint16_t addr, uint16_t* data, uint16_t num)
   }
   put_crc(message, message_size - 2);
 
-  digitalWrite(RS485_RTS_SOCKET,HIGH);
-  RS485.write(message, sizeof(message));
-  RS485.flush();
-  digitalWrite(RS485_RTS_SOCKET,LOW);
+  send_modbus_message(message, sizeof(message));
   delay(50);
   while (RS485.available()) RS485.read(); // simply discard response(TODO: check the response)
   return true;
@@ -623,8 +590,8 @@ void setup() {
   RS485.begin(115200);
   pinMode(RS485_RTS_SOCKET, OUTPUT);
 
-#if defined(ARDUINO_AVR_MEGA) || defined(ARDUINO_AVR_MEGA2560)
-  WiFi.begin(115200);
+#if USE_HARDWARE_SERIAL
+  WiFi.begin(115200); // Look, this is power of hardware serial.
 #else
   //WiFi.begin(115200);
   //WiFi.write("AT+UART_DEF=9600,8,1,0,0\r\n");
@@ -647,10 +614,11 @@ void setup() {
     Serial.print(config.crc);
     Serial.print(F("). entering command line only mode.\r\n# "));
     memset(&config, 0, sizeof(config));
-    strcpy_P(config.nodename, DEFAULT_NODENAME);
-    strcpy_P(config.ssid, DEFAULT_SSID);
-    strcpy_P(config.key, DEFAULT_WPA_KEY);
-    strcpy_P(config.servername, DEFAULT_SERVERNAME);
+
+    strcpy_P(config.nodename, PSTR("kennel01"));
+    strcpy_P(config.ssid, PSTR("YOUR_ESSID"));
+    strcpy_P(config.key, PSTR("YOUR_WPA_KEY"));
+    strcpy_P(config.servername, PSTR("your.server"));
     config.port = DEFAULT_PORT;
     operation_mode = OPERATION_MODE_COMMAND_LINE_ONLY;
     return;
@@ -967,7 +935,6 @@ bool process_command_line(const char* line) // true = go to next line,  false = 
     return false;
   } else if (strcmp_P(lineparser[0], PSTR("?")) == 0 || strcmp_P(lineparser[0], PSTR("help")) == 0) {
     Serial.println(F("Available commands: nodename ssid key servername port exit"));
-#if defined(ARDUINO_AVR_MEGA) || defined(ARDUINO_AVR_MEGA2560)
   } else if (strcmp_P(lineparser[0], PSTR("readcc")) == 0) {
     Serial.println("Reading values from charge controller...");
 
@@ -993,7 +960,6 @@ bool process_command_line(const char* line) // true = go to next line,  false = 
     } else {
       Serial.println("Reading register failed.");
     }
-#endif
   } else {
     Serial.println(F("Unrecognized command."));
   }
