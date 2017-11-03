@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import argparse
+import datetime,argparse
 import cv2
 
 if __name__ == '__main__':
@@ -17,4 +17,11 @@ if __name__ == '__main__':
     cap.set(3, args.width)
     cap.set(4, args.height)
     for i in range(args.skip_frames): r, frame = cap.read()
+
+    text = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    fontface = cv2.FONT_HERSHEY_PLAIN
+    fontscale = 2
+    thickness = 2
+    textsize, _ = cv2.getTextSize(text, fontface, fontscale, thickness)
+    cv2.putText(frame,text,(args.width - textsize[0],args.height),fontface,fontscale,(255,255,255),thickness)
     cv2.imwrite(args.output_file, frame)
