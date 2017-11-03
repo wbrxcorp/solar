@@ -1087,17 +1087,16 @@ void loop_normal()
         WiFi.write("NODATA");
       }
 
-      strcpy_P(buf, PSTR("\tnodename:"));
-      strcat(buf, config.nodename);
-      WiFi.write(buf);
-
       if (session_id[0]) {
         strcpy_P(buf, PSTR("\tsession:"));
         strcat(buf, session_id);
         WiFi.write(buf);
       }
 
-      if (send_message("")) break;
+      strcpy_P(buf, PSTR("\tnodename:"));
+      strcat(buf, config.nodename);
+
+      if (send_message(buf)) break;
       //else
       // Perform autoreconnect when something fails
       Serial.println(F("Connection error. performing autoreconnect..."));
