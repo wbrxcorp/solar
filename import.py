@@ -33,6 +33,15 @@ create table schedule(
 	created_at datetime not null,
 	unique(nodename,t,`key`)
 );
+
+create table bv_conditions(
+	nodename varchar(64) not null,
+	`key` varchar(16) not null,
+	int_value int,
+	lt float,
+	gt float,
+	primary key(nodename,`key`,int_value)
+);
 '''
 
 hostname = 'motion'
