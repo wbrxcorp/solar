@@ -171,7 +171,9 @@ void connect()
       // query mDNS
       Serial.print("Querying mDNS...");
       MDNSResponder mdns;
-      if (mdns.begin(config.nodename, TCPIP_ADAPTER_IF_STA, 300)) {
+      char tmp_hostname[strlen(config.nodename) + 8] = "nodexxx";
+      strcat(tmp_hostname, config.nodename);
+      if (mdns.begin(tmp_hostname, TCPIP_ADAPTER_IF_STA, 300)) {
         char servername_without_suffix[servername_len - 5];
         strncpy(servername_without_suffix, config.servername, servername_len - 6);
         servername_without_suffix[servername_len - 6] = '\0';
