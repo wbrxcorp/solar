@@ -44,8 +44,8 @@
 const uint16_t DEFAULT_PORT = 29574; // default server port number
 
 #ifdef USE_HARDWARE_SERIAL
-  #define WiFi Serial1
-  #define RS485 Serial2
+  #define WiFi Serial1 // RX=19,TX=18
+  #define RS485 Serial2 // RX=17, TX=16
 #else
   SoftwareSerial WiFi(WIFI_RX_SOCKET, WIFI_TX_SOCKET); // RX, TX
   SoftwareSerial RS485(RS485_RX_SOCKET, RS485_TX_SOCKET); // RX, TX
@@ -590,7 +590,7 @@ void setup() {
   RS485.begin(115200);
   pinMode(RS485_RTS_SOCKET, OUTPUT);
 
-#if USE_HARDWARE_SERIAL
+#ifdef USE_HARDWARE_SERIAL
   WiFi.begin(115200); // Look, this is power of hardware serial.
 #else
   //WiFi.begin(115200);
