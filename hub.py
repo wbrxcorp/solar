@@ -22,16 +22,18 @@ def process_data(nodename, data):
         cur.execute("select max(t) from data where hostname=%s", (nodename,))
         last_data_time = cur.fetchone()[0]
         piv = float(data["piv"])
-        bv = float(data["bv"])
         if last_data_time is None or datetime.datetime.now() - last_data_time >= datetime.timedelta(minutes=1) or piv > 0.0:
-            cur.execute("replace into data(hostname,t,piv,pia,piw,pov,poa,loadw,temp,kwh,lkwh) values(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)", (nodename,now_str, piv,float(data["pia"]),float(data["piw"]),bv,float(data["poa"]),float(data["load"]),float(data["temp"]),float(data["kwh"]),float(data["lkwh"])))
+            cur.execute("replace into data(hostname,t,piv,pia,piw,pov,poa,loadw,temp,kwh,lkwh) values(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)", (nodename,now_str, piv,float(data["pia"]),float(data["piw"]),float(data["bv"]),float(data["poa"]),float(data["load"]),float(data["temp"]),float(data["kwh"]),float(data["lkwh"])))
             saved = True
 
-        cur.execute("select `key`,int_value from bv_conditions where nodename=%s and (gt is null or gt < %s) and (lt is null or lt > %s)", (nodename, bv, bv))
-        for row in cur:
-            key,int_value = row
-            if key in data and int_value != int(data[key]):
-                response_data[key] = int_value
+        cur.execute("select avg(pov) from data where hostname=%s and t > now() - interval 1 minute", (nodename, ))
+        bv = cur.fetchone()[0]
+        if bv is not None:
+            cur.execute("select `key`,int_value from bv_conditions where nodename=%s and (gt is null or gt < %s) and (lt is null or lt > %s)", (nodename, bv, bv))
+            for row in cur:
+                key,int_value = row
+                if key in data and int_value != int(data[key]):
+                    response_data[key] = int_value
 
         cur.execute("select id,`key`,int_value from schedule where nodename=%s and (t is null or t <= now())", (nodename,))
         for row in cur:
