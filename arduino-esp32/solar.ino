@@ -1,7 +1,21 @@
 // arduino --upload --board espressif:esp32:esp32doit-devkit-v1:FlashFreq=80,UploadSpeed=115200 --port /dev/ttyUSB0 solar.ino
 #include <EEPROM.h>
 #include <WiFi.h>
+#include <ESPmDNS.h>
 
+#define UART0_RX_SOCKET
+#define UART0_TX_SOCKET
+#define SOCKET_26
+#define SOCKET_25
+#define UART2_TX_SOCKET 17
+#define UART2_RX_SOCKET 16
+#define RS485_RTS_SOCKET 27
+#define SOCKET_14
+
+#define PW1_SW_SOCKET 12
+#define PW1_LED_SOCKET 13
+#define PW2_SW_SOCKET 5
+#define PW2_LED_SOCKET 23
 #define PW_IND_LED_SOCKET 19
 #define COMMAND_LINE_ONLY_MODE_SOCKET 18
 
@@ -9,7 +23,7 @@
 #define OPERATION_MODE_COMMAND_LINE 1
 #define OPERATION_MODE_COMMAND_LINE_ONLY 2
 
-#define COMM_BUF_MAX 64
+#define COMM_BUF_MAX 128
 
 const uint16_t DEFAULT_PORT = 29574; // default server port number
 
@@ -115,6 +129,7 @@ LineBuffer receive_buffer(COMM_BUF_MAX);
 LineBuffer cmdline_buffer(COMM_BUF_MAX, '\r'/*cu sends \r instead of \n*/);
 
 HardwareSerial RS485(2);  // RX=16,TX=17
+WiFiClient tcp_client;
 
 uint8_t operation_mode = OPERATION_MODE_NORMAL;
 
@@ -141,8 +156,60 @@ uint16_t update_crc(uint16_t crc, uint8_t val)
   return crc;
 }
 
+void connect()
+{
+  unsigned long retry_delay = 1;/*sec*/
+  while (true) {
+    Serial.print("Connecting to ");
+    Serial.print(config.servername);
+    Serial.print(':');
+    Serial.print(config.port);
+    Serial.println("...");
+    int connected = 0;
+    int servername_len = strlen(config.servername);
+    if (servername_len > 6 && strcmp(config.servername + servername_len - 6, ".local") == 0) {
+      // query mDNS
+      Serial.print("Querying mDNS...");
+      MDNSResponder mdns;
+      if (mdns.begin(config.nodename, TCPIP_ADAPTER_IF_STA, 300)) {
+        char servername_without_suffix[servername_len - 5];
+        strncpy(servername_without_suffix, config.servername, servername_len - 6);
+        servername_without_suffix[servername_len - 6] = '\0';
+        IPAddress addr = mdns.queryHost(servername_without_suffix);
+        mdns.end();
+        if (addr != INADDR_NONE)  {
+          Serial.println(addr.toString());
+          connected = tcp_client.connect(addr, config.port);
+        } else {
+          Serial.println("Failed to obtain server IP address via mDNS.");
+        }
+      } else {
+        Serial.println("Failed to init mDNS.");
+      }
+    } else {
+      connected = tcp_client.connect(config.servername, config.port);
+    }
+    if (connected) {
+      Serial.println("Connected.");
+      return;
+    }
+    // else
+    Serial.print("Connection failed. Performing retry (");
+    Serial.print(retry_delay);
+    Serial.println("sec)...");
+    delay(retry_delay * 1000);
+    retry_delay *= 2;
+    if (retry_delay > 60) retry_delay = 60;
+  }
+}
+
 void setup() {
   Serial.begin(115200);
+  pinMode(RS485_RTS_SOCKET, OUTPUT);
+  pinMode(PW1_SW_SOCKET, OUTPUT);
+  pinMode(PW1_LED_SOCKET, INPUT_PULLUP);
+  pinMode(PW2_SW_SOCKET, OUTPUT);
+  pinMode(PW2_LED_SOCKET, INPUT_PULLUP);
   pinMode(PW_IND_LED_SOCKET, OUTPUT);
   pinMode(COMMAND_LINE_ONLY_MODE_SOCKET, INPUT_PULLUP); // Short to enter command line only mode
 
@@ -191,6 +258,7 @@ void setup() {
   }
 
   Serial.print("Connecting to WiFi AP");
+  WiFi.setAutoReconnect(true);
   WiFi.begin(config.ssid, config.key);
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
@@ -199,6 +267,8 @@ void setup() {
   Serial.println(" Connected.");
   Serial.print("IP address: ");
   Serial.println(WiFi.localIP());
+
+  connect();
 }
 
 bool process_command_line(const char* line) // true = go to next line,  false = go to next loop
@@ -340,6 +410,12 @@ void loop_normal()
     Serial.println(F("Entering command line mode. '?' to help, 'exit' to exit."));
     Serial.print(F("# "));
     return;
+  }
+  Serial.print("TCP client connected status:");
+  Serial.println((int)tcp_client.connected());
+  if (!tcp_client.connected()) {
+    Serial.println("Recovering connection.");
+    connect();
   }
   digitalWrite(PW_IND_LED_SOCKET, HIGH);
   delay(500);
