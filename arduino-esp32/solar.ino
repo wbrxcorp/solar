@@ -2,7 +2,8 @@
 #include <EEPROM.h>
 #include <WiFi.h>
 
-#define PW_IND_LED_SOCKET 18
+#define PW_IND_LED_SOCKET 19
+#define COMMAND_LINE_ONLY_MODE_SOCKET 18
 
 #define OPERATION_MODE_NORMAL 0
 #define OPERATION_MODE_COMMAND_LINE 1
@@ -143,6 +144,7 @@ uint16_t update_crc(uint16_t crc, uint8_t val)
 void setup() {
   Serial.begin(115200);
   pinMode(PW_IND_LED_SOCKET, OUTPUT);
+  pinMode(COMMAND_LINE_ONLY_MODE_SOCKET, INPUT_PULLUP); // Short to enter command line only mode
 
   // read config from EEPROM
   Serial.write("Loading config from EEPROM...");
@@ -181,6 +183,12 @@ void setup() {
   Serial.println(config.servername);
   Serial.print(F("Server port: "));
   Serial.println(config.port);
+
+  if (digitalRead(COMMAND_LINE_ONLY_MODE_SOCKET) == LOW) { // LOW == SHORT(pulled up)
+    Serial.print("Entering command line only mode...\r\n# ");
+    operation_mode = OPERATION_MODE_COMMAND_LINE_ONLY;
+    return;
+  }
 
   Serial.print("Connecting to WiFi AP");
   WiFi.begin(config.ssid, config.key);
