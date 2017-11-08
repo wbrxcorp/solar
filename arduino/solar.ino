@@ -502,6 +502,16 @@ bool get_device_info(EPSolarTracerDeviceInfo& info)
   return true;
 }
 
+void print_bytes(const uint8_t* bytes, size_t size)
+{
+  for (int i = 0; i < size; i++) {
+    char buf[8];
+    sprintf(buf, "%02x ", bytes[i]);
+    Serial.print(buf);
+  }
+  Serial.println();
+}
+
 bool get_register(uint16_t addr, uint8_t num, EPSolarTracerInputRegister& reg, int max_retry = 10)
 {
   uint8_t function_code = 0x04; // Read Input Register
@@ -510,6 +520,7 @@ bool get_register(uint16_t addr, uint8_t num, EPSolarTracerInputRegister& reg, i
 
   byte message[] = {0x01, function_code, HIBYTE(addr), LOBYTE(addr), 0x00, num, 0x00, 0x00 };
   put_crc(message, sizeof(message) - 2);
+  //print_bytes(message, sizeof(message));
 
   for (int i = 0; i < max_retry; i++) {
     send_modbus_message(message, sizeof(message));
