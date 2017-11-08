@@ -5,8 +5,8 @@
 #include <EEPROM.h>
 #include <util/crc16.h>
 
-#define HIBYTE(word) ((uint8_t)((word & long(255*256L)) >> 8))
-#define LOBYTE(word) ((uint8_t)(word & 255))
+#define HIBYTE(word) ((uint8_t)((word & 0xff00) >> 8))
+#define LOBYTE(word) ((uint8_t)(word & 0xff))
 
 //#define DEBUG_AT_COMMANDS
 
@@ -15,14 +15,14 @@
   #define WIFI_TX_SOCKET 3
   #define PW_SW_SOCKET 4
   #define PW_LED_SOCKET 5
-  #define RS485_RX_SOCKET 6
-  #define RS485_TX_SOCKET 7
-  #define RS485_RTS_SOCKET 8
+  #define RS485_RX_SOCKET 6 // .. RO
+  #define RS485_TX_SOCKET 7 // .. DI
+  #define RS485_RTS_SOCKET 8 // .. DE-RE
   #define PW_IND_LED_SOCKET 9
   #define COMMAND_LINE_ONLY_MODE_SOCKET 10
 #elif defined(ARDUINO_AVR_MEGA) || defined(ARDUINO_AVR_MEGA2560)
   #define USE_HARDWARE_SERIAL
-  #define RS485_RTS_SOCKET 2
+  #define RS485_RTS_SOCKET 2 // .. DE-RE
   #define PW_SW_SOCKET 3
   #define PW_LED_SOCKET 4
   #define PW_IND_LED_SOCKET 5
@@ -44,7 +44,7 @@
 const uint16_t DEFAULT_PORT = 29574; // default server port number
 
 #ifdef USE_HARDWARE_SERIAL
-  #define WiFi Serial1 // RX=19,TX=18
+  #define WiFi Serial1 // RX=19 .. RO,TX=18 .. DI
   #define RS485 Serial2 // RX=17, TX=16
 #else
   SoftwareSerial WiFi(WIFI_RX_SOCKET, WIFI_TX_SOCKET); // RX, TX
@@ -473,7 +473,7 @@ void put_crc(uint8_t* message, size_t payload_size)
 }
 
 // http://www.modbus.org/docs/Modbus_Application_Protocol_V1_1b.pdf
-bool get_device_info(EPSolarTracerDeviceInfo& info)
+bool get_device_info(EPSolarTracerDeviceInfo& info, int max_retry = 5)
 {
   byte message[] = {0x01, 0x2b, 0x0e, 0x01/*basic info*/,0x00, 0x00, 0x00 };
   put_crc(message, sizeof(message) - 2);
@@ -481,25 +481,31 @@ bool get_device_info(EPSolarTracerDeviceInfo& info)
   send_modbus_message(message, sizeof(message));
 
   byte hdr[8];
-  if (RS485.readBytes(hdr, sizeof(hdr)) && memcmp(hdr, message, 4) == 0) {
-    uint16_t crc = 0xffff;
-    for (int i = 0; i < sizeof(hdr); i++) crc = update_crc(crc, hdr[i]);
+  int retry_count = 0;
+  while (retry_count < max_retry) {
+    if (RS485.readBytes(hdr, sizeof(hdr)) && memcmp(hdr, message, 4) == 0) {
+      uint16_t crc = 0xffff;
+      for (int i = 0; i < sizeof(hdr); i++) crc = update_crc(crc, hdr[i]);
 
-    uint8_t num_objects = hdr[7];
-    for (int i = 0; i < num_objects; i++) {
-      uint8_t object_hdr[2];
-      if (RS485.readBytes(object_hdr, sizeof(object_hdr)) != sizeof(object_hdr)) break;
-      crc = update_crc(update_crc(crc, object_hdr[0]), object_hdr[1]);
-      uint8_t object_value[object_hdr[1]];
-      if (RS485.readBytes(object_value, sizeof(object_value)) != sizeof(object_value)) break;
-      for (int i = 0; i < sizeof(object_value); i++) crc = update_crc(crc, object_value[i]);
-      info.set_value(object_hdr[0], object_hdr[1], object_value);
+      uint8_t num_objects = hdr[7];
+      for (int i = 0; i < num_objects; i++) {
+        uint8_t object_hdr[2];
+        if (RS485.readBytes(object_hdr, sizeof(object_hdr)) != sizeof(object_hdr)) break;
+        crc = update_crc(update_crc(crc, object_hdr[0]), object_hdr[1]);
+        uint8_t object_value[object_hdr[1]];
+        if (RS485.readBytes(object_value, sizeof(object_value)) != sizeof(object_value)) break;
+        for (int i = 0; i < sizeof(object_value); i++) crc = update_crc(crc, object_value[i]);
+        info.set_value(object_hdr[0], object_hdr[1], object_value);
+      }
+      // crc check
+      uint8_t rx_crc[2] = {0, 0};
+      if (RS485.readBytes(rx_crc, sizeof(rx_crc)) == sizeof(rx_crc) && !RS485.available() && rx_crc[0] == LOBYTE(crc) && rx_crc[1] == HIBYTE(crc)) return true;
     }
-    // crc check
-    uint8_t rx_crc[2] = {0, 0};
-    if (RS485.readBytes(rx_crc, sizeof(rx_crc)) != sizeof(rx_crc) || RS485.available() || rx_crc[0] != LOBYTE(crc) || rx_crc[1] != HIBYTE(crc)) return false;
+    // else
+    while (RS485.available()) RS485.read(); // discard remaining bytes
+    Serial.println("Retrying...");
+    delay(200);
   }
-  return true;
 }
 
 void print_bytes(const uint8_t* bytes, size_t size)
@@ -680,16 +686,13 @@ void setup() {
       sprintf_P(buf + strlen(buf), PSTR("), %dAh"), battery_capacity);
       Serial.println(buf);
     }
-    if (get_register(0x903d, 1, reg)) {
-      int load_controlling_mode = reg.getIntValue(0);
-      sprintf_P(buf, PSTR("Load controlling mode: %d"), load_controlling_mode);
-      Serial.println(buf);
+    if (put_register(0x903d/*Load controlling mode*/, (uint16_t)0)) {
+      Serial.println("Load controlling mode set to 0(Manual)");
     }
-    if (get_register(0x906a, 1, reg)) {
-      int default_load_on_off = reg.getIntValue(0);
-      sprintf_P(buf, PSTR("Default load on/off in manual mode: %d"), default_load_on_off);
-      Serial.println(buf);
+    if (put_register(0x906a/*Default load on/off in manual mode*/, (uint16_t)1)) {
+      Serial.println("Default load on/off in manual mode set to 1(on)");
     }
+
   } else {
     Serial.println(F("Getting charge controller settings failed!"));
   }
