@@ -3,25 +3,33 @@
 #include <WiFi.h>
 #include <ESPmDNS.h>
 
-#define UART0_RX_SOCKET
-#define UART0_TX_SOCKET
-#define SOCKET_26
-#define SOCKET_25
-#define UART2_TX_SOCKET 17
-#define UART2_RX_SOCKET 16
-#define RS485_RTS_SOCKET 27
-#define SOCKET_14
+#define HIBYTE(word) ((uint8_t)((word & 0xff00) >> 8))
+#define LOBYTE(word) ((uint8_t)(word & 0xff))
 
-#define PW1_SW_SOCKET 12
-#define PW1_LED_SOCKET 13
-#define PW2_SW_SOCKET 5
-#define PW2_LED_SOCKET 23
-#define PW_IND_LED_SOCKET 19
-#define COMMAND_LINE_ONLY_MODE_SOCKET 18
+#define UART0_RX_SOCKET     // Arduino 0
+#define UART0_TX_SOCKET     // Arduino 1
+#define SOCKET_26           // Arduino 2
+#define SOCKET_25           // Arduino 3
+#define UART2_TX_SOCKET 17  // Arduino 4
+#define UART2_RX_SOCKET 16  // Arduino 5
+#define RS485_RTS_SOCKET 27 // Arduino 6
+#define SOCKET_14           // Arduino 7
+
+#define PW1_SW_SOCKET 12    // Arduino 8
+#define PW1_LED_SOCKET 13   // Arduino 9
+#define PW2_SW_SOCKET 5     // Arduino 10
+#define PW2_LED_SOCKET 23   // Arduino 11
+#define PW_IND_LED_SOCKET 19  // Arduino 12
+#define COMMAND_LINE_ONLY_MODE_SOCKET 18  // Arduino 13
 
 #define OPERATION_MODE_NORMAL 0
 #define OPERATION_MODE_COMMAND_LINE 1
 #define OPERATION_MODE_COMMAND_LINE_ONLY 2
+
+#define REPORT_INTERVAL 5000
+#define ACPI_SHUTDOWN_TIMEOUT 10000
+#define FORCE_SHUTDOWN_TIMEOUT 6000
+#define MESSAGE_TIMEOUT 10000
 
 #define COMM_BUF_MAX 128
 
@@ -125,6 +133,116 @@ public:
   }
 };
 
+class EPSolarTracerDeviceInfo {
+  char* vendor_name;
+  char* product_code;
+  char* revision;
+public:
+  EPSolarTracerDeviceInfo() : vendor_name(NULL), product_code(NULL), revision(NULL) {
+    ;
+  }
+  ~EPSolarTracerDeviceInfo() {
+    if (vendor_name) delete [] vendor_name;
+    if (product_code) delete [] product_code;
+    if (revision) delete[] revision;
+  }
+  void set_value(uint8_t object_id, uint8_t object_length, const uint8_t* object_value) {
+    if (object_id == 0x00/*VendorName*/) {
+      if (vendor_name) delete[] vendor_name;
+      vendor_name = new char[object_length + 1];
+      memcpy(vendor_name, object_value, object_length);
+      vendor_name[object_length] = '\0';
+    } else if (object_id == 0x01/*ProductCode*/) {
+      if (product_code) delete[] product_code;
+      product_code = new char[object_length + 1];
+      memcpy(product_code, object_value, object_length);
+      product_code[object_length] = '\0';
+    } else if (object_id == 0x02/*MajorMinorRevision*/) {
+      if (revision) delete[] revision;
+      revision = new char[object_length + 1];
+      memcpy(revision, object_value, object_length);
+      revision[object_length] = '\0';
+    };
+  }
+  const char* get_vendor_name() const { return vendor_name; }
+  const char* get_product_code() const { return product_code; }
+  const char* get_revision() const { return revision; }
+};
+
+class EPSolarTracerInputRegister {
+  uint8_t* _data;
+  size_t _size;
+
+  inline uint16_t MKWORD(uint8_t hi, uint8_t lo) const {
+    return ((uint16_t)hi) << 8 | lo;
+  }
+  inline uint32_t MKDWORD(uint16_t hi, uint16_t lo) const {
+    return ((uint32_t)hi) << 16 | lo;
+  }
+public:
+  EPSolarTracerInputRegister() : _data(NULL), _size(0) {
+  }
+  EPSolarTracerInputRegister(const uint8_t* data, size_t size) {
+    setData(data, size);
+  }
+  EPSolarTracerInputRegister(const EPSolarTracerInputRegister& other) {
+    setData(other.data(), other.size());
+  }
+  ~EPSolarTracerInputRegister() {
+    if (_data) delete []_data;
+  }
+  void setData(const uint8_t* data, size_t size) {
+    if (_data && size > _size) {
+      delete []_data;
+      _data = NULL;
+    }
+    if (_data == NULL) {
+      _data = new uint8_t[size];
+    }
+    memcpy(_data, data, size);
+    _size = size;
+  }
+  size_t size() const { return _size; }
+  const uint8_t* data() const { return _data; }
+
+  int getIntValue(size_t offset) const {
+    if (offset > _size - 2) return 0;
+    return (int)MKWORD(_data[offset], _data[offset + 1]);
+  }
+
+  float getFloatValue(size_t offset) const {
+    if (offset > _size - 2) return 0.0f;
+    return (float)MKWORD(_data[offset], _data[offset + 1]) / 100.0f;
+  }
+
+  double getDoubleValue(size_t offset) const {
+    if (offset > _size - 4) return 0.0;
+    return (double)MKDWORD(MKWORD(_data[offset + 2], _data[offset + 3]), MKWORD(_data[offset], _data[offset + 1])) / 100.0;
+  }
+
+  uint64_t getRTCValue(size_t offset) const {
+    if (offset > _size - 6) return 0L;
+    uint16_t r9013 = MKWORD(_data[offset], _data[offset + 1]);
+    uint16_t r9014 = MKWORD(_data[offset + 2], _data[offset + 3]);
+    uint16_t r9015 = MKWORD(_data[offset + 4], _data[offset + 5]);
+    uint16_t year = 2000 + (r9015 >> 8);
+    uint8_t month = r9015 & 0x00ff;
+    uint8_t day = r9014 >> 8;
+    uint8_t hour = r9014 & 0x00ff;
+    uint8_t minute = r9013 >> 8;
+    uint8_t second = r9013 & 0x00ff;
+    return year * 10000000000LL + month * 100000000LL + day * 1000000L
+      + hour * 10000L + minute * 100 + second;
+  }
+
+  bool getBoolValue(uint16_t bit_index) const { // for coils
+    uint8_t byte_index = bit_index / 8;
+    if (byte_index >= _size) return false;
+    bit_index = bit_index % 8;
+    return (_data[byte_index] >> bit_index) > 0;
+  }
+};
+
 LineBuffer receive_buffer(COMM_BUF_MAX);
 LineBuffer cmdline_buffer(COMM_BUF_MAX, '\r'/*cu sends \r instead of \n*/);
 
@@ -132,6 +250,8 @@ HardwareSerial RS485(2);  // RX=16,TX=17
 WiFiClient tcp_client;
 
 uint8_t operation_mode = OPERATION_MODE_NORMAL;
+unsigned long last_report_time = 0;
+char session_id[48] = "";
 
 struct {
   char nodename[32];
@@ -154,6 +274,119 @@ uint16_t update_crc(uint16_t crc, uint8_t val)
     }
   }
   return crc;
+}
+
+void put_crc(uint8_t* message, size_t payload_size)
+{
+  uint16_t crc = 0xFFFF;
+  for (int pos = 0; pos < payload_size; pos++) {
+    crc = update_crc(crc, message[pos]);
+  }
+  message[payload_size] = LOBYTE(crc);
+  message[payload_size + 1] = HIBYTE(crc);
+}
+
+void send_modbus_message(const uint8_t* message, size_t size)
+{
+  digitalWrite(RS485_RTS_SOCKET,HIGH);
+  //delay(500);
+  RS485.write(message, size);
+  RS485.flush();
+  delayMicroseconds(400);
+  digitalWrite(RS485_RTS_SOCKET,LOW);
+}
+
+// http://www.modbus.org/docs/Modbus_Application_Protocol_V1_1b.pdf
+bool get_device_info(EPSolarTracerDeviceInfo& info)
+{
+  uint8_t message[] = {0x01, 0x2b, 0x0e, 0x01/*basic info*/,0x00, 0x00, 0x00 };
+  put_crc(message, sizeof(message) - 2);
+
+  send_modbus_message(message, sizeof(message));
+
+  int cnt = 0;
+  while(!RS485.available()) {
+    delay(50);
+    cnt++;
+    if (cnt > 10) return false;
+  }
+
+  byte hdr[8];
+  if (RS485.readBytes(hdr, sizeof(hdr)) && memcmp(hdr, message, 4) == 0) {
+    uint16_t crc = 0xffff;
+    for (int i = 0; i < sizeof(hdr); i++) crc = update_crc(crc, hdr[i]);
+
+    uint8_t num_objects = hdr[7];
+    for (int i = 0; i < num_objects; i++) {
+      uint8_t object_hdr[2];
+      if (RS485.readBytes(object_hdr, sizeof(object_hdr)) != sizeof(object_hdr)) break;
+      crc = update_crc(update_crc(crc, object_hdr[0]), object_hdr[1]);
+      uint8_t object_value[object_hdr[1]];
+      if (RS485.readBytes(object_value, sizeof(object_value)) != sizeof(object_value)) break;
+      for (int i = 0; i < sizeof(object_value); i++) crc = update_crc(crc, object_value[i]);
+      info.set_value(object_hdr[0], object_hdr[1], object_value);
+    }
+    // crc check
+    uint8_t rx_crc[2] = {0, 0};
+    if (RS485.readBytes(rx_crc, sizeof(rx_crc)) != sizeof(rx_crc) || RS485.available() || rx_crc[0] != LOBYTE(crc) || rx_crc[1] != HIBYTE(crc)) return false;
+  }
+  return true;
+}
+
+void print_bytes(const uint8_t* bytes, size_t size)
+{
+  for (int i = 0; i < size; i++) {
+    char buf[8];
+    sprintf(buf, "%02x ", bytes[i]);
+    Serial.print(buf);
+  }
+  Serial.println();
+}
+
+bool get_register(uint16_t addr, uint8_t num, EPSolarTracerInputRegister& reg, int max_retry = 10)
+{
+  uint8_t function_code = 0x04; // Read Input Register
+  if (addr >= 0x9000 && addr < 0x9100) function_code = 0x03; // Read Holding Register
+  if (addr < 0x2000) function_code = 0x01; // Read Coil Status
+
+  uint8_t message[] = {0x01, function_code, HIBYTE(addr), LOBYTE(addr), 0x00, num, 0x00, 0x00 };
+  put_crc(message, sizeof(message) - 2);
+  //print_bytes(message, sizeof(message));
+
+  for (int i = 0; i < max_retry; i++) {
+    send_modbus_message(message, sizeof(message));
+
+    uint8_t hdr[3];
+    if (RS485.readBytes(hdr, sizeof(hdr)) == sizeof(hdr)) {
+      Serial.print("hdr received: ");
+      print_bytes(hdr, 3);
+      if (hdr[0] == message[0] && hdr[1] == message[1]) { // check function code and slave address
+        size_t data_size = (size_t)hdr[2];
+        if (data_size < 128) { // too big data
+          uint8_t buf[data_size];
+          if (RS485.readBytes(buf, sizeof(buf)) == sizeof(buf)) {
+            uint8_t rx_crc[2] = {0, 0};
+            if (RS485.readBytes(rx_crc, sizeof(rx_crc)) == sizeof(rx_crc) && !RS485.available()) {
+              // crc check
+              uint16_t crc = update_crc(update_crc(update_crc(0xFFFF,hdr[0]), hdr[1]), hdr[2]);
+              for (int i = 0; i < sizeof(buf); i++) crc = update_crc(crc, buf[i]);
+              if (rx_crc[0] == LOBYTE(crc) && rx_crc[1] == HIBYTE(crc)) {
+                reg.setData(buf, data_size);
+                return true;
+              } else {
+                Serial.println("CRC doesn't match");
+              }
+            }
+          }
+        }
+      }
+    }
+    // else
+    while (RS485.available()) RS485.read(); // discard remaining bytes
+    Serial.println("Retrying...");
+    delay(200);
+  }
+  return false;
 }
 
 void connect()
@@ -203,6 +436,41 @@ void connect()
     retry_delay *= 2;
     if (retry_delay > 60) retry_delay = 60;
   }
+}
+
+bool send_message(const char* message)
+{
+  tcp_client.write(message, strlen(message));
+  tcp_client.write('\n');
+
+  while (true) { // wait for response
+    int available;
+    unsigned long t = millis();
+    while ((available = tcp_client.available()) == 0) {
+      delay(100);
+      if (millis() > t + MESSAGE_TIMEOUT) {
+        Serial.println("Message timeout.");
+        return false;
+      }
+    }
+    uint8_t buf[available];
+    int r = tcp_client.readBytes(buf, available);
+    if (receive_buffer.push(buf, r)) {
+      int line_size;
+      while ((line_size = receive_buffer.get_line_size()) >= 0) {
+        char line[line_size + 1];
+        receive_buffer.pop(line, line_size + 1);
+        process_message(line);
+      }
+      return true;
+    }
+  }
+}
+
+void process_message(const char* message)
+{
+  Serial.print(F("Received: "));
+  Serial.println(message);
 }
 
 void setup() {
@@ -257,6 +525,19 @@ void setup() {
     Serial.print("Entering command line only mode...\r\n# ");
     operation_mode = OPERATION_MODE_COMMAND_LINE_ONLY;
     return;
+  }
+
+  RS485.begin(115200);
+  EPSolarTracerDeviceInfo info;
+  if (get_device_info(info)) {
+    Serial.print("Vendor: ");
+    Serial.println(info.get_vendor_name());
+    Serial.print("Product: ");
+    Serial.println(info.get_product_code());
+    Serial.print("Revision: ");
+    Serial.println(info.get_revision());
+  } else {
+    Serial.println(F("Getting charge controller device info failed!"));
   }
 
   Serial.print("Connecting to WiFi AP");
@@ -419,10 +700,113 @@ void loop_normal()
     Serial.println("Recovering connection.");
     connect();
   }
-  digitalWrite(PW_IND_LED_SOCKET, HIGH);
-  delay(500);
-  digitalWrite(PW_IND_LED_SOCKET, LOW);
-  delay(500);
+
+  unsigned long current_time = millis();
+  if (current_time - last_report_time >= REPORT_INTERVAL) {
+    EPSolarTracerInputRegister reg;
+    float piv,pia,bv,poa;
+    double piw;
+    double load;
+    float temp;
+    double lkwh;
+    double kwh;
+    int pw;
+
+    bool success = false;
+
+    if (get_register(0x3100, 6, reg)) {
+      piv = reg.getFloatValue(0);
+      pia = reg.getFloatValue(2);
+      piw = reg.getDoubleValue(4);
+      bv = reg.getFloatValue(8);
+      poa = reg.getFloatValue(10);
+      delay(50);
+      if (get_register(0x310e, 3, reg)) {
+        load = reg.getDoubleValue(0);
+        temp = reg.getFloatValue(4);
+        delay(50);
+        if (get_register(0x3304, 1, reg)) {
+          lkwh = reg.getDoubleValue(0);
+          delay(50);
+          if (get_register(0x330c, 1, reg)) {
+            kwh = reg.getDoubleValue(0);
+            if (get_register(0x0002, 1, reg)) { // Manual control the load
+              pw = reg.getBoolValue(0)? 1 : 0;
+              success = true;
+            }
+          }
+        }
+      }
+    }
+
+    while (true) {
+      char buf[64];
+      if (success) {
+        strcpy_P(buf, PSTR("DATA\tpiv:"));
+        dtostrf(piv, 4, 2, buf + strlen(buf));
+        tcp_client.write(buf);
+
+        strcpy_P(buf, PSTR("\tpia:"));
+        dtostrf(pia, 4, 2, buf + strlen(buf));
+        tcp_client.write(buf);
+
+        strcpy_P(buf, PSTR("\tpiw:"));
+        dtostrf(piw, 4, 2, buf + strlen(buf));
+        tcp_client.write(buf);
+
+        strcpy_P(buf, PSTR("\tbv:"));
+        dtostrf(bv, 4, 2, buf + strlen(buf));
+        tcp_client.write(buf);
+
+        strcpy_P(buf, PSTR("\tpoa:"));
+        dtostrf(poa, 4, 2, buf + strlen(buf));
+        tcp_client.write(buf);
+
+        strcpy_P(buf, PSTR("\tload:"));
+        dtostrf(load, 4, 2, buf + strlen(buf));
+        tcp_client.write(buf);
+
+        strcpy_P(buf, PSTR("\ttemp:"));
+        dtostrf(temp, 4, 2, buf + strlen(buf));
+        tcp_client.write(buf);
+
+        strcpy_P(buf, PSTR("\tlkwh:"));
+        dtostrf(lkwh, 4, 2, buf + strlen(buf));
+        tcp_client.write(buf);
+
+        strcpy_P(buf, PSTR("\tkwh:"));
+        dtostrf(kwh, 4, 2, buf + strlen(buf));
+        tcp_client.write(buf);
+
+        /*
+        sprintf_P(buf, PSTR("\tpw:%d"), pw);
+        sprintf_P(buf + strlen(buf), PSTR("\tpw1:%d"), read_pw1()? 1 : 0);
+        tcp_client.write(buf);
+        */
+      } else {
+        tcp_client.write("NODATA");
+      }
+
+      if (session_id[0]) {
+        strcpy_P(buf, PSTR("\tsession:"));
+        strcat(buf, session_id);
+        tcp_client.write(buf);
+      }
+
+      strcpy_P(buf, PSTR("\tnodename:"));
+      strcat(buf, config.nodename);
+
+      if (send_message(buf)) break;
+      //else
+      // Perform autoreconnect when something fails
+      Serial.println(F("Connection error. performing autoreconnect..."));
+      delay(970);
+      connect();
+    }
+
+    last_report_time = current_time;
+  }
+
 }
 
 void loop()
