@@ -3,6 +3,15 @@
 
 import datetime,argparse
 import cv2
+import database
+
+def get_recent_pv_power():
+    result = []
+    with database.Connection() as cur:
+        cur.execute("select hostname,max(piw) as maxpiw from data where t > now() - interval 10 second group by hostname order by maxpiw desc")
+        for row in cur:
+            result.append({"nodename":row[0],"piw":float(row[1])})
+    return result
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -24,4 +33,14 @@ if __name__ == '__main__':
     thickness = 2
     textsize, _ = cv2.getTextSize(text, fontface, fontscale, thickness)
     cv2.putText(frame,text,(args.width - textsize[0],args.height),fontface,fontscale,(255,255,255),thickness)
+
+    recent_pv_power = get_recent_pv_power()
+    text_pos = args.height
+    for node in reversed(recent_pv_power):
+        text = "%s: %.2fW" % (node["nodename"],node["piw"])
+        textsize, baseline = cv2.getTextSize(text, fontface, fontscale, thickness)
+        cv2.putText(frame,text,(0, text_pos),fontface,fontscale,(255,255,255),thickness)
+        text_pos -= textsize[1] + baseline
+
     cv2.imwrite(args.output_file, frame)
+
