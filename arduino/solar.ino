@@ -721,6 +721,16 @@ bool read_pw1()
   return pw1_on;
 }
 
+void poweron_pw1()
+{
+  digitalWrite(PW_SW_SOCKET, LOW);
+  poweron_pw(); // main power on
+  delay(500);
+  digitalWrite(PW_SW_SOCKET, HIGH);
+  delay(200);
+  digitalWrite(PW_SW_SOCKET, LOW);
+}
+
 void poweroff_pw1()
 {
   digitalWrite(PW_SW_SOCKET, LOW);
@@ -812,12 +822,7 @@ void process_message(const char* message)
         poweroff_pw1();
       } else if (!pw1_on && pw1 == 1) { // power on
         Serial.println(F("Power1 ON"));
-        digitalWrite(PW_SW_SOCKET, LOW);
-        poweron_pw(); // main power on
-        delay(500);
-        digitalWrite(PW_SW_SOCKET, HIGH);
-        delay(200);
-        digitalWrite(PW_SW_SOCKET, LOW);
+        poweron_pw1(); // main power on
       }
     }
   }
@@ -939,6 +944,15 @@ bool process_command_line(const char* line) // true = go to next line,  false = 
     EEPROM.put(0, config);
 
     Serial.println(F("Done."));
+  } else if (strcmp_P(lineparser[0], PSTR("pw1")) == 0 && lineparser.get_count() > 1 && isdigit(lineparser[1][0])) {
+    int pw = atoi(lineparser[1]);
+    if (pw == 0) {
+      Serial.println(F("Power1 OFF"));
+      if (read_pw1()) poweroff_pw1(); // atx power off
+    } else if (pw == 1) {
+      Serial.println(F("Power1 ON"));
+      poweron_pw1();
+    }
   } else if (strcmp_P(lineparser[0], PSTR("wifidirect")) == 0) {
     if (operation_mode != OPERATION_MODE_COMMAND_LINE_ONLY) {
       Serial.println("Switching to WiFi Direct mode is available only in command line only mode.");
