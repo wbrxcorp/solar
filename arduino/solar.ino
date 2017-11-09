@@ -44,8 +44,8 @@
 const uint16_t DEFAULT_PORT = 29574; // default server port number
 
 #ifdef USE_HARDWARE_SERIAL
-  #define WiFi Serial1 // RX=19 .. RO,TX=18 .. DI
-  #define RS485 Serial2 // RX=17, TX=16
+  #define WiFi Serial1 // RX=19,TX=18
+  #define RS485 Serial2 // RX=17 .. RO, TX=16 .. DI
 #else
   SoftwareSerial WiFi(WIFI_RX_SOCKET, WIFI_TX_SOCKET); // RX, TX
   SoftwareSerial RS485(RS485_RX_SOCKET, RS485_TX_SOCKET); // RX, TX
@@ -505,6 +505,7 @@ bool get_device_info(EPSolarTracerDeviceInfo& info, int max_retry = 5)
     while (RS485.available()) RS485.read(); // discard remaining bytes
     Serial.println("Retrying...");
     delay(200);
+    retry_count++;
   }
 }
 
@@ -660,7 +661,7 @@ void setup() {
   // get info from caharge controller
   listen_rs485();
   EPSolarTracerDeviceInfo info;
-  if (get_device_info(info)) {
+  if (get_device_info(info), 3) {
     Serial.print("Vendor: ");
     Serial.println(info.get_vendor_name());
     Serial.print("Product: ");
@@ -672,7 +673,7 @@ void setup() {
   }
 
   EPSolarTracerInputRegister reg;
-  if (get_register(0x9013/*Real Time Clock*/, 3, reg)) {
+  if (get_register(0x9013/*Real Time Clock*/, 3, reg, 3)) {
     uint64_t rtc = reg.getRTCValue(0);
     char buf[32];
     sprintf_P(buf, PSTR("RTC: %lu %06lu"), (uint32_t)(rtc / 1000000L), (uint32_t)(rtc % 1000000LL));
