@@ -30,10 +30,10 @@ def process_data(nodename, data):
         if "ucbv" in data:
           bv_compensation = float(data["bv"]) - float(data["ucbv"])
 
-        cur.execute("select avg(pov)-%s from data where hostname=%s and t > now() - interval 1 minute", (bv_compensation, nodename, ))
-        bv = cur.fetchone()[0]
+        cur.execute("select avg(pov),avg(pov)-%s from data where hostname=%s and t > now() - interval 1 minute", (bv_compensation, nodename, ))
+        bv,compensated_bv = cur.fetchone()
         if bv is not None:
-            cur.execute("select `key`,int_value from bv_conditions where nodename=%s and (gt is null or gt < %s) and (lt is null or lt > %s)", (nodename, bv, bv))
+            cur.execute("select `key`,int_value from bv_conditions where nodename=%s and (gt is null or gt < %s) and (lt is null or lt > %s)", (nodename, compensated_bv, bv))
             for row in cur:
                 key,int_value = row
                 if key in data and int_value != int(data[key]):
