@@ -228,9 +228,13 @@ public:
   size_t size() const { return _size; }
   const uint8_t* data() const { return _data; }
 
-  int getIntValue(size_t offset) const {
+  uint16_t getWordValue(size_t offset) const {
     if (offset > _size - 2) return 0;
-    return (int)MKWORD(_data[offset], _data[offset + 1]);
+    return MKWORD(_data[offset], _data[offset + 1]);
+  }
+
+  int getIntValue(size_t offset) const {
+    return (int)getWordValue(offset);
   }
 
   float getFloatValue(size_t offset) const {
@@ -1062,6 +1066,7 @@ void loop_normal()
     double piw;
     double load;
     float temp;
+    int cs;
     double lkwh;
     double kwh;
     int pw;
@@ -1074,19 +1079,23 @@ void loop_normal()
       piw = reg.getDoubleValue(4);
       bv = reg.getFloatValue(8);
       poa = reg.getFloatValue(10);
-      delay(50);
+      delay(20);
       if (get_register(0x310e, 3, reg)) {
         load = reg.getDoubleValue(0);
         temp = reg.getFloatValue(4);
-        delay(50);
-        if (get_register(0x3304, 1, reg)) {
-          lkwh = reg.getDoubleValue(0);
-          delay(50);
-          if (get_register(0x330c, 1, reg)) {
-            kwh = reg.getDoubleValue(0);
-            if (get_register(0x0002, 1, reg)) { // Manual control the load
-              pw = reg.getBoolValue(0)? 1 : 0;
-              success = true;
+        delay(20);
+        if (get_register(0x3201, 1, reg)) { // Charging equipment status
+          cs = (reg.getWordValue(0) >> 2) & 0x0003;
+          delay(20);
+          if (get_register(0x3304, 1, reg)) {
+            lkwh = reg.getDoubleValue(0);
+            delay(20);
+            if (get_register(0x330c, 1, reg)) {
+              kwh = reg.getDoubleValue(0);
+              if (get_register(0x0002, 1, reg)) { // Manual control the load
+                pw = reg.getBoolValue(0)? 1 : 0;
+                success = true;
+              }
             }
           }
         }
@@ -1134,11 +1143,14 @@ void loop_normal()
         WiFi.write(buf);
 
         float ucbv = bv;
-        if (battery_rated_voltage && temperature_compensation_coefficient && temp < 25.0 && piv >= bv) {
+        if (battery_rated_voltage && temperature_compensation_coefficient && temp < 25.0 && piv >= bv && cs > 0) {
           ucbv -= 0.001 * temperature_compensation_coefficient * (25.0 - temp) * (battery_rated_voltage / 2);
         }
         strcpy_P(buf, PSTR("\tucbv:"));
         dtostrf(ucbv, 4, 2, buf + strlen(buf));
+        WiFi.write(buf);
+
+        sprintf_P(buf, PSTR("\tcs:%d"), cs);
         WiFi.write(buf);
 
         sprintf_P(buf, PSTR("\tpw:%d"), pw);
