@@ -252,6 +252,7 @@ WiFiClient tcp_client;
 uint8_t operation_mode = OPERATION_MODE_NORMAL;
 unsigned long last_report_time = 0;
 char session_id[48] = "";
+// TODO: apply https://github.com/wbrxcorp/solar/commit/a664b0577e7c9bbcac6448741c43e58ce6750e43
 
 struct {
   char nodename[32];

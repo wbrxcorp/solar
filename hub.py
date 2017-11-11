@@ -26,7 +26,11 @@ def process_data(nodename, data):
             cur.execute("replace into data(hostname,t,piv,pia,piw,pov,poa,loadw,temp,kwh,lkwh) values(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)", (nodename,now_str, piv,float(data["pia"]),float(data["piw"]),float(data["bv"]),float(data["poa"]),float(data["load"]),float(data["temp"]),float(data["kwh"]),float(data["lkwh"])))
             saved = True
 
-        cur.execute("select avg(pov) from data where hostname=%s and t > now() - interval 1 minute", (nodename, ))
+        bv_compensation = 0.0
+        if "ucbv" in data:
+          bv_compensation = float(data["bv"]) - float(data["ucbv"])
+
+        cur.execute("select avg(pov)-%s from data where hostname=%s and t > now() - interval 1 minute", (bv_compensation, nodename, ))
         bv = cur.fetchone()[0]
         if bv is not None:
             cur.execute("select `key`,int_value from bv_conditions where nodename=%s and (gt is null or gt < %s) and (lt is null or lt > %s)", (nodename, bv, bv))
