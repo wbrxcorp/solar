@@ -959,7 +959,17 @@ bool process_command_line(const char* line) // true = go to next line,  false = 
       Serial.println("Switching to WiFi Direct mode is available only in command line only mode.");
       return true;
     }
+    uint32_t baudrate = 0;
+    if (lineparser.get_count() > 1 && isdigit(lineparser[1][0])) {
+      baudrate = atol(lineparser[1]);
+    }
     Serial.println(F("Entering WiFi Direct mode. Ctrl-] to exit."));
+    if (baudrate > 0 && baudrate >= 9600) {
+      Serial.print(F("Setting baudrate to "));
+      Serial.print(baudrate);
+      Serial.println(F(" bps."));
+      WiFi.begin(baudrate);
+    }
     operation_mode = OPERATION_MODE_WIFI_DIRECT;
     return false;
   } else if (strcmp_P(lineparser[0], PSTR("?")) == 0 || strcmp_P(lineparser[0], PSTR("help")) == 0) {
