@@ -82,7 +82,8 @@ def process_connection(conn, addr):
                     if saved:
                         if "pw" not in data: data["pw"] = 0
                         if "pw1" not in data: data["pw1"] = 0
-                        print "%s\t%s\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t#%d\t%d" % (nodename,now_str,piv,float(data["pia"]),float(data["piw"]),float(data["bv"]),float(data["poa"]),float(data["load"]),float(data["temp"]),float(data["kwh"]),float(data["lkwh"]),int(data["pw"]),int(data["pw1"]))
+                        if "ucbv" not in data: data["ucbv"] = data["bv"]
+                        print "%s\t%s\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t#%d\t%d\t%.2f" % (nodename,now_str,piv,float(data["pia"]),float(data["piw"]),float(data["bv"]),float(data["poa"]),float(data["load"]),float(data["temp"]),float(data["kwh"]),float(data["lkwh"]),int(data["pw"]),int(data["pw1"]),float(data["ucbv"]))
             elif data_splitted[0] == "INIT":
                 parsed_data = parse_data(data_splitted[1:])
                 if "nodename" in parsed_data:

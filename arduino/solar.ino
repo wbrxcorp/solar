@@ -54,6 +54,8 @@ const uint16_t DEFAULT_PORT = 29574; // default server port number
 uint8_t operation_mode = OPERATION_MODE_NORMAL;
 unsigned long last_report_time = 0;
 char session_id[48];
+uint8_t battery_rated_voltage = 0; // 12 or 24(V)
+uint8_t temperature_compensation_coefficient = 0; // 0-9(mV)
 
 struct {
   char nodename[32];
@@ -686,6 +688,18 @@ void setup() {
       strcat_P(buf, battery_type_str[battery_type]);
       sprintf_P(buf + strlen(buf), PSTR("), %dAh"), battery_capacity);
       Serial.println(buf);
+      if (get_register(0x311d/*Battery real rated voltage*/, 1, reg)) {
+        battery_rated_voltage = (uint8_t)reg.getFloatValue(0);
+        Serial.print(F("Battery real rated voltage: "));
+        Serial.print((int)battery_rated_voltage);
+        Serial.println(F("V"));
+        if (get_register(0x9002/*Temperature compensation coefficient*/, 1, reg)) {
+          temperature_compensation_coefficient = (uint8_t)reg.getFloatValue(0);
+          Serial.print(F("Temperature compensation coefficient: "));
+          Serial.print((int)temperature_compensation_coefficient);
+          Serial.println(F("mV/Cecelsius degree/2V"));
+        }
+      }
     }
     if (put_register(0x903d/*Load controlling mode*/, (uint16_t)0)) {
       Serial.println("Load controlling mode set to 0(Manual)");
@@ -1117,6 +1131,14 @@ void loop_normal()
 
         strcpy_P(buf, PSTR("\tkwh:"));
         dtostrf(kwh, 4, 2, buf + strlen(buf));
+        WiFi.write(buf);
+
+        float ucbv = bv;
+        if (battery_rated_voltage && temperature_compensation_coefficient && temp < 25.0 && piv >= bv) {
+          ucbv -= 0.001 * temperature_compensation_coefficient * (25.0 - temp) * (battery_rated_voltage / 2);
+        }
+        strcpy_P(buf, PSTR("\tucbv:"));
+        dtostrf(ucbv, 4, 2, buf + strlen(buf));
         WiFi.write(buf);
 
         sprintf_P(buf, PSTR("\tpw:%d"), pw);
