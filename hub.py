@@ -19,10 +19,10 @@ def process_data(nodename, data):
     saved = False
 
     with database.Connection() as cur:
-        cur.execute("select max(t) from data where hostname=%s", (nodename,))
-        last_data_time = cur.fetchone()[0]
+        cur.execute("select t,piv from data where hostname=%s order by t desc limit 1", (nodename,))
+        last_data_time,last_piv = cur.fetchone()
         piv = float(data["piv"])
-        if last_data_time is None or datetime.datetime.now() - last_data_time >= datetime.timedelta(minutes=1) or piv > 0.0:
+        if last_data_time is None or datetime.datetime.now() - last_data_time >= datetime.timedelta(minutes=1) or last_piv > 0.0 or piv > 0.0:
             cur.execute("replace into data(hostname,t,piv,pia,piw,pov,poa,loadw,temp,kwh,lkwh) values(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)", (nodename,now_str, piv,float(data["pia"]),float(data["piw"]),float(data["bv"]),float(data["poa"]),float(data["load"]),float(data["temp"]),float(data["kwh"]),float(data["lkwh"])))
             saved = True
 
