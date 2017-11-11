@@ -26,9 +26,7 @@ def process_data(nodename, data):
             cur.execute("replace into data(hostname,t,piv,pia,piw,pov,poa,loadw,temp,kwh,lkwh) values(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)", (nodename,now_str, piv,float(data["pia"]),float(data["piw"]),float(data["bv"]),float(data["poa"]),float(data["load"]),float(data["temp"]),float(data["kwh"]),float(data["lkwh"])))
             saved = True
 
-        bv_compensation = 0.0
-        if "ucbv" in data:
-          bv_compensation = float(data["bv"]) - float(data["ucbv"])
+        bv_compensation = float(data["btcv"]) if "btcv" in data else 0.0
 
         cur.execute("select avg(pov),avg(pov)-%s from data where hostname=%s and t > now() - interval 1 minute", (bv_compensation, nodename, ))
         bv,compensated_bv = cur.fetchone()
@@ -86,13 +84,14 @@ def process_connection(conn, addr):
                     if saved:
                         if "pw" not in data: data["pw"] = 0
                         if "pw1" not in data: data["pw1"] = 0
-                        if "ucbv" not in data: data["ucbv"] = data["bv"]
-                        print "%s\t%s\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t#%d\t%d\t%.2f" % (nodename,now_str,piv,float(data["pia"]),float(data["piw"]),float(data["bv"]),float(data["poa"]),float(data["load"]),float(data["temp"]),float(data["kwh"]),float(data["lkwh"]),int(data["pw"]),int(data["pw1"]),float(data["ucbv"]))
+                        if "cs" not in data: data["cs"] = 0
+                        if "btcv" not in data: data["btcv"] = 0.0
+                        print "%s\t%s\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t#%d\t%d\t%.2f\t%d" % (nodename,now_str,piv,float(data["pia"]),float(data["piw"]),float(data["bv"]),float(data["poa"]),float(data["load"]),float(data["temp"]),float(data["kwh"]),float(data["lkwh"]),int(data["pw"]),int(data["pw1"]),float(data["btcv"]),int(data["cs"]))
             elif data_splitted[0] == "INIT":
                 parsed_data = parse_data(data_splitted[1:])
                 if "nodename" in parsed_data:
                     nodename = parsed_data["nodename"]
-                    print "# Node name is'%s'" % nodename
+                    print "# Node name is '%s'" % nodename
                     # send controller params
                     session_id = uuid.uuid4().hex[:8]
                     response_data["session"] = session_id

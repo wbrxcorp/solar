@@ -1142,12 +1142,12 @@ void loop_normal()
         dtostrf(kwh, 4, 2, buf + strlen(buf));
         WiFi.write(buf);
 
-        float ucbv = bv;
-        if (battery_rated_voltage && temperature_compensation_coefficient && temp < 25.0 && piv >= bv && cs > 0) {
-          ucbv -= 0.001 * temperature_compensation_coefficient * (25.0 - temp) * (battery_rated_voltage / 2);
+        float btcv = 0.0f;
+        if (battery_rated_voltage && temperature_compensation_coefficient && temp < 25.0f && piv >= bv && cs > 0) {
+          btcv = 0.001 * temperature_compensation_coefficient * (25.0f - temp) * (battery_rated_voltage / 2);
         }
-        strcpy_P(buf, PSTR("\tucbv:"));
-        dtostrf(ucbv, 4, 2, buf + strlen(buf));
+        strcpy_P(buf, PSTR("\tbtcv:"));
+        dtostrf(btcv, 4, 2, buf + strlen(buf));
         WiFi.write(buf);
 
         sprintf_P(buf, PSTR("\tcs:%d"), cs);
