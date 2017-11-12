@@ -718,7 +718,6 @@ void setup() {
     if (put_register(0x906a/*Default load on/off in manual mode*/, (uint16_t)1)) {
       Serial.println("Default load on/off in manual mode set to 1(on)");
     }
-
   } else {
     Serial.println(F("Getting charge controller settings failed!"));
   }
@@ -737,6 +736,13 @@ void poweron_pw()
 {
   listen_rs485();
   put_register(0x0002/*manual load control*/, (uint16_t)0xff00);
+  listen_wifi();
+}
+
+void poweroff_pw()
+{
+  listen_rs485();
+  put_register(0x0002/*manual load control*/, (uint16_t)0x0000);
   listen_wifi();
 }
 
@@ -833,9 +839,7 @@ void process_message(const char* message)
       if (pw == 0) {
         Serial.println(F("Power OFF"));
         if (read_pw1()) poweroff_pw1(); // atx power off
-        listen_rs485();
-        put_register(0x0002/*manual load control*/, (uint16_t)0x0000);
-        listen_wifi();
+        poweroff_pw();
       } else if (pw == 1) {
         Serial.println(F("Power ON"));
         poweron_pw();
