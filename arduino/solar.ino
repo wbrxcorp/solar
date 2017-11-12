@@ -233,18 +233,25 @@ public:
     return MKWORD(_data[offset], _data[offset + 1]);
   }
 
-  int getIntValue(size_t offset) const {
-    return (int)getWordValue(offset);
+  int16_t getIntValue(size_t offset) const {
+    return (int16_t)getWordValue(offset);
   }
 
   float getFloatValue(size_t offset) const {
-    if (offset > _size - 2) return 0.0f;
-    return (float)MKWORD(_data[offset], _data[offset + 1]) / 100.0f;
+    return (float)getIntValue(offset) / 100.0f;
+  }
+
+  uint32_t getDwordValue(size_t offset) const {
+    if (offset > _size - 4) return 0.0;
+    return MKDWORD(MKWORD(_data[offset + 2], _data[offset + 3]), MKWORD(_data[offset], _data[offset + 1]));
+  }
+
+  int32_t getLongValue(size_t offset) const {
+    return (int32_t)getDwordValue(offset);
   }
 
   double getDoubleValue(size_t offset) const {
-    if (offset > _size - 4) return 0.0;
-    return (double)MKDWORD(MKWORD(_data[offset + 2], _data[offset + 3]), MKWORD(_data[offset], _data[offset + 1])) / 100.0;
+    return (double)getLongValue(offset) / 100.0;
   }
 
   uint64_t getRTCValue(size_t offset) const {
@@ -1065,7 +1072,7 @@ void loop_normal()
     float piv,pia,bv,poa;
     double piw;
     double load;
-    float temp;
+    float temp, itemp;
     int cs;
     double lkwh;
     double kwh;
@@ -1080,9 +1087,10 @@ void loop_normal()
       bv = reg.getFloatValue(8);
       poa = reg.getFloatValue(10);
       delay(20);
-      if (get_register(0x310e, 3, reg)) {
+      if (get_register(0x310e, 4, reg)) {
         load = reg.getDoubleValue(0);
         temp = reg.getFloatValue(4);
+        itemp = reg.getFloatValue(6);
         delay(20);
         if (get_register(0x3201, 1, reg)) { // Charging equipment status
           cs = (reg.getWordValue(0) >> 2) & 0x0003;
