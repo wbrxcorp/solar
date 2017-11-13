@@ -2,6 +2,7 @@
 #include <EEPROM.h>
 #include <WiFi.h>
 #include <ESPmDNS.h>
+#include <driver/uart.h>
 
 #define HIBYTE(word) ((uint8_t)((word & 0xff00) >> 8))
 #define LOBYTE(word) ((uint8_t)(word & 0xff))
@@ -133,6 +134,63 @@ public:
   }
 };
 
+class HardwareSerialPpoimono {
+  uart_port_t uart_num;
+  int rx_io_num, tx_io_num;
+  uint16_t timeout;
+  bool started;
+public:
+  HardwareSerialPpoimono(uart_port_t _uart_num, int _rx_io_num, int _tx_io_num) : uart_num(_uart_num), rx_io_num(_rx_io_num), tx_io_num(_tx_io_num), timeout(1000), started(false)
+  {
+    ;
+  }
+  ~HardwareSerialPpoimono() { end(); }
+  void begin(int baud_rate)
+  {
+    uart_config_t uart_config = {
+     .baud_rate = baud_rate,
+     .data_bits = UART_DATA_8_BITS,
+     .parity = UART_PARITY_DISABLE,
+     .stop_bits = UART_STOP_BITS_1,
+     .flow_ctrl = UART_HW_FLOWCTRL_DISABLE
+    };
+    uart_param_config(uart_num, &uart_config);
+    uart_set_pin(uart_num, tx_io_num, rx_io_num, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
+    uart_driver_install(UART_NUM_2, 256, 0, 0, NULL, 0);
+    started = true;
+  }
+  void end()
+  {
+    if (started) {
+      uart_driver_delete(uart_num);
+      started = false;
+    }
+  }
+  void flush()
+  {
+    uart_wait_tx_done(uart_num, timeout / portTICK_RATE_MS);
+  }
+  int write(const uint8_t* buf, size_t size)
+  {
+    return uart_write_bytes(uart_num, (const char*)buf, size);
+  }
+  int read()
+  {
+    uint8_t octet;
+    return uart_read_bytes(uart_num, &octet, 1, timeout / portTICK_RATE_MS) > 0? octet : -1;
+  }
+  int readBytes(uint8_t* buf, uint32_t length)
+  {
+    return uart_read_bytes(uart_num, buf, length, timeout / portTICK_RATE_MS);
+  }
+  size_t available()
+  {
+    size_t rst = 0;
+    return uart_get_buffered_data_len(uart_num, &rst) == ESP_OK? rst : 0;
+  }
+
+};
+
 class EPSolarTracerDeviceInfo {
   char* vendor_name;
   char* product_code;
@@ -246,7 +304,7 @@ public:
 LineBuffer receive_buffer(COMM_BUF_MAX);
 LineBuffer cmdline_buffer(COMM_BUF_MAX, '\r'/*cu sends \r instead of \n*/);
 
-HardwareSerial RS485(2);  // RX=16,TX=17
+HardwareSerialPpoimono RS485(UART_NUM_2, GPIO_NUM_16, GPIO_NUM_17);  // RX=16,TX=17
 WiFiClient tcp_client;
 
 uint8_t operation_mode = OPERATION_MODE_NORMAL;
@@ -290,48 +348,49 @@ void put_crc(uint8_t* message, size_t payload_size)
 void send_modbus_message(const uint8_t* message, size_t size)
 {
   digitalWrite(RS485_RTS_SOCKET,HIGH);
-  //delay(500);
+  delay(1);
   RS485.write(message, size);
   RS485.flush();
-  delayMicroseconds(400);
+  delay(1);
   digitalWrite(RS485_RTS_SOCKET,LOW);
+  RS485.read(); // somehow leading 0x00 comes, so drop it
 }
 
 // http://www.modbus.org/docs/Modbus_Application_Protocol_V1_1b.pdf
-bool get_device_info(EPSolarTracerDeviceInfo& info)
+bool get_device_info(EPSolarTracerDeviceInfo& info, int max_retry = 5)
 {
-  uint8_t message[] = {0x01, 0x2b, 0x0e, 0x01/*basic info*/,0x00, 0x00, 0x00 };
+  byte message[] = {0x01, 0x2b, 0x0e, 0x01/*basic info*/,0x00, 0x00, 0x00 };
   put_crc(message, sizeof(message) - 2);
 
   send_modbus_message(message, sizeof(message));
 
-  int cnt = 0;
-  while(!RS485.available()) {
-    delay(50);
-    cnt++;
-    if (cnt > 10) return false;
-  }
-
   byte hdr[8];
-  if (RS485.readBytes(hdr, sizeof(hdr)) && memcmp(hdr, message, 4) == 0) {
-    uint16_t crc = 0xffff;
-    for (int i = 0; i < sizeof(hdr); i++) crc = update_crc(crc, hdr[i]);
+  int retry_count = 0;
+  while (retry_count < max_retry) {
+    if (RS485.readBytes(hdr, sizeof(hdr)) && memcmp(hdr, message, 4) == 0) {
+      uint16_t crc = 0xffff;
+      for (int i = 0; i < sizeof(hdr); i++) crc = update_crc(crc, hdr[i]);
 
-    uint8_t num_objects = hdr[7];
-    for (int i = 0; i < num_objects; i++) {
-      uint8_t object_hdr[2];
-      if (RS485.readBytes(object_hdr, sizeof(object_hdr)) != sizeof(object_hdr)) break;
-      crc = update_crc(update_crc(crc, object_hdr[0]), object_hdr[1]);
-      uint8_t object_value[object_hdr[1]];
-      if (RS485.readBytes(object_value, sizeof(object_value)) != sizeof(object_value)) break;
-      for (int i = 0; i < sizeof(object_value); i++) crc = update_crc(crc, object_value[i]);
-      info.set_value(object_hdr[0], object_hdr[1], object_value);
+      uint8_t num_objects = hdr[7];
+      for (int i = 0; i < num_objects; i++) {
+        uint8_t object_hdr[2];
+        if (RS485.readBytes(object_hdr, sizeof(object_hdr)) != sizeof(object_hdr)) break;
+        crc = update_crc(update_crc(crc, object_hdr[0]), object_hdr[1]);
+        uint8_t object_value[object_hdr[1]];
+        if (RS485.readBytes(object_value, sizeof(object_value)) != sizeof(object_value)) break;
+        for (int i = 0; i < sizeof(object_value); i++) crc = update_crc(crc, object_value[i]);
+        info.set_value(object_hdr[0], object_hdr[1], object_value);
+      }
+      // crc check
+      uint8_t rx_crc[2] = {0, 0};
+      if (RS485.readBytes(rx_crc, sizeof(rx_crc)) == sizeof(rx_crc) && !RS485.available() && rx_crc[0] == LOBYTE(crc) && rx_crc[1] == HIBYTE(crc)) return true;
     }
-    // crc check
-    uint8_t rx_crc[2] = {0, 0};
-    if (RS485.readBytes(rx_crc, sizeof(rx_crc)) != sizeof(rx_crc) || RS485.available() || rx_crc[0] != LOBYTE(crc) || rx_crc[1] != HIBYTE(crc)) return false;
+    // else
+    while (RS485.available()) RS485.read(); // discard remaining bytes
+    Serial.println("Retrying...");
+    delay(200);
+    retry_count++;
   }
-  return true;
 }
 
 void print_bytes(const uint8_t* bytes, size_t size)
@@ -359,8 +418,8 @@ bool get_register(uint16_t addr, uint8_t num, EPSolarTracerInputRegister& reg, i
 
     uint8_t hdr[3];
     if (RS485.readBytes(hdr, sizeof(hdr)) == sizeof(hdr)) {
-      Serial.print("hdr received: ");
-      print_bytes(hdr, 3);
+      //Serial.print("hdr received: ");
+      //print_bytes(hdr, 3);
       if (hdr[0] == message[0] && hdr[1] == message[1]) { // check function code and slave address
         size_t data_size = (size_t)hdr[2];
         if (data_size < 128) { // too big data
@@ -383,7 +442,13 @@ bool get_register(uint16_t addr, uint8_t num, EPSolarTracerInputRegister& reg, i
       }
     }
     // else
-    while (RS485.available()) RS485.read(); // discard remaining bytes
+    int available = RS485.available();
+    if (available) {
+      uint8_t buf[available];
+      int size = RS485.readBytes(buf, sizeof(buf));
+      Serial.print("Remains: ");
+      print_bytes(buf, size);
+    }
     Serial.println("Retrying...");
     delay(200);
   }
@@ -695,10 +760,9 @@ void loop_normal()
     Serial.print(F("# "));
     return;
   }
-  Serial.print("TCP client connected status:");
-  Serial.println((int)tcp_client.connected());
+
   if (!tcp_client.connected()) {
-    Serial.println("Recovering connection.");
+    Serial.println("TCP session disconnected. Recovering.");
     connect();
   }
 
