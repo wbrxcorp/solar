@@ -871,7 +871,7 @@ void loop_normal()
 
     last_report_time = current_time;
   }
-
+  delay(100);
 }
 
 void loop()
