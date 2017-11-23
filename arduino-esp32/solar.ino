@@ -1,4 +1,4 @@
-// arduino --upload --board espressif:esp32:esp32doit-devkit-v1:FlashFreq=80,UploadSpeed=115200 --port /dev/ttyUSB0 solar.ino
+// arduino --upload --board espressif:esp32:esp32doit-devkit-v1:FlashFreq=40,UploadSpeed=460800 --port /dev/ttyUSB0 solar.ino
 #include <EEPROM.h>
 #include <WiFi.h>
 #include <ESPmDNS.h>
@@ -168,7 +168,7 @@ public:
   }
   void flush()
   {
-    uart_wait_tx_done(uart_num, timeout / portTICK_RATE_MS);
+    uart_flush(uart_num);
   }
   int write(const uint8_t* buf, size_t size)
   {
@@ -305,6 +305,7 @@ LineBuffer receive_buffer(COMM_BUF_MAX);
 LineBuffer cmdline_buffer(COMM_BUF_MAX, '\r'/*cu sends \r instead of \n*/);
 
 HardwareSerialPpoimono RS485(UART_NUM_2, GPIO_NUM_16, GPIO_NUM_17);  // RX=16,TX=17
+//HardwareSerial RS485(2);  // RX=16,TX=17
 WiFiClient tcp_client;
 
 uint8_t operation_mode = OPERATION_MODE_NORMAL;
@@ -353,7 +354,6 @@ void send_modbus_message(const uint8_t* message, size_t size)
   RS485.flush();
   delay(1);
   digitalWrite(RS485_RTS_SOCKET,LOW);
-  RS485.read(); // somehow leading 0x00 comes, so drop it
 }
 
 // http://www.modbus.org/docs/Modbus_Application_Protocol_V1_1b.pdf
