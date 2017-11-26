@@ -1,9 +1,12 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import datetime,argparse
+import sys,datetime,argparse
 import cv2
 import database
+
+LOCK_NAME="camera.lock"
+LOCK_TIMEOUT="10"
 
 def get_recent_pv_power():
     result = []
@@ -12,6 +15,17 @@ def get_recent_pv_power():
         for row in cur:
             result.append({"nodename":row[0],"piw":float(row[1])})
     return result
+
+def capture(device_number, width, height, skip_frames):
+    with database.Connection() as cur:
+        cur.execute("select get_lock(%s,%s)", (LOCK_NAME,LOCK_TIMEOUT))
+        if cur.fetchone()[0] != 1: return None
+        #else
+        cap = cv2.VideoCapture(device_number)
+        cap.set(3, width)
+        cap.set(4, height)
+        for i in range(skip_frames): r, frame = cap.read()
+        return frame
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -22,10 +36,9 @@ if __name__ == '__main__':
     parser.add_argument("-o", "--output-file", type = str, dest = "output_file", default="camera.jpg")
     args = parser.parse_args()
 
-    cap = cv2.VideoCapture(args.device_number)
-    cap.set(3, args.width)
-    cap.set(4, args.height)
-    for i in range(args.skip_frames): r, frame = cap.read()
+    frame = capture(args.device_number, args.width, args.height, args.skip_frames)
+    if frame is None:
+        sys.exit(1)
 
     text = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     fontface = cv2.FONT_HERSHEY_PLAIN
@@ -43,4 +56,3 @@ if __name__ == '__main__':
         text_pos -= textsize[1] + baseline
 
     cv2.imwrite(args.output_file, frame)
-
