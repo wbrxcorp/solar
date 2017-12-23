@@ -312,7 +312,8 @@ WiFiClient tcp_client;
 uint8_t operation_mode = OPERATION_MODE_NORMAL;
 unsigned long last_report_time = 0;
 char session_id[48] = "";
-// TODO: apply https://github.com/wbrxcorp/solar/commit/a664b0577e7c9bbcac6448741c43e58ce6750e43
+uint8_t battery_rated_voltage = 0; // 12 or 24(V)
+uint8_t temperature_compensation_coefficient = 0; // 0-9(mV)
 
 struct {
   char nodename[32];
@@ -493,6 +494,9 @@ void connect()
     }
     if (connected) {
       Serial.println("Connected.");
+      char buf[64];
+      sprintf(buf, PSTR("INIT\tnodename:%s"), config.nodename);
+      send_message(buf);
       return;
     }
     // else
@@ -534,10 +538,180 @@ bool send_message(const char* message)
   }
 }
 
+bool put_register(uint16_t addr, uint16_t data)
+{
+  uint8_t function_code = 0x06; // Preset Single Register(06)
+  if (addr < 0x2000) function_code = 0x05; // Force Single Coil
+  byte message[] = {0x01, function_code, HIBYTE(addr), LOBYTE(addr), HIBYTE(data), LOBYTE(data), 0x00, 0x00 };
+  put_crc(message, sizeof(message) - 2);
+
+  send_modbus_message(message, sizeof(message));
+  delay(50);
+  while (RS485.available()) RS485.read(); // simply discard response(TODO: check the response)
+  return true;
+}
+
+bool put_registers(uint16_t addr, uint16_t* data, uint16_t num)
+{
+  uint8_t data_size_in_bytes = (uint8_t)(sizeof(*data) * num);
+  size_t message_size = 9/*slave address, func code, start addr(H+L), num(H+L), length in bytes, ... , crc(L/H)*/ + data_size_in_bytes;
+  byte message[message_size];
+  message[0] = 0x01;
+  message[1] = 0x10;
+  message[2] = HIBYTE(addr);
+  message[3] = LOBYTE(addr);
+  message[4] = HIBYTE(num);
+  message[5] = LOBYTE(num);
+  message[6] = data_size_in_bytes;
+  for (int i = 0; i < num; i++) {
+    message[7 + i * 2] = HIBYTE(data[i]);
+    message[8 + i * 2] = LOBYTE(data[i]);
+  }
+  put_crc(message, message_size - 2);
+
+  send_modbus_message(message, sizeof(message));
+  delay(50);
+  while (RS485.available()) RS485.read(); // simply discard response(TODO: check the response)
+  return true;
+}
+
+void poweron_pw()
+{
+  put_register(0x0002/*manual load control*/, (uint16_t)0xff00);
+}
+
+void poweroff_pw()
+{
+  put_register(0x0002/*manual load control*/, (uint16_t)0x0000);
+}
+
+bool read_pw1()
+{
+  bool pw1_on = digitalRead(PW1_LED_SOCKET) == LOW;
+  digitalWrite(PW_IND_LED_SOCKET, pw1_on? HIGH : LOW);
+  return pw1_on;
+}
+
+void poweron_pw1()
+{
+  digitalWrite(PW1_SW_SOCKET, LOW);
+  poweron_pw(); // main power on
+  delay(500);
+  digitalWrite(PW1_SW_SOCKET, HIGH);
+  delay(200);
+  digitalWrite(PW1_SW_SOCKET, LOW);
+}
+
+void poweroff_pw1()
+{
+  digitalWrite(PW1_SW_SOCKET, LOW);
+  delay(100);
+  digitalWrite(PW1_SW_SOCKET, HIGH);
+  delay(200);
+  digitalWrite(PW1_SW_SOCKET, LOW);
+  // Wait for ACPI shutdown
+  unsigned long time = millis();
+  while (read_pw1()) {
+    if (millis() - time > ACPI_SHUTDOWN_TIMEOUT) {
+      // force OFF
+      time = millis();
+      digitalWrite(PW1_SW_SOCKET, HIGH);
+      while (read_pw1()) {
+        if (millis() - time > FORCE_SHUTDOWN_TIMEOUT) break;
+        // else
+        delay(100);
+      }
+      digitalWrite(PW1_SW_SOCKET, LOW);
+      break;
+    }
+    delay(100);
+  }
+}
+
 void process_message(const char* message)
 {
   Serial.print(F("Received: "));
   Serial.println(message);
+
+  if (strlen(message) < 3 || strncmp_P(message, PSTR("OK\t"), 3) != 0) return;
+  // else
+  const char* pt = message + 3;
+  int32_t date = -1, time = -1;
+  while (*pt) {
+    const char* ptcolon = strchr(pt, ':');
+    if (ptcolon == NULL) break; // end parsing string if there's no colon anymore
+    char key[ptcolon - pt + 1];
+    strncpy(key, pt, ptcolon - pt);
+    key[ptcolon - pt] = '\0';
+    pt = ptcolon + 1;
+    const char* ptdelim = strchr(pt, '\t');
+    if (ptdelim == NULL) ptdelim = strchr(pt, '\0');
+    // ptdelim can't be NULL here
+    char value[ptdelim - pt + 1];
+    strncpy(value, pt, ptdelim - pt);
+    value[ptdelim - pt] = '\0';
+    pt = (*ptdelim != '\0') ? ptdelim + 1 : ptdelim;
+
+    if (strcmp(key, "session") == 0) {
+      strncpy(session_id, value, sizeof(session_id));
+      session_id[sizeof(session_id) - 1] = '\0';
+    } else if (strcmp(key, "d") == 0 && strlen(value) == 8 && isdigit(value[0])) {
+      date = atol(value);
+    } else if (strcmp(key, "t") == 0 && strlen(value) > 0 && isdigit(value[0])) {
+      time = atol(value);
+    } else if (strcmp(key, "bt") == 0) {
+      int battery_type = atoi(value);
+      put_register(0x9000/*Battery type*/, (uint16_t)battery_type);
+      Serial.print(F("Battery type saved: "));
+      Serial.println(battery_type);
+    } else if (strcmp(key, "bc") == 0) {
+      int battery_capacity= atoi(value);
+      put_register(0x9001/*Battery capacity*/, (uint16_t)battery_capacity);
+      Serial.print(F("Battery capacity saved: "));
+      Serial.print(battery_capacity);
+      Serial.println(F("Ah"));
+    } else if (strcmp(key, "pw") == 0 && isdigit(value[0])) { // main power
+      int pw = atoi(value);
+      if (pw == 0) {
+        Serial.println(F("Power OFF"));
+        if (read_pw1()) poweroff_pw1(); // atx power off
+        poweroff_pw();
+      } else if (pw == 1) {
+        Serial.println(F("Power ON"));
+        poweron_pw();
+      }
+    } else if (strcmp(key, "pw1") == 0 && (isdigit(value[0]) || value[0] == '-')) { // atx power
+      int pw1 = atoi(value);
+      bool pw1_on = read_pw1();
+      if (pw1_on && pw1 == 0) { // power off
+        Serial.println(F("Power1 OFF"));
+        poweroff_pw1();
+      } else if (!pw1_on && pw1 == 1) { // power on
+        Serial.println(F("Power1 ON"));
+        poweron_pw1(); // main power on
+      }
+    }
+  }
+
+  if (date > 20170101L && time >= 0) {
+    uint16_t data[3];
+    uint16_t year = date / 10000 - 2000;
+    uint16_t month = date % 10000 / 100;
+    uint16_t day = date % 100;
+    uint16_t hour = time / 10000;
+    uint16_t minute = time % 10000 / 100;
+    uint16_t second = time % 100;
+
+    if (year < 100 && month > 0 && month < 13 && day > 0 && day < 32 && hour < 24 && minute < 60 && second < 60) {
+      data[0/*0x9013*/] = minute << 8 | second;
+      data[1/*0x9014*/] = day << 8 | hour;
+      data[2/*0x9015*/] = year << 8 | month;
+      put_registers(0x9013/*Real Time Clock*/, data, 3);
+      char buf[32];
+      sprintf_P(buf, PSTR("Date saved: 20%02u-%02u-%02u %02u:%02u:%02u"), year, month, day, hour, minute, second);
+      Serial.println(buf);
+    }
+  }
 }
 
 void setup() {
@@ -605,6 +779,43 @@ void setup() {
     Serial.println(info.get_revision());
   } else {
     Serial.println(F("Getting charge controller device info failed!"));
+  }
+
+  EPSolarTracerInputRegister reg;
+  if (get_register(0x9013/*Real Time Clock*/, 3, reg, 3)) {
+    uint64_t rtc = reg.getRTCValue(0);
+    char buf[32];
+    sprintf_P(buf, PSTR("RTC: %lu %06lu"), (uint32_t)(rtc / 1000000L), (uint32_t)(rtc % 1000000LL));
+    Serial.println(buf);
+    if (get_register(0x9000/*battery type, battery capacity*/, 2, reg)) {
+      const char* battery_type_str[] = { PSTR("User Defined"), PSTR("Sealed"), PSTR("GEL"), PSTR("Flooded") };
+      int battery_type = reg.getIntValue(0);
+      int battery_capacity = reg.getIntValue(2);
+      sprintf_P(buf, PSTR("Battery type: %d("), battery_type);
+      strcat(buf, battery_type_str[battery_type]);
+      sprintf_P(buf + strlen(buf), PSTR("), %dAh"), battery_capacity);
+      Serial.println(buf);
+      if (get_register(0x311d/*Battery real rated voltage*/, 1, reg)) {
+        battery_rated_voltage = (uint8_t)reg.getFloatValue(0);
+        Serial.print(F("Battery real rated voltage: "));
+        Serial.print((int)battery_rated_voltage);
+        Serial.println(F("V"));
+        if (get_register(0x9002/*Temperature compensation coefficient*/, 1, reg)) {
+          temperature_compensation_coefficient = (uint8_t)reg.getFloatValue(0);
+          Serial.print(F("Temperature compensation coefficient: "));
+          Serial.print((int)temperature_compensation_coefficient);
+          Serial.println(F("mV/Cecelsius degree/2V"));
+        }
+      }
+    }
+    if (put_register(0x903d/*Load controlling mode*/, (uint16_t)0)) {
+      Serial.println("Load controlling mode set to 0(Manual)");
+    }
+    if (put_register(0x906a/*Default load on/off in manual mode*/, (uint16_t)1)) {
+      Serial.println("Default load on/off in manual mode set to 1(on)");
+    }
+  } else {
+    Serial.println(F("Getting charge controller settings failed!"));
   }
 
   Serial.print("Connecting to WiFi AP");
@@ -782,6 +993,7 @@ void loop_normal()
 
     bool success = false;
 
+    // TODO: apply https://github.com/wbrxcorp/solar/commit/a664b0577e7c9bbcac6448741c43e58ce6750e43
     if (get_register(0x3100, 6, reg)) {
       piv = reg.getFloatValue(0);
       pia = reg.getFloatValue(2);
