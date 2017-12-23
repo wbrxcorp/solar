@@ -1,7 +1,8 @@
-// arduino --upload --board espressif:esp32:esp32doit-devkit-v1:FlashFreq=40,UploadSpeed=460800 --port /dev/ttyUSB0 solar.ino
+// arduino --upload --board espressif:esp32:esp32:FlashFreq=80,UploadSpeed=115200 --port /dev/ttyUSB0 solar.ino
 #include <EEPROM.h>
 #include <WiFi.h>
 #include <ESPmDNS.h>
+#include <esp_wifi.h>
 #include <driver/uart.h>
 
 #define HIBYTE(word) ((uint8_t)((word & 0xff00) >> 8))
@@ -616,6 +617,8 @@ void setup() {
   Serial.println(" Connected.");
   Serial.print("IP address: ");
   Serial.println(WiFi.localIP());
+  Serial.print("Entering Modem-Sleep mode...");
+  Serial.println((esp_wifi_set_ps(WIFI_PS_MODEM) == ESP_OK)? "Success" : "Fail");
 
   connect();
 }
@@ -761,13 +764,13 @@ void loop_normal()
     return;
   }
 
-  if (!tcp_client.connected()) {
-    Serial.println("TCP session disconnected. Recovering.");
-    connect();
-  }
-
   unsigned long current_time = millis();
   if (current_time - last_report_time >= REPORT_INTERVAL) {
+    if (!tcp_client.connected()) {
+      Serial.println("TCP session disconnected. Recovering.");
+      connect();
+    }
+
     EPSolarTracerInputRegister reg;
     float piv,pia,bv,poa;
     double piw;
@@ -871,7 +874,7 @@ void loop_normal()
 
     last_report_time = current_time;
   }
-  delay(100);
+  //delay(100);
 }
 
 void loop()
