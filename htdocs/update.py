@@ -20,7 +20,7 @@ if __name__ == '__main__':
         if r.status_int == 200: write_file_atomic(filename, r.body_string())
 
     filename = "btc.json"
-    if should_download_new_file(filename):
+    if should_download_new_file(filename, 10):
         r = restkit.request("https://api.coindesk.com/v1/bpi/currentprice.json")
         if r.status_int == 200: write_file_atomic(filename, r.body_string())
 
@@ -30,7 +30,7 @@ if __name__ == '__main__':
         coin_id = coin["id"]
 
         filename = "%s.prices.json" % coin_id
-        if should_download_new_file(filename):
+        if should_download_new_file(filename, 10):
             r = restkit.request("https://api.nanopool.org/v1/%s/prices" % coin_id)
             if r.status_int == 200:
                 user = json.loads(r.body_string())
