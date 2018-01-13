@@ -34,6 +34,7 @@ if __name__ == '__main__':
     parser.add_argument("--height", type = int, dest = "height", default=480)
     parser.add_argument("-f", "--skip-frames", type = int, dest = "skip_frames", default=10)
     parser.add_argument("-o", "--output-file", type = str, dest = "output_file", default="camera.jpg")
+    parser.add_argument("-q", "--jpeg-quality", type = int, dest = "jpeg_quality", default = 95)
     args = parser.parse_args()
 
     frame = capture(args.device_number, args.width, args.height, args.skip_frames)
@@ -55,4 +56,4 @@ if __name__ == '__main__':
         cv2.putText(frame,text,(0, text_pos),fontface,fontscale,(255,255,255),thickness)
         text_pos -= textsize[1] + baseline
 
-    cv2.imwrite(args.output_file, frame)
+    cv2.imwrite(args.output_file, frame, [int(cv2.IMWRITE_JPEG_QUALITY), args.jpeg_quality])
