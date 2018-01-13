@@ -63,7 +63,7 @@
   <div class="container">
     <h1>Miners</h1>
     <table class="table">
-      <tr><th>Coin</th><th>Price</th><th>Balance</th><th>Hashrate(6hrs)</th><th>Efficiency</th><th># of Workers</th></tr>
+      <tr><th>Coin</th><th>Price</th><th>Balance</th><th>Hashrate(6hrs)</th><th>Efficiency(per kWh)</th><th># of Workers</th></tr>
       <tr><td>Bitcoin</td><td><a href="https://www.coingecko.com/ja/%E7%9B%B8%E5%A0%B4%E3%83%81%E3%83%A3%E3%83%BC%E3%83%88/%E3%83%93%E3%83%83%E3%83%88%E3%82%B3%E3%82%A4%E3%83%B3/jpy" target="_blank">￥{{btc.bpi.USD.rate_float * usd.rates.JPY|number:0}}</a></td><td>-</td><td>-</td><td>-</td><td>-</td></tr>
       <tr ng-repeat="coin in coins">
         <td><a href="https://{{coin.id}}.nanopool.org/account/{{coin.address}}" target="_blank">{{coin.name}}</a></td>
@@ -78,9 +78,9 @@
         </td>
         <td>
           {{coin.user.data.avgHashrate.h6}}<br>
-          (￥{{coin.approxEarnings.data.day.dollars * usd.rates.JPY | number:0}}/day)
+          (￥{{coin.approxEarnings.data.day.dollars * usd.rates.JPY | number:0}}/day, {{(coin.userSettings.data.payout - coin.user.data.balance) * coin.price.data.price_usd / coin.approxEarnings.data.day.dollars|number:1}} days left)
         </td>
-        <td><span ng-repeat="equipment in coin.equipments">{{equipment.name}}:￥{{1000.0 / equipment.wattage * coin.approxEarnings.data.hour.dollars * equipment.hashrate / coin.user.data.avgHashrate.h6 * usd.rates.JPY | number:0}}/kwh<br></span></td>
+        <td><span ng-repeat="equipment in coin.equipments">{{equipment.name}}:￥{{1000.0 / equipment.wattage * coin.approxEarnings.data.hour.dollars * equipment.hashrate / coin.user.data.avgHashrate.h6 * usd.rates.JPY | number:0}}<br></span></td>
         <td>{{coin.user.data.workers.length}}</td>
       </tr>
       <tr>
