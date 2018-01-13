@@ -4,24 +4,24 @@
   <meta name="robots" content="noindex">
   <meta charset="utf-8">
   <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
-  <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.6.6/angular.min.js"></script>
-  <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.6.6/angular-resource.min.js"></script>
+  <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.6.7/angular.min.js"></script>
+  <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.6.7/angular-resource.min.js"></script>
   <script>
   angular.module("CC", ["ngResource"])
   .run(["$rootScope","$resource","$timeout",  function($scope, $resource, $timeout) {
-    var rate = $resource("https://api.fixer.io/latest");
-    var btcRate = $resource("https://api.coindesk.com/v1/bpi/currentprice.json");
+    var rate = $resource("usd.json");
+    var btcRate = $resource("btc.json");
     var coins = $resource("coins.json");
-    var user = $resource("https://api.nanopool.org/v1/:coin/user/:address");
-    var userSettings = $resource("https://api.nanopool.org/v1/:coin/usersettings/:address");
+    var user = $resource(":coin.user.json");
+    var userSettings = $resource(":coin.settings.json");
     var approxEarnings = $resource("https://:coin.nanopool.org/api/v1/approximated_earnings/:hashrate");
-    var price = $resource("https://api.nanopool.org/v1/:coin/prices");
+    var price = $resource(":coin.prices.json");
     $scope.refresh = function(coins) {
       if ($scope.timer) {
           $timeout.cancel($scope.timer);
           $scope.timer = null;
       }
-      rate.get({base:"USD"}, function(data) {
+      rate.get({}, function(data) {
         $scope.usd = data;
       });
       btcRate.get({}, function(data) {
@@ -29,13 +29,13 @@
       });
       coins.forEach(function(coin) {
         if (coin.id[0] == '$') return;
-        user.get({"coin":coin.id,"address":coin.address}, function(data) {
+        user.get({"coin":coin.id}, function(data) {
           coin.user = data;
           approxEarnings.get({"coin":coin.id,"hashrate":data.data.avgHashrate.h6}, function(data) {
             coin.approxEarnings = data;
           });
         });
-        userSettings.get({"coin":coin.id,"address":coin.address}, function(data) {
+        userSettings.get({"coin":coin.id}, function(data) {
           coin.userSettings = data;
         });
         price.get({"coin":coin.id}, function(data) {
