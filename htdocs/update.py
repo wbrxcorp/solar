@@ -9,7 +9,7 @@ def write_file_atomic(filename, content):
     os.rename(tmp_filename, filename)
 
 def should_download_new_file(filename, ttl_minutes = 60):
-    if not os.path.exists(filename): return False
+    if not os.path.exists(filename): return True
     age = time.time() - os.path.getmtime(filename)
     return age / 60 >= ttl_minutes
 
