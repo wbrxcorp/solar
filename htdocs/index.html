@@ -69,7 +69,7 @@
         <td><a href="https://{{coin.id}}.nanopool.org/account/{{coin.address}}" target="_blank">{{coin.name}}</a></td>
         <td><a href="{{coin.chart}}" target="_blank">￥{{coin.price.data.price_usd * usd.rates.JPY|number:0}}</a></td>
         <td>
-          ￥{{coin.user.data.balance * coin.price.data.price_usd * usd.rates.JPY|number:0}} / ￥{{coin.userSettings.data.payout * coin.price.data.price_usd * usd.rates.JPY|number:0}}<br>({{(coin.userSettings.data.payout - coin.user.data.balance) * coin.price.data.price_usd / coin.approxEarnings.data.day.dollars|number:1}} days to P/O {{coin.userSettings.data.payout}}{{coin.id}})
+          ￥{{coin.user.data.balance * coin.price.data.price_usd * usd.rates.JPY|number:0}} / ￥{{coin.userSettings.data.payout * coin.price.data.price_usd * usd.rates.JPY|number:0}}<br>({{(coin.userSettings.data.payout - coin.user.data.balance) / coin.approxEarnings.data.day.coins|number:1}} days to P/O {{coin.userSettings.data.payout}}{{coin.id}})
           <div class="progress" style="margin-bottom:0;">
             <div class="progress-bar progress-bar-striped" role="progressbar" style="width: {{coin.user.data.balance * 100 / coin.userSettings.data.payout}}%;">
               {{coin.user.data.balance * 100 / coin.userSettings.data.payout | number:1}}%
