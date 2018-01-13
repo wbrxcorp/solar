@@ -69,7 +69,7 @@
         <td><a href="https://{{coin.id}}.nanopool.org/account/{{coin.address}}" target="_blank">{{coin.name}}</a></td>
         <td><a href="{{coin.chart}}" target="_blank">￥{{coin.price.data.price_usd * usd.rates.JPY|number:0}}</a></td>
         <td>
-          ￥{{coin.user.data.balance * coin.price.data.price_usd * usd.rates.JPY|number:0}} / ￥{{coin.userSettings.data.payout * coin.price.data.price_usd * usd.rates.JPY|number:0}} <small>(P/O {{coin.userSettings.data.payout}}{{coin.id}})</small>
+          ￥{{coin.user.data.balance * coin.price.data.price_usd * usd.rates.JPY|number:0}} / ￥{{coin.userSettings.data.payout * coin.price.data.price_usd * usd.rates.JPY|number:0}}<br>({{(coin.userSettings.data.payout - coin.user.data.balance) * coin.price.data.price_usd / coin.approxEarnings.data.day.dollars|number:1}} days to P/O {{coin.userSettings.data.payout}}{{coin.id}})
           <div class="progress" style="margin-bottom:0;">
             <div class="progress-bar progress-bar-striped" role="progressbar" style="width: {{coin.user.data.balance * 100 / coin.userSettings.data.payout}}%;">
               {{coin.user.data.balance * 100 / coin.userSettings.data.payout | number:1}}%
@@ -78,7 +78,7 @@
         </td>
         <td>
           {{coin.user.data.avgHashrate.h6}}<br>
-          (￥{{coin.approxEarnings.data.day.dollars * usd.rates.JPY | number:0}}/day, {{(coin.userSettings.data.payout - coin.user.data.balance) * coin.price.data.price_usd / coin.approxEarnings.data.day.dollars|number:1}} days left)
+          (￥{{coin.approxEarnings.data.day.dollars * usd.rates.JPY | number:0}}/day)
         </td>
         <td><span ng-repeat="equipment in coin.equipments">{{equipment.name}}:￥{{1000.0 / equipment.wattage * coin.approxEarnings.data.hour.dollars * equipment.hashrate / coin.user.data.avgHashrate.h6 * usd.rates.JPY | number:0}}<br></span></td>
         <td>{{coin.user.data.workers.length}}</td>
