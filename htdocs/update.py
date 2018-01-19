@@ -12,7 +12,7 @@ def should_download_new_file(filename, ttl_minutes = 60, self_filename = __file_
     if not os.path.exists(filename): return True
     mtime = os.path.getmtime(filename)
     if os.path.getmtime(self_filename) > mtime: return True
-    return  time.time() - mtime / 60 >= ttl_minutes
+    return (time.time() - mtime) / 60 >= ttl_minutes
 
 def get_daily_earnings(coin_id, hashrate):
     prices = json.load(open("%s.prices.json" % coin_id))
