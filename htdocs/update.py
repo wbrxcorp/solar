@@ -41,7 +41,7 @@ if __name__ == '__main__':
             if r1.status_int == 200:
                 prices = json.loads(r1.body_string())
                 if prices["status"]:
-                    r2 = restkit.request("https://%s.nanopool.org/api/v1/approximated_earnings/1.0" % coin_id)
+                    r2 = restkit.request("https://api.nanopool.org/v1/%s/approximated_earnings/1.0" % coin_id)
                     if r2.status_int == 200:
                         earnings = json.loads(r2.body_string())
                     if earnings["status"]:
