@@ -64,7 +64,7 @@ def update_products(asin_list, system_config):
     for asin in amazon:
       cur.execute("select asin from products where asin=%s", (asin,))
       if cur.fetchone() is None: products_to_be_checked.append(asin)
-    cur.execute("select asin from products where now()-interval 30 minute < updated_at order by updated_at limit 10")
+    cur.execute("select asin from products where now()-interval 30 minute > updated_at order by updated_at limit 10")
     for row in cur: products_to_be_checked.append(row[0])
 
   if len(products_to_be_checked) < 1: return
