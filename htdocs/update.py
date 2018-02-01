@@ -58,16 +58,17 @@ def ecs_parse_products(response):
   for item in tree.findall(".//ecs:Item", ns):
     asin = item.find("ecs:ASIN", ns).text
     title = item.find("ecs:ItemAttributes/ecs:Title", ns).text
-    price = None
-    availability = None
+    price = item.find("ecs:OfferSummary/ecs:LowestNewPrice/ecs:Amount", ns)
+    if price is None: continue
+    #else
+    price = int(price.text)
+    availability = "-"
     for offer in item.findall("ecs:Offers/ecs:Offer", ns):
       if offer.find("ecs:OfferAttributes/ecs:Condition", ns).text !='New': continue
       price = int(offer.find("ecs:OfferListing/ecs:Price/ecs:Amount", ns).text)
       availability = offer.find("ecs:OfferListing/ecs:Availability", ns)
       availability = availability.text if availability is not None else offer.find("ecs:OfferListing/ecs:AvailabilityAttributes/ecs:AvailabilityType", ns).text
       break
-    if price is None or availability is None: continue
-    #else
     products[asin] = {"title":title,"price":price,"availability":availability}
 
   return products
@@ -88,7 +89,7 @@ def amazon_update_products(asin_list, system_config):
   url = ecs_create_request_url(system_config["amazon_access_key_id"], system_config["amazon_secret_access_key"], system_config["amazon_associate_tag"], "ItemLookup", args)
 
   try:
-    response = urllib2.urlopen(url).read()
+      response = urllib2.urlopen(url).read()
   except urllib2.HTTPError:
     return
 
