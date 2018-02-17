@@ -71,10 +71,10 @@
       <tr><td>Bitcoin</td><td><a href="https://www.coingecko.com/ja/%E7%9B%B8%E5%A0%B4%E3%83%81%E3%83%A3%E3%83%BC%E3%83%88/%E3%83%93%E3%83%83%E3%83%88%E3%82%B3%E3%82%A4%E3%83%B3/jpy" target="_blank">￥{{btc.bpi.USD.rate_float * usd.rates.JPY|number:0}}</a></td><td>-</td><td>-</td><td>-</td><td>-</td></tr>
       <tr ng-repeat="coin in coins">
         <td><a href="https://{{coin.id}}.nanopool.org/account/{{coin.address}}" target="_blank">{{coin.name}}</a></td>
-        <td><a href="{{coin.chart}}" target="_blank">￥{{coin.price.data.price_usd * usd.rates.JPY|number:0}}</a></td>
+        <td><a href="{{coin.chart}}" target="_blank">￥{{coin.price.data.price_usd * usd.rates.JPY|number:coin.price.data.price_usd * usd.rates.JPY < 10? 1:0}}</a></td>
         <td>
-          ￥{{coin.user.data.balance * coin.price.data.price_usd * usd.rates.JPY|number:0}} / ￥{{coin.userSettings.data.payout * coin.price.data.price_usd * usd.rates.JPY|number:0}}<br>({{(coin.userSettings.data.payout - coin.user.data.balance) / coin.user.data.daily_coins|number:1}} days to P/O {{coin.userSettings.data.payout}}{{coin.id}})
-          <div class="progress" style="margin-bottom:0;">
+          ￥{{coin.user.data.balance * coin.price.data.price_usd * usd.rates.JPY|number:0}}<span ng-if="coin.userSettings.data.payout > 0"> / ￥{{coin.userSettings.data.payout * coin.price.data.price_usd * usd.rates.JPY|number:0}}<br>({{(coin.userSettings.data.payout - coin.user.data.balance) / coin.user.data.daily_coins|number:1}} days to P/O {{coin.userSettings.data.payout}}{{coin.id}})</span>
+          <div class="progress" style="margin-bottom:0;" ng-if="coin.userSettings.data.payout > 0">
             <div class="progress-bar progress-bar-striped" role="progressbar" style="width: {{coin.user.data.balance * 100 / coin.userSettings.data.payout}}%;">
               {{coin.user.data.balance * 100 / coin.userSettings.data.payout | number:1}}%
             </div>
