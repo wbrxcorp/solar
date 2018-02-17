@@ -154,8 +154,8 @@ if __name__ == '__main__':
                     hashrate = json.loads(r1.body_string())
                     balance = json.loads(r2.body_string())
                     if "getuserhashrate" in hashrate and "data" in hashrate["getuserhashrate"] and "getuserbalance" in balance and "data" in balance["getuserbalance"]:
-                        user = {"status":True, "data":{"balance":balance["getuserbalance"]["data"]["confirmed"]}}
                         h6 = float(hashrate["getuserhashrate"]["data"] * 1000)
+                        user = {"status":True, "data":{"balance":balance["getuserbalance"]["data"]["confirmed"],"avgHashrate":{"h6":h6}}}
                         user["data"]["daily_dollars"], user["data"]["daily_coins"] = get_daily_earnings(coin_id, h6)
                         write_file_atomic(filename, json.dumps(user))
             # todo: workers
