@@ -141,32 +141,62 @@ if __name__ == '__main__':
                         prices["data"]["daily_coins_per_hashrate"] = earnings["data"]["day"]["coins"]
                         write_file_atomic(filename, json.dumps(prices))
 
-        address = coin["address"]
+        if "pool" in coin and coin["pool"] == "mph":
+            user_id = coin["mph_user_id"]
+            api_key = coin["mph_api_key"]
+            mph_coin_id = coin["mph_coin_id"]
 
-        filename = "%s.user.json" % coin_id
-        if should_download_new_file(filename):
-            r = restkit.request("https://api.nanopool.org/v1/%s/user/%s" % (coin_id, address))
-            if r.status_int == 200:
-                user = json.loads(r.body_string())
-                if user["status"]:
-                    h6 = float(user["data"]["avgHashrate"]["h6"])
-                    user["data"]["daily_dollars"], user["data"]["daily_coins"] = get_daily_earnings(coin_id, h6)
-                    write_file_atomic(filename, json.dumps(user))
+            filename = "%s.user.json" % coin_id
+            if should_download_new_file(filename):
+                r1 = restkit.request("http://%s.miningpoolhub.com/index.php?page=api&action=getuserhashrate&api_key=%s&id=%s" % (mph_coin_id, api_key, user_id))
+                r2 = restkit.request("http://%s.miningpoolhub.com/index.php?page=api&action=getuserbalance&api_key=%s&id=%s" % (mph_coin_id, api_key, user_id))
+                if r1.status_int == 200 and r2.status_int == 200:
+                    hashrate = json.loads(r1.body_string())
+                    balance = json.loads(r2.body_string())
+                    if "getuserhashrate" in hashrate and "data" in hashrate["getuserhashrate"] and "getuserbalance" in balance and "data" in balance["getuserbalance"]:
+                        user = {"status":True, "data":{"balance":balance["getuserbalance"]["data"]["confirmed"]}}
+                        h6 = float(hashrate["getuserhashrate"]["data"] * 1000)
+                        user["data"]["daily_dollars"], user["data"]["daily_coins"] = get_daily_earnings(coin_id, h6)
+                        write_file_atomic(filename, json.dumps(user))
+            # todo: workers
+            #if os.path.isfile(filename):
+            #    user = json.load(open(filename))
+            #    for worker in user["data"]["workers"]:
+            #        worker_id = worker["id"]
+            #        h6 = float(worker["h6"])
+            #        if worker_id not in workers: workers[worker_id] = []
+            #        workers[worker_id].append({"id":coin_id, "h6":h6})
 
-        if os.path.isfile(filename):
-            user = json.load(open(filename))
-            for worker in user["data"]["workers"]:
-                worker_id = worker["id"]
-                h6 = float(worker["h6"])
-                if worker_id not in workers: workers[worker_id] = []
-                workers[worker_id].append({"id":coin_id, "h6":h6})
+            filename = "%s.settings.json" % coin_id
+            if should_download_new_file(filename):
+                write_file_atomic(filename, json.dumps({"status":True,"data":{"payout":None}}))
+        else: # nanopool
+            address = coin["address"]
 
-        filename = "%s.settings.json" % coin_id
-        if should_download_new_file(filename):
-            r = restkit.request("https://api.nanopool.org/v1/%s/usersettings/%s" % (coin_id, address))
-            if r.status_int == 200:
-                user = json.loads(r.body_string())
-                if user["status"]: write_file_atomic(filename, json.dumps(user))
+            filename = "%s.user.json" % coin_id
+            if should_download_new_file(filename):
+                r = restkit.request("https://api.nanopool.org/v1/%s/user/%s" % (coin_id, address))
+                if r.status_int == 200:
+                    user = json.loads(r.body_string())
+                    if user["status"]:
+                        h6 = float(user["data"]["avgHashrate"]["h6"])
+                        user["data"]["daily_dollars"], user["data"]["daily_coins"] = get_daily_earnings(coin_id, h6)
+                        write_file_atomic(filename, json.dumps(user))
+
+            if os.path.isfile(filename):
+                user = json.load(open(filename))
+                for worker in user["data"]["workers"]:
+                    worker_id = worker["id"]
+                    h6 = float(worker["h6"])
+                    if worker_id not in workers: workers[worker_id] = []
+                    workers[worker_id].append({"id":coin_id, "h6":h6})
+
+            filename = "%s.settings.json" % coin_id
+            if should_download_new_file(filename):
+                r = restkit.request("https://api.nanopool.org/v1/%s/usersettings/%s" % (coin_id, address))
+                if r.status_int == 200:
+                    user = json.loads(r.body_string())
+                    if user["status"]: write_file_atomic(filename, json.dumps(user))
 
     workers_list = []
     for worker_id,coins in workers.iteritems():
