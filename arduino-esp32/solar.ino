@@ -1,4 +1,4 @@
-// arduino --upload --board espressif:esp32:esp32:FlashFreq=80,UploadSpeed=115200 --port /dev/ttyUSB0 solar.ino
+// arduino --upload --board espressif:esp32:esp32:FlashFreq=40,UploadSpeed=115200 --port /dev/ttyUSB0 solar.ino
 #include <EEPROM.h>
 #include <WiFi.h>
 #include <ESPmDNS.h>
@@ -174,6 +174,10 @@ public:
   int write(const uint8_t* buf, size_t size)
   {
     return uart_write_bytes(uart_num, (const char*)buf, size);
+  }
+  int write(uint8_t b)
+  {
+    return write(&b, 1);
   }
   int read()
   {
@@ -351,10 +355,12 @@ void put_crc(uint8_t* message, size_t payload_size)
 void send_modbus_message(const uint8_t* message, size_t size)
 {
   digitalWrite(RS485_RTS_SOCKET,HIGH);
-  delay(1);
-  RS485.write(message, size);
-  RS485.flush();
-  delay(1);
+  delayMicroseconds(500);
+  for (int i = 0; i < size; i++) {
+    RS485.write(message[i]);
+    RS485.flush();
+  }
+  delayMicroseconds(1000);
   digitalWrite(RS485_RTS_SOCKET,LOW);
 }
 
@@ -474,11 +480,11 @@ void connect()
       MDNSResponder mdns;
       char tmp_hostname[strlen(config.nodename) + 8] = "nodexxx";
       strcat(tmp_hostname, config.nodename);
-      if (mdns.begin(tmp_hostname, TCPIP_ADAPTER_IF_STA, 300)) {
+      if (mdns.begin(tmp_hostname)) {
         char servername_without_suffix[servername_len - 5];
         strncpy(servername_without_suffix, config.servername, servername_len - 6);
         servername_without_suffix[servername_len - 6] = '\0';
-        IPAddress addr = mdns.queryHost(servername_without_suffix);
+        IPAddress addr = mdns.queryHost(servername_without_suffix, /*timeout is */5000/*msec*/);
         mdns.end();
         if (addr != INADDR_NONE)  {
           Serial.println(addr.toString());
@@ -569,6 +575,7 @@ bool put_registers(uint16_t addr, uint16_t* data, uint16_t num)
   }
   put_crc(message, message_size - 2);
 
+  //print_bytes(message, sizeof(message));
   send_modbus_message(message, sizeof(message));
   delay(50);
   while (RS485.available()) RS485.read(); // simply discard response(TODO: check the response)
@@ -805,6 +812,10 @@ void setup() {
           Serial.print(F("Temperature compensation coefficient: "));
           Serial.print((int)temperature_compensation_coefficient);
           Serial.println(F("mV/Cecelsius degree/2V"));
+          if (get_register(0x0006/*Force the load on/off*/, 1, reg)) {
+            Serial.print("Force the load on/off: ");
+            Serial.println(reg.getBoolValue(0)? F("on") : F("off(used for test)"));
+          }
         }
       }
     }
@@ -814,16 +825,22 @@ void setup() {
     if (put_register(0x906a/*Default load on/off in manual mode*/, (uint16_t)1)) {
       Serial.println("Default load on/off in manual mode set to 1(on)");
     }
+    if (put_register(0x0006/*Force the load on/off*/, (uint16_t)0xff00)) {
+      Serial.println("Force the load on/off set to 'on'");
+    }
   } else {
     Serial.println(F("Getting charge controller settings failed!"));
   }
 
   Serial.print("Connecting to WiFi AP");
+  WiFi.disconnect();
+  WiFi.mode(WIFI_STA);
   WiFi.setAutoReconnect(true);
   WiFi.begin(config.ssid, config.key);
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
+    //Serial.println(WiFi.status());
   }
   Serial.println(" Connected.");
   Serial.print("IP address: ");
