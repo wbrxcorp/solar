@@ -4,24 +4,25 @@
   <meta name="robots" content="noindex">
   <meta charset="utf-8">
   <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
-  <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.6.6/angular.min.js"></script>
-  <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.6.6/angular-resource.min.js"></script>
+  <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.6.7/angular.min.js"></script>
+  <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.6.7/angular-resource.min.js"></script>
   <script>
   angular.module("CC", ["ngResource"])
   .run(["$rootScope","$resource","$timeout",  function($scope, $resource, $timeout) {
-    var rate = $resource("https://api.fixer.io/latest");
-    var btcRate = $resource("https://api.coindesk.com/v1/bpi/currentprice.json");
+    var rate = $resource("usd.json");
+    var btcRate = $resource("btc.json");
     var coins = $resource("coins.json");
-    var user = $resource("https://api.nanopool.org/v1/:coin/user/:address");
-    var userSettings = $resource("https://api.nanopool.org/v1/:coin/usersettings/:address");
-    var approxEarnings = $resource("https://:coin.nanopool.org/api/v1/approximated_earnings/:hashrate");
-    var price = $resource("https://api.nanopool.org/v1/:coin/prices");
+    var user = $resource(":coin.user.json");
+    var userSettings = $resource(":coin.settings.json");
+    var workers = $resource("workers.json");
+    var price = $resource(":coin.prices.json");
+    var products = $resource("products.json");
     $scope.refresh = function(coins) {
       if ($scope.timer) {
           $timeout.cancel($scope.timer);
           $scope.timer = null;
       }
-      rate.get({base:"USD"}, function(data) {
+      rate.get({}, function(data) {
         $scope.usd = data;
       });
       btcRate.get({}, function(data) {
@@ -29,18 +30,21 @@
       });
       coins.forEach(function(coin) {
         if (coin.id[0] == '$') return;
-        user.get({"coin":coin.id,"address":coin.address}, function(data) {
+        user.get({"coin":coin.id}, function(data) {
           coin.user = data;
-          approxEarnings.get({"coin":coin.id,"hashrate":data.data.avgHashrate.h6}, function(data) {
-            coin.approxEarnings = data;
-          });
         });
-        userSettings.get({"coin":coin.id,"address":coin.address}, function(data) {
+        userSettings.get({"coin":coin.id}, function(data) {
           coin.userSettings = data;
         });
         price.get({"coin":coin.id}, function(data) {
           coin.price = data;
         });
+      });
+      workers.query({}, function(data) {
+        $scope.workers = data;
+      });
+      products.query({}, function(data) {
+        $scope.products = data;
       });
       $scope.timer = $timeout(function() {
         $scope.refresh(coins);
@@ -50,7 +54,7 @@
     $scope.total = function(coins) {
       var total = 0;
       coins.forEach(function(coin) {
-        if (coin.approxEarnings && coin.approxEarnings.data && coin.approxEarnings.data.day) total += coin.approxEarnings.data.day.dollars;
+        if (coin.user.data && coin.user.data.daily_dollars) total += coin.user.data.daily_dollars;
       });
       return total;
     };
@@ -63,14 +67,14 @@
   <div class="container">
     <h1>Miners</h1>
     <table class="table">
-      <tr><th>Coin</th><th>Price</th><th>Balance</th><th>Hashrate(6hrs)</th><th>Efficiency</th><th># of Workers</th></tr>
+      <tr><th>Coin</th><th>Price</th><th>Balance</th><th>Hashrate(6hrs)</th><th>Efficiency(per kWh)</th><th># of Workers</th></tr>
       <tr><td>Bitcoin</td><td><a href="https://www.coingecko.com/ja/%E7%9B%B8%E5%A0%B4%E3%83%81%E3%83%A3%E3%83%BC%E3%83%88/%E3%83%93%E3%83%83%E3%83%88%E3%82%B3%E3%82%A4%E3%83%B3/jpy" target="_blank">￥{{btc.bpi.USD.rate_float * usd.rates.JPY|number:0}}</a></td><td>-</td><td>-</td><td>-</td><td>-</td></tr>
       <tr ng-repeat="coin in coins">
         <td><a href="https://{{coin.id}}.nanopool.org/account/{{coin.address}}" target="_blank">{{coin.name}}</a></td>
-        <td><a href="{{coin.chart}}" target="_blank">￥{{coin.price.data.price_usd * usd.rates.JPY|number:0}}</a></td>
+        <td><a href="{{coin.chart}}" target="_blank">￥{{coin.price.data.price_usd * usd.rates.JPY|number:coin.price.data.price_usd * usd.rates.JPY < 10? 1:0}}</a></td>
         <td>
-          ￥{{coin.user.data.balance * coin.price.data.price_usd * usd.rates.JPY|number:0}} / ￥{{coin.userSettings.data.payout * coin.price.data.price_usd * usd.rates.JPY|number:0}} <small>(P/O {{coin.userSettings.data.payout}}{{coin.id}})</small>
-          <div class="progress" style="margin-bottom:0;">
+          ￥{{coin.user.data.balance * coin.price.data.price_usd * usd.rates.JPY|number:0}}<span ng-if="coin.userSettings.data.payout > 0"> / ￥{{coin.userSettings.data.payout * coin.price.data.price_usd * usd.rates.JPY|number:0}}<br>({{(coin.userSettings.data.payout - coin.user.data.balance) / coin.user.data.daily_coins|number:1}} days to P/O {{coin.userSettings.data.payout}}{{coin.id}})</span>
+          <div class="progress" style="margin-bottom:0;" ng-if="coin.userSettings.data.payout > 0">
             <div class="progress-bar progress-bar-striped" role="progressbar" style="width: {{coin.user.data.balance * 100 / coin.userSettings.data.payout}}%;">
               {{coin.user.data.balance * 100 / coin.userSettings.data.payout | number:1}}%
             </div>
@@ -78,9 +82,9 @@
         </td>
         <td>
           {{coin.user.data.avgHashrate.h6}}<br>
-          (￥{{coin.approxEarnings.data.day.dollars * usd.rates.JPY | number:0}}/day)
+          (￥{{coin.user.data.daily_dollars * usd.rates.JPY | number:0}}/day)
         </td>
-        <td><span ng-repeat="equipment in coin.equipments">{{equipment.name}}:￥{{1000.0 / equipment.wattage * coin.approxEarnings.data.hour.dollars * equipment.hashrate / coin.user.data.avgHashrate.h6 * usd.rates.JPY | number:0}}/kwh<br></span></td>
+        <td><span ng-repeat="equipment in coin.equipments">{{equipment.name}}:￥{{1000.0 / equipment.wattage * coin.user.data.daily_dollars / 24 * equipment.hashrate / coin.user.data.avgHashrate.h6 * usd.rates.JPY | number:0}}<br></span></td>
         <td>{{coin.user.data.workers.length}}</td>
       </tr>
       <tr>
@@ -90,6 +94,25 @@
         <td>Total</td><td>-</td><td>-</td><td>￥{{total(coins) * usd.rates.JPY | number:0}}/day</td><td>-</td><td>-</td>
       </tr>
     </table>
+
+    <table class="table">
+      <tr><th>Worker</th><th>coins</th><th>Earnings per day</th></tr>
+      <tr ng-repeat="worker in workers">
+        <td>{{worker.id}}</td>
+        <td><span ng-repeat="coin in worker.coins">{{coin.id}}(￥{{coin.daily_dollars * usd.rates.JPY | number:0}}) </span></td>
+        <td>￥{{worker.daily_dollars * usd.rates.JPY | number:0}}</td>
+      </tr>
+    </table>
+
+    <table class="table">
+      <tr><th>Product</th><th>price</th><th>Availability</th></tr>
+      <tr ng-repeat="product in products">
+        <td><a href="https://www.amazon.co.jp/dp/{{product.asin}}" target="_blank">{{product.title}}</a></td>
+        <td>￥{{product.price | number:0}}</td>
+        <td>{{product.availability}}</td>
+      </tr>
+    </table>
+
     <div class="text-center">
       <button class="btn btn-default" ng-click="refresh(coins)"><span class="glyphicon glyphicon-refresh"></span> Refresh now</button>
     </div>
