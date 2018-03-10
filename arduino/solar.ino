@@ -709,6 +709,10 @@ void setup() {
           Serial.print(F("Temperature compensation coefficient: "));
           Serial.print((int)temperature_compensation_coefficient);
           Serial.println(F("mV/Cecelsius degree/2V"));
+          if (get_register(0x0006/*Force the load on/off*/, 1, reg)) {
+            Serial.print("Force the load on/off: ");
+            Serial.println(reg.getBoolValue(0)? F("on") : F("off(used for test)"));
+          }
         }
       }
     }
@@ -717,6 +721,9 @@ void setup() {
     }
     if (put_register(0x906a/*Default load on/off in manual mode*/, (uint16_t)1)) {
       Serial.println("Default load on/off in manual mode set to 1(on)");
+    }
+    if (put_register(0x0006/*Force the load on/off*/, (uint16_t)0xff00)) {
+      Serial.println("Force the load on/off set to 'on'");
     }
   } else {
     Serial.println(F("Getting charge controller settings failed!"));
