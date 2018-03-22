@@ -157,7 +157,7 @@ public:
     };
     uart_param_config(uart_num, &uart_config);
     uart_set_pin(uart_num, tx_io_num, rx_io_num, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
-    uart_driver_install(UART_NUM_2, UART_FIFO_LEN * 2, 0, 0, NULL, 0);
+    uart_driver_install(uart_num, UART_FIFO_LEN * 2, 0, 0, NULL, 0);
     started = true;
   }
   void end()
