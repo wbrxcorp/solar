@@ -463,41 +463,96 @@ bool get_register(uint16_t addr, uint8_t num, EPSolarTracerInputRegister& reg, i
   return false;
 }
 
+static void _on_sys_event(system_event_t *event){
+    mdns_handle_system_event(NULL, event);
+}
+
 void connect()
 {
   unsigned long retry_delay = 1;/*sec*/
   while (true) {
-    Serial.print("Connecting to ");
-    Serial.print(config.servername);
-    Serial.print(':');
-    Serial.print(config.port);
-    Serial.println("...");
     int connected = 0;
     int servername_len = strlen(config.servername);
+
+    MDNSResponder mdns;
+    char tmp_hostname[strlen(config.nodename) + 8] = "nodexxx";
+    strcat(tmp_hostname, config.nodename);
+
     if (servername_len > 6 && strcmp(config.servername + servername_len - 6, ".local") == 0) {
-      // query mDNS
-      Serial.print("Querying mDNS...");
-      MDNSResponder mdns;
-      char tmp_hostname[strlen(config.nodename) + 8] = "nodexxx";
-      strcat(tmp_hostname, config.nodename);
-      if (mdns.begin(tmp_hostname)) {
-        char servername_without_suffix[servername_len - 5];
-        strncpy(servername_without_suffix, config.servername, servername_len - 6);
-        servername_without_suffix[servername_len - 6] = '\0';
-        IPAddress addr = mdns.queryHost(servername_without_suffix, /*timeout is */5000/*msec*/);
-        mdns.end();
-        if (addr != INADDR_NONE)  {
-          Serial.println(addr.toString());
-          connected = tcp_client.connect(addr, config.port);
+      Serial.printf("Querying hostname '%s' via mDNS...", config.servername);
+      char servername_without_suffix[servername_len - 5];
+      strncpy(servername_without_suffix, config.servername, servername_len - 6);
+      servername_without_suffix[servername_len - 6] = '\0';
+
+      if (!mdns_init()) {
+        if (!mdns_hostname_set(tmp_hostname)) {
+          struct ip4_addr addr;
+          addr.addr = 0;
+          esp_err_t err = mdns_query_a(servername_without_suffix, 5000,  &addr);
+          if (!err) {
+              IPAddress addr2 = IPAddress(addr.addr);
+              Serial.print("Found. Connecting to ");
+              Serial.print(addr2);
+              Serial.print(':');
+              Serial.print(config.port);
+              Serial.print("...");
+
+              connected = tcp_client.connect(addr2, config.port);
+          } else {
+            Serial.println("Failed to obtain server IP address via mDNS.");
+          }
         } else {
-          Serial.println("Failed to obtain server IP address via mDNS.");
+          Serial.println("Failed to set mDNS hostname.");
         }
+        mdns_free();
       } else {
-        Serial.println("Failed to init mDNS.");
+        Serial.println("Failed to start mDNS.");
+      }
+    } else if (config.servername[0] == '_' && strcmp(config.servername + servername_len - 5, "._tcp") == 0) {
+      char servicename[servername_len - 4];
+      strncpy(servicename, config.servername, servername_len - 5);
+      servicename[servername_len - 5] = '\0';
+      Serial.printf("Querying service %s._tcp via mDNS...", servicename);
+
+      if (MDNS.begin(tmp_hostname)) {
+        mdns_result_t * results;
+        esp_err_t err = mdns_query_ptr(servicename, "_tcp", 5000, 20,  &results);
+        if (err) {
+          Serial.println("Error.");
+        } else if (!results) {
+          Serial.println("Not Found.");
+        } else {
+          mdns_ip_addr_t * addr = results->addr;
+          while(addr){
+            if(addr->addr.type == MDNS_IP_PROTOCOL_V4) break;
+            addr = addr->next;
+          }
+          if (addr) {
+            IPAddress addr2 = IPAddress(addr->addr.u_addr.ip4.addr);
+            Serial.print("Found. Connecting to ");
+            Serial.print(addr2);
+            Serial.print(':');
+            Serial.print(results->port);
+            Serial.print("...");
+            connected = tcp_client.connect(addr2, results->port);
+          } else {
+            Serial.println("No IPv4 address attatched to the service.");
+          }
+          mdns_query_results_free(results);
+        }
+        MDNS.end();
+      } else {
+        Serial.println("Failed to start mDNS.");
       }
     } else {
+      Serial.print("Connecting to ");
+      Serial.print(config.servername);
+      Serial.print(':');
+      Serial.print(config.port);
+      Serial.print("...");
       connected = tcp_client.connect(config.servername, config.port);
     }
+
     if (connected) {
       Serial.println("Connected.");
       char buf[64];
@@ -752,7 +807,7 @@ void setup() {
     strcpy_P(config.nodename, PSTR("kennel01"));
     strcpy_P(config.ssid, PSTR("YOUR_ESSID"));
     strcpy_P(config.key, PSTR("YOUR_WPA_KEY"));
-    strcpy_P(config.servername, PSTR("your.server"));
+    strcpy_P(config.servername, PSTR("_solar._tcp"));
     config.port = DEFAULT_PORT;
     operation_mode = OPERATION_MODE_COMMAND_LINE_ONLY;
     return;
@@ -764,7 +819,7 @@ void setup() {
   Serial.print(("WiFi SSID: "));
   Serial.println(config.ssid);
   Serial.println(F("WiFi Password: *"));
-  Serial.print(F("Server name: "));
+  Serial.print(F("Server(service) name: "));
   Serial.println(config.servername);
   Serial.print(F("Server port: "));
   Serial.println(config.port);
