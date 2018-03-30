@@ -113,7 +113,7 @@ if __name__ == '__main__':
 
     filename = "usd.json"
     if should_download_new_file(filename):
-        r = restkit.request("https://api.fixer.io/latest?base=USD")
+        r = restkit.request("http://api.fixer.io/latest?base=USD")
         if r.status_int == 200: write_file_atomic(filename, r.body_string())
 
     filename = "btc.json"
