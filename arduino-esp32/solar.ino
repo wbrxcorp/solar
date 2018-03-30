@@ -463,10 +463,6 @@ bool get_register(uint16_t addr, uint8_t num, EPSolarTracerInputRegister& reg, i
   return false;
 }
 
-static void _on_sys_event(system_event_t *event){
-    mdns_handle_system_event(NULL, event);
-}
-
 void connect()
 {
   unsigned long retry_delay = 1;/*sec*/
