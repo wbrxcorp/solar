@@ -474,7 +474,6 @@ void connect()
     int connected = 0;
     int servername_len = strlen(config.servername);
 
-    MDNSResponder mdns;
     char tmp_hostname[strlen(config.nodename) + 8] = "nodexxx";
     strcat(tmp_hostname, config.nodename);
 
