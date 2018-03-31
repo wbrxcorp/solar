@@ -762,7 +762,7 @@ void setup() {
     return;
   }
 
-  RS485.begin(115200, SERIAL_8N1, 16, 17); // USE 16/17 pins originally assigned to UART2
+  RS485.begin(115200, SERIAL_8N1, UART2_RX_SOCKET, UART2_TX_SOCKET); // USE 16/17 pins originally assigned to UART2
   EPSolarTracerDeviceInfo info;
   if (get_device_info(info)) {
     Serial.print("Vendor: ");
