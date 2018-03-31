@@ -135,67 +135,6 @@ public:
   }
 };
 
-class HardwareSerialPpoimono {
-  uart_port_t uart_num;
-  int rx_io_num, tx_io_num;
-  uint16_t timeout;
-  bool started;
-public:
-  HardwareSerialPpoimono(uart_port_t _uart_num, int _rx_io_num, int _tx_io_num) : uart_num(_uart_num), rx_io_num(_rx_io_num), tx_io_num(_tx_io_num), timeout(1000), started(false)
-  {
-    ;
-  }
-  ~HardwareSerialPpoimono() { end(); }
-  void begin(int baud_rate)
-  {
-    uart_config_t uart_config = {
-     .baud_rate = baud_rate,
-     .data_bits = UART_DATA_8_BITS,
-     .parity = UART_PARITY_DISABLE,
-     .stop_bits = UART_STOP_BITS_1,
-     .flow_ctrl = UART_HW_FLOWCTRL_DISABLE
-    };
-    uart_param_config(uart_num, &uart_config);
-    uart_set_pin(uart_num, tx_io_num, rx_io_num, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
-    uart_driver_install(uart_num, UART_FIFO_LEN * 2, 0, 0, NULL, 0);
-    started = true;
-  }
-  void end()
-  {
-    if (started) {
-      uart_driver_delete(uart_num);
-      started = false;
-    }
-  }
-  void flush()
-  {
-    uart_flush(uart_num);
-  }
-  int write(const uint8_t* buf, size_t size)
-  {
-    return uart_write_bytes(uart_num, (const char*)buf, size);
-  }
-  int write(uint8_t b)
-  {
-    return write(&b, 1);
-  }
-  int read()
-  {
-    uint8_t octet;
-    return uart_read_bytes(uart_num, &octet, 1, timeout / portTICK_RATE_MS) > 0? octet : -1;
-  }
-  int readBytes(uint8_t* buf, uint32_t length)
-  {
-    return uart_read_bytes(uart_num, buf, length, timeout / portTICK_RATE_MS);
-  }
-  size_t available()
-  {
-    size_t rst = 0;
-    return uart_get_buffered_data_len(uart_num, &rst) == ESP_OK? rst : 0;
-  }
-
-};
-
 class EPSolarTracerDeviceInfo {
   char* vendor_name;
   char* product_code;
@@ -309,8 +248,7 @@ public:
 LineBuffer receive_buffer(COMM_BUF_MAX);
 LineBuffer cmdline_buffer(COMM_BUF_MAX, '\r'/*cu sends \r instead of \n*/);
 
-HardwareSerialPpoimono RS485(UART_NUM_2, GPIO_NUM_16, GPIO_NUM_17);  // RX=16,TX=17
-//HardwareSerial RS485(2);  // RX=16,TX=17
+HardwareSerial RS485(1);  // Use UART1 (need to change TX/RX pins)
 WiFiClient tcp_client;
 
 uint8_t operation_mode = OPERATION_MODE_NORMAL;
@@ -354,13 +292,12 @@ void put_crc(uint8_t* message, size_t payload_size)
 
 void send_modbus_message(const uint8_t* message, size_t size)
 {
+  while(RS485.available()) RS485.read();
   digitalWrite(RS485_RTS_SOCKET,HIGH);
+  //delayMicroseconds(500);
+  RS485.write(message, size);
+  RS485.flush();
   delayMicroseconds(500);
-  for (int i = 0; i < size; i++) {
-    RS485.write(message[i]);
-    RS485.flush();
-  }
-  delayMicroseconds(1000);
   digitalWrite(RS485_RTS_SOCKET,LOW);
 }
 
@@ -825,7 +762,7 @@ void setup() {
     return;
   }
 
-  RS485.begin(115200);
+  RS485.begin(115200, SERIAL_8N1, 16, 17); // USE 16/17 pins originally assigned to UART2
   EPSolarTracerDeviceInfo info;
   if (get_device_info(info)) {
     Serial.print("Vendor: ");
