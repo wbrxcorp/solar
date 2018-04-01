@@ -264,7 +264,7 @@ LineBuffer cmdline_buffer(COMM_BUF_MAX, '\r'/*cu sends \r instead of \n*/);
 #ifdef ARDUINO_ARCH_ESP32
   HardwareSerial RS485(1);  // Use UART1 (need to change TX/RX pins)
 #elif ARDUINO_ARCH_ESP8266
-  SoftwareSerial RS485(14, 12, false, 256);
+  SoftwareSerial RS485(RS485_RX_SOCKET, RS485_TX_SOCKET, false, 256);
 #else
   #error "Invalid architecture"
 #endif
