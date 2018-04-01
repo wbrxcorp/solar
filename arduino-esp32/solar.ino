@@ -30,10 +30,8 @@
   #define RS485_TX_SOCKET 3
   #define RS485_RX_SOCKET 4
   #define RS485_RTS_SOCKET 2
-  #define PW1_SW_SOCKET 0
-  #define PW1_LED_SOCKET 1
-  #define PW2_SW_SOCKET 5
-  #define PW2_LED_SOCKET 6
+  #define PW1_SW_SOCKET 5
+  #define PW1_LED_SOCKET 6
   #define PW_IND_LED_SOCKET 7
   #define COMMAND_LINE_ONLY_MODE_SOCKET 8
 #endif
@@ -762,8 +760,10 @@ void setup() {
   pinMode(RS485_RTS_SOCKET, OUTPUT);
   pinMode(PW1_SW_SOCKET, OUTPUT);
   pinMode(PW1_LED_SOCKET, INPUT_PULLUP);
+#ifdef ARDUINO_ARCH_ESP32
   pinMode(PW2_SW_SOCKET, OUTPUT);
   pinMode(PW2_LED_SOCKET, INPUT_PULLUP);
+#endif
   pinMode(PW_IND_LED_SOCKET, OUTPUT);
   pinMode(COMMAND_LINE_ONLY_MODE_SOCKET, INPUT_PULLUP); // Short to enter command line only mode
 
