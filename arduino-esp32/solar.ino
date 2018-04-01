@@ -896,10 +896,6 @@ void setup() {
   Serial.println(" Connected.");
   Serial.print("IP address: ");
   Serial.println(WiFi.localIP());
-#ifdef ARDUINO_ARCH_ESP32
-  Serial.print("Entering Modem-Sleep mode...");
-  Serial.println((esp_wifi_set_ps(WIFI_PS_MODEM) == ESP_OK)? "Success" : "Fail");
-#endif
 
   connect();
 }
@@ -1156,7 +1152,11 @@ void loop_normal()
 
     last_report_time = current_time;
   }
-  //delay(100);
+  #ifdef ARDUINO_ARCH_ESP32
+  if (esp_wifi_set_ps(WIFI_PS_MODEM) == ESP_OK) {
+    delay(1000);
+  }
+  #endif
 }
 
 void loop()
