@@ -1,9 +1,17 @@
 // arduino --upload --board espressif:esp32:esp32:FlashFreq=40,UploadSpeed=115200 --port /dev/ttyUSB0 solar.ino
+// arduino --verify --board esp8266com:esp8266:d1_mini:CpuFrequency=80,FlashSize=4M1M solar.ino
 #include <EEPROM.h>
+#ifdef ARDUINO_ARCH_ESP32
 #include <WiFi.h>
 #include <ESPmDNS.h>
 #include <esp_wifi.h>
-#include <driver/uart.h>
+#elif ARDUINO_ARCH_ESP8266
+#include <SoftwareSerial.h>
+#include <ESP8266WiFi.h>
+#include <ESP8266mDNS.h>
+#else
+#error "Invalid architecture"
+#endif
 
 #define HIBYTE(word) ((uint8_t)((word & 0xff00) >> 8))
 #define LOBYTE(word) ((uint8_t)(word & 0xff))
@@ -248,7 +256,13 @@ public:
 LineBuffer receive_buffer(COMM_BUF_MAX);
 LineBuffer cmdline_buffer(COMM_BUF_MAX, '\r'/*cu sends \r instead of \n*/);
 
-HardwareSerial RS485(1);  // Use UART1 (need to change TX/RX pins)
+#ifdef ARDUINO_ARCH_ESP32
+  HardwareSerial RS485(1);  // Use UART1 (need to change TX/RX pins)
+#elif ARDUINO_ARCH_ESP8266
+  SoftwareSerial RS485(14, 12, false, 256);
+#else
+  #error "Invalid architecture"
+#endif
 WiFiClient tcp_client;
 
 uint8_t operation_mode = OPERATION_MODE_NORMAL;
@@ -256,6 +270,9 @@ unsigned long last_report_time = 0;
 char session_id[48] = "";
 uint8_t battery_rated_voltage = 0; // 12 or 24(V)
 uint8_t temperature_compensation_coefficient = 0; // 0-9(mV)
+#ifdef ARDUINO_ARCH_ESP8266
+  bool mdns_started = false;
+#endif
 
 struct {
   char nodename[32];
@@ -403,13 +420,15 @@ bool get_register(uint16_t addr, uint8_t num, EPSolarTracerInputRegister& reg, i
 void connect()
 {
   unsigned long retry_delay = 1;/*sec*/
+  String _tmp_hostname = "nodexxx";
+  _tmp_hostname += config.nodename;
+  const char* tmp_hostname = _tmp_hostname.c_str();
+  int servername_len = strlen(config.servername);
+
   while (true) {
     int connected = 0;
-    int servername_len = strlen(config.servername);
 
-    char tmp_hostname[strlen(config.nodename) + 8] = "nodexxx";
-    strcat(tmp_hostname, config.nodename);
-
+#ifdef ARDUINO_ARCH_ESP32
     if (servername_len > 6 && strcmp(config.servername + servername_len - 6, ".local") == 0) {
       Serial.printf("Querying hostname '%s' via mDNS...", config.servername);
       char servername_without_suffix[servername_len - 5];
@@ -440,12 +459,15 @@ void connect()
       } else {
         Serial.println("Failed to start mDNS.");
       }
-    } else if (config.servername[0] == '_' && strcmp(config.servername + servername_len - 5, "._tcp") == 0) {
+    } else
+#endif
+    if (config.servername[0] == '_' && strcmp(config.servername + servername_len - 5, "._tcp") == 0) {
       char servicename[servername_len - 4];
       strncpy(servicename, config.servername, servername_len - 5);
       servicename[servername_len - 5] = '\0';
       Serial.printf("Querying service %s._tcp via mDNS...", servicename);
 
+#ifdef ARDUINO_ARCH_ESP32
       if (MDNS.begin(tmp_hostname)) {
         mdns_result_t * results;
         esp_err_t err = mdns_query_ptr(servicename, "_tcp", 5000, 20,  &results);
@@ -473,7 +495,28 @@ void connect()
           mdns_query_results_free(results);
         }
         MDNS.end();
-      } else {
+      }
+#elif ARDUINO_ARCH_ESP8266
+      if (mdns_started || MDNS.begin(tmp_hostname)) {
+        if (mdns_started) MDNS.update();
+        else mdns_started = true;
+        if (MDNS.queryService((const char*)(servicename + 1), "tcp") > 0) {
+          IPAddress addr = MDNS.IP(0);
+          uint16_t port = MDNS.port(0);
+          Serial.print("Found. Connecting to ");
+          Serial.print(addr);
+          Serial.print(':');
+          Serial.print(port);
+          Serial.print("...");
+          connected = tcp_client.connect(addr, port);
+        } else {
+          Serial.println("Not Found.");
+        }
+      }
+#else
+  #error "Invalid architecture"
+#endif
+      else {
         Serial.println("Failed to start mDNS.");
       }
     } else {
@@ -762,7 +805,13 @@ void setup() {
     return;
   }
 
+#ifdef ARDUINO_ARCH_ESP32
   RS485.begin(115200, SERIAL_8N1, UART2_RX_SOCKET, UART2_TX_SOCKET); // USE 16/17 pins originally assigned to UART2
+#elif ARDUINO_ARCH_ESP8266
+  RS485.begin(115200);
+#else
+  #error "Invalid architecture"
+#endif
   EPSolarTracerDeviceInfo info;
   if (get_device_info(info)) {
     Serial.print("Vendor: ");
@@ -832,8 +881,10 @@ void setup() {
   Serial.println(" Connected.");
   Serial.print("IP address: ");
   Serial.println(WiFi.localIP());
+#ifdef ARDUINO_ARCH_ESP32
   Serial.print("Entering Modem-Sleep mode...");
   Serial.println((esp_wifi_set_ps(WIFI_PS_MODEM) == ESP_OK)? "Success" : "Fail");
+#endif
 
   connect();
 }
