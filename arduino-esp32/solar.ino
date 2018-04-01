@@ -19,21 +19,22 @@
 #ifdef ARDUINO_ARCH_ESP32
   #define RS485_TX_SOCKET 17
   #define RS485_RX_SOCKET 16
-  #define RS485_RTS_SOCKET 27
-  #define PW1_SW_SOCKET 12
-  #define PW1_LED_SOCKET 13
-  #define PW2_SW_SOCKET 5
-  #define PW2_LED_SOCKET 23
-  #define PW_IND_LED_SOCKET 19
-  #define COMMAND_LINE_ONLY_MODE_SOCKET 18
+  #define RS485_RTS_SOCKET 21
+  #define COMMAND_LINE_ONLY_MODE_SOCKET 26
+  #define PW1_SW_SOCKET 35
+  #define PW1_LED_SOCKET 33
+  #define PW2_SW_SOCKET 27
+  #define PW2_LED_SOCKET 25
+  #define PW3_SW_SOCKET 32
+  #define PW3_LED_SOCKET 4
+  #define PW4_SW_SOCKET 0
+  #define PW4_LED_SOCKET 2
+  #define PW_IND_LED_SOCKET 34
 #elif ARDUINO_ARCH_ESP8266
   #define RS485_TX_SOCKET 3
   #define RS485_RX_SOCKET 4
   #define RS485_RTS_SOCKET 2
-  #define PW1_SW_SOCKET 5
-  #define PW1_LED_SOCKET 6
-  #define PW_IND_LED_SOCKET 7
-  #define COMMAND_LINE_ONLY_MODE_SOCKET 8
+  #define COMMAND_LINE_ONLY_MODE_SOCKET 0
 #endif
 
 #define OPERATION_MODE_NORMAL 0
@@ -628,23 +629,30 @@ void poweroff_pw()
 
 bool read_pw1()
 {
+#ifdef ARDUINO_ARCH_ESP32
   bool pw1_on = digitalRead(PW1_LED_SOCKET) == LOW;
   digitalWrite(PW_IND_LED_SOCKET, pw1_on? HIGH : LOW);
   return pw1_on;
+#else
+  return false;
+#endif
 }
 
 void poweron_pw1()
 {
+#ifdef ARDUINO_ARCH_ESP32
   digitalWrite(PW1_SW_SOCKET, LOW);
   poweron_pw(); // main power on
   delay(500);
   digitalWrite(PW1_SW_SOCKET, HIGH);
   delay(200);
   digitalWrite(PW1_SW_SOCKET, LOW);
+#endif
 }
 
 void poweroff_pw1()
 {
+#ifdef ARDUINO_ARCH_ESP32
   digitalWrite(PW1_SW_SOCKET, LOW);
   delay(100);
   digitalWrite(PW1_SW_SOCKET, HIGH);
@@ -667,6 +675,7 @@ void poweroff_pw1()
     }
     delay(100);
   }
+#endif
 }
 
 void process_message(const char* message)
@@ -758,14 +767,14 @@ void process_message(const char* message)
 void setup() {
   Serial.begin(115200);
   pinMode(RS485_RTS_SOCKET, OUTPUT);
+  pinMode(COMMAND_LINE_ONLY_MODE_SOCKET, INPUT_PULLUP); // Short to enter command line only mode
+#ifdef ARDUINO_ARCH_ESP32
   pinMode(PW1_SW_SOCKET, OUTPUT);
   pinMode(PW1_LED_SOCKET, INPUT_PULLUP);
-#ifdef ARDUINO_ARCH_ESP32
   pinMode(PW2_SW_SOCKET, OUTPUT);
   pinMode(PW2_LED_SOCKET, INPUT_PULLUP);
-#endif
   pinMode(PW_IND_LED_SOCKET, OUTPUT);
-  pinMode(COMMAND_LINE_ONLY_MODE_SOCKET, INPUT_PULLUP); // Short to enter command line only mode
+#endif
 
   // read config from EEPROM
   Serial.write("Loading config from EEPROM...");
