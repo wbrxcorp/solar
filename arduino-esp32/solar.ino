@@ -16,21 +16,27 @@
 #define HIBYTE(word) ((uint8_t)((word & 0xff00) >> 8))
 #define LOBYTE(word) ((uint8_t)(word & 0xff))
 
-#define UART0_RX_SOCKET     // Arduino 0
-#define UART0_TX_SOCKET     // Arduino 1
-#define SOCKET_26           // Arduino 2
-#define SOCKET_25           // Arduino 3
-#define UART2_TX_SOCKET 17  // Arduino 4
-#define UART2_RX_SOCKET 16  // Arduino 5
-#define RS485_RTS_SOCKET 27 // Arduino 6
-#define SOCKET_14           // Arduino 7
-
-#define PW1_SW_SOCKET 12    // Arduino 8
-#define PW1_LED_SOCKET 13   // Arduino 9
-#define PW2_SW_SOCKET 5     // Arduino 10
-#define PW2_LED_SOCKET 23   // Arduino 11
-#define PW_IND_LED_SOCKET 19  // Arduino 12
-#define COMMAND_LINE_ONLY_MODE_SOCKET 18  // Arduino 13
+#ifdef ARDUINO_ARCH_ESP32
+  #define RS485_TX_SOCKET 17
+  #define RS485_RX_SOCKET 16
+  #define RS485_RTS_SOCKET 27
+  #define PW1_SW_SOCKET 12
+  #define PW1_LED_SOCKET 13
+  #define PW2_SW_SOCKET 5
+  #define PW2_LED_SOCKET 23
+  #define PW_IND_LED_SOCKET 19
+  #define COMMAND_LINE_ONLY_MODE_SOCKET 18
+#elif ARDUINO_ARCH_ESP8266
+  #define RS485_TX_SOCKET 3
+  #define RS485_RX_SOCKET 4
+  #define RS485_RTS_SOCKET 2
+  #define PW1_SW_SOCKET 0
+  #define PW1_LED_SOCKET 1
+  #define PW2_SW_SOCKET 5
+  #define PW2_LED_SOCKET 6
+  #define PW_IND_LED_SOCKET 7
+  #define COMMAND_LINE_ONLY_MODE_SOCKET 8
+#endif
 
 #define OPERATION_MODE_NORMAL 0
 #define OPERATION_MODE_COMMAND_LINE 1
@@ -806,7 +812,7 @@ void setup() {
   }
 
 #ifdef ARDUINO_ARCH_ESP32
-  RS485.begin(115200, SERIAL_8N1, UART2_RX_SOCKET, UART2_TX_SOCKET); // USE 16/17 pins originally assigned to UART2
+  RS485.begin(115200, SERIAL_8N1, RS485_RX_SOCKET, RS485_TX_SOCKET); // USE 16/17 pins originally assigned to UART2
 #elif ARDUINO_ARCH_ESP8266
   RS485.begin(115200);
 #else
