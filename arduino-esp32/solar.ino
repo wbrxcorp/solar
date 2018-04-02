@@ -675,7 +675,7 @@ void poweroff_pw1()
 
 void process_message(const char* message)
 {
-  Serial.print(F("Received: "));
+  Serial.print("Received: ");
   Serial.println(message);
 
   if (strlen(message) < 3 || strncmp(message, "OK\t", 3) != 0) return;
@@ -707,32 +707,32 @@ void process_message(const char* message)
     } else if (strcmp(key, "bt") == 0) {
       int battery_type = atoi(value);
       put_register(0x9000/*Battery type*/, (uint16_t)battery_type);
-      Serial.print(F("Battery type saved: "));
+      Serial.print("Battery type saved: ");
       Serial.println(battery_type);
     } else if (strcmp(key, "bc") == 0) {
       int battery_capacity= atoi(value);
       put_register(0x9001/*Battery capacity*/, (uint16_t)battery_capacity);
-      Serial.print(F("Battery capacity saved: "));
+      Serial.print("Battery capacity saved: ");
       Serial.print(battery_capacity);
-      Serial.println(F("Ah"));
+      Serial.println("Ah");
     } else if (strcmp(key, "pw") == 0 && isdigit(value[0])) { // main power
       int pw = atoi(value);
       if (pw == 0) {
-        Serial.println(F("Power OFF"));
+        Serial.println("Power OFF");
         if (read_pw1()) poweroff_pw1(); // atx power off
         poweroff_pw();
       } else if (pw == 1) {
-        Serial.println(F("Power ON"));
+        Serial.println("Power ON");
         poweron_pw();
       }
     } else if (strcmp(key, "pw1") == 0 && (isdigit(value[0]) || value[0] == '-')) { // atx power
       int pw1 = atoi(value);
       bool pw1_on = read_pw1();
       if (pw1_on && pw1 == 0) { // power off
-        Serial.println(F("Power1 OFF"));
+        Serial.println("Power1 OFF");
         poweroff_pw1();
       } else if (!pw1_on && pw1 == 1) { // power on
-        Serial.println(F("Power1 ON"));
+        Serial.println("Power1 ON");
         poweron_pw1(); // main power on
       }
     }
@@ -782,11 +782,11 @@ void setup() {
     crc = update_crc(crc, p[i]);
   }
   if (crc != config.crc) {
-    Serial.print(F("Checksum mismatch(expected="));
+    Serial.print("Checksum mismatch(expected=");
     Serial.print(crc);
-    Serial.print(F(", actual="));
+    Serial.print(", actual=");
     Serial.print(config.crc);
-    Serial.print(F("). entering command line only mode.\r\n# "));
+    Serial.print("). entering command line only mode.\r\n# ");
     memset(&config, 0, sizeof(config));
 
     strcpy(config.nodename, "kennel01");
@@ -798,15 +798,15 @@ void setup() {
     return;
   }
 
-  Serial.println(F("Done."));
-  Serial.print(F("Nodename: "));
+  Serial.println("Done.");
+  Serial.print("Nodename: ");
   Serial.println(config.nodename);
   Serial.print(("WiFi SSID: "));
   Serial.println(config.ssid);
-  Serial.println(F("WiFi Password: *"));
-  Serial.print(F("Server(service) name: "));
+  Serial.println("WiFi Password: *");
+  Serial.print("Server(service) name: ");
   Serial.println(config.servername);
-  Serial.print(F("Server port: "));
+  Serial.print("Server port: ");
   Serial.println(config.port);
 
   if (digitalRead(COMMAND_LINE_ONLY_MODE_SOCKET) == LOW) { // LOW == SHORT(pulled up)
@@ -829,7 +829,7 @@ void setup() {
     Serial.print("Revision: ");
     Serial.println(info.get_revision());
   } else {
-    Serial.println(F("Getting charge controller device info failed!"));
+    Serial.println("Getting charge controller device info failed!");
   }
 
   EPSolarTracerInputRegister reg;
@@ -848,17 +848,17 @@ void setup() {
       Serial.println(buf);
       if (get_register(0x311d/*Battery real rated voltage*/, 1, reg)) {
         battery_rated_voltage = (uint8_t)reg.getFloatValue(0);
-        Serial.print(F("Battery real rated voltage: "));
+        Serial.print("Battery real rated voltage: ");
         Serial.print((int)battery_rated_voltage);
-        Serial.println(F("V"));
+        Serial.println("V");
         if (get_register(0x9002/*Temperature compensation coefficient*/, 1, reg)) {
           temperature_compensation_coefficient = (uint8_t)reg.getFloatValue(0);
-          Serial.print(F("Temperature compensation coefficient: "));
+          Serial.print("Temperature compensation coefficient: ");
           Serial.print((int)temperature_compensation_coefficient);
-          Serial.println(F("mV/Cecelsius degree/2V"));
+          Serial.println("mV/Cecelsius degree/2V");
           if (get_register(0x0006/*Force the load on/off*/, 1, reg)) {
             Serial.print("Force the load on/off: ");
-            Serial.println(reg.getBoolValue(0)? F("on") : F("off(used for test)"));
+            Serial.println(reg.getBoolValue(0)? "on" : "off(used for test)");
           }
         }
       }
@@ -873,7 +873,7 @@ void setup() {
       Serial.println("Force the load on/off set to 'on'");
     }
   } else {
-    Serial.println(F("Getting charge controller settings failed!"));
+    Serial.println("Getting charge controller settings failed!");
   }
 
   Serial.print("Connecting to WiFi AP");
@@ -906,27 +906,27 @@ bool process_command_line(const char* line) // true = go to next line,  false = 
 
   if (strcmp(lineparser[0], "exit") == 0 || strcmp(lineparser[0], "quit") == 0) {
     if (operation_mode == OPERATION_MODE_COMMAND_LINE_ONLY) {
-      Serial.println(F("This is 'command line only' mode. make sure wifi config is right and restart system."));
+      Serial.println("This is 'command line only' mode. make sure wifi config is right and restart system.");
       return true;
     }
     // else
     operation_mode = OPERATION_MODE_NORMAL;
-    Serial.println(F("Exitting command line mode."));
+    Serial.println("Exitting command line mode.");
     return false;
   } else if (strcmp(lineparser[0], "nodename") == 0) {
     if (lineparser.get_count() < 2) {
-      Serial.print(F("Current nodename is '"));
+      Serial.print("Current nodename is '");
       Serial.print(config.nodename);
-      Serial.println(F("'."));
+      Serial.println("'.");
       return true;
     }
     // else
     // TODO: validation
     strncpy(config.nodename, lineparser[1], sizeof(config.nodename));
     config.nodename[sizeof(config.nodename) - 1] = '\0'; // ensure null terminated as strncpy may not put it on tail
-    Serial.print(F("Nodename set to '"));
+    Serial.print("Nodename set to '");
     Serial.print(config.nodename);
-    Serial.println(F("'. save and reboot the system to take effects."));
+    Serial.println("'. save and reboot the system to take effects.");
   } else if (strcmp(lineparser[0], "ssid") == 0) {
     if (lineparser.get_count() < 2) {
       Serial.print("Current SSID is '");
@@ -937,9 +937,9 @@ bool process_command_line(const char* line) // true = go to next line,  false = 
     // else
     strncpy(config.ssid, lineparser[1], sizeof(config.ssid));
     config.ssid[sizeof(config.ssid) - 1] = '\0';
-    Serial.print(F("SSID set to '"));
+    Serial.print("SSID set to '");
     Serial.print(config.ssid);
-    Serial.println(F("'. save and reboot the system to take effects."));
+    Serial.println("'. save and reboot the system to take effects.");
   } else if (strcmp(lineparser[0], "key") == 0) {
     if (lineparser.get_count() < 2) {
       Serial.print("Current WPA Key is '");
@@ -950,25 +950,25 @@ bool process_command_line(const char* line) // true = go to next line,  false = 
     // else
     strncpy(config.key, lineparser[1], sizeof(config.key));
     config.key[sizeof(config.key) - 1] = '\0';
-    Serial.print(F("WPA Key set to '"));
+    Serial.print("WPA Key set to '");
     Serial.print(config.key);
     Serial.println("'. save and reboot the system to take effects.");
   } else if (strcmp(lineparser[0], "servername") == 0) {
     if (lineparser.get_count() < 2) {
-      Serial.print(F("Current Server name is '"));
+      Serial.print("Current Server name is '");
       Serial.print(config.servername);
-      Serial.println(F("'."));
+      Serial.println("'.");
       return true;
     }
     // else
     strncpy(config.servername, lineparser[1], sizeof(config.servername));
     config.servername[sizeof(config.servername) - 1] = '\0';
-    Serial.print(F("Server name set to '"));
+    Serial.print("Server name set to '");
     Serial.print(config.servername);
-    Serial.println(F("'. save and reboot the system to take effects."));
+    Serial.println("'. save and reboot the system to take effects.");
   } else if (strcmp(lineparser[0], "port") == 0) {
     if (lineparser.get_count() < 2) {
-      Serial.print(F("Current port is "));
+      Serial.print("Current port is ");
       Serial.print(config.port);
       Serial.println('.');
       return true;
@@ -976,31 +976,31 @@ bool process_command_line(const char* line) // true = go to next line,  false = 
     // else
     long port = atol(lineparser[1]);
     if (port < 1 || port > 65535) {
-      Serial.println(F("Invalid port number."));
+      Serial.println("Invalid port number.");
       return true;
     }
     // else
     config.port = (uint16_t)port;
-    Serial.print(F("Server port set to "));
+    Serial.print("Server port set to ");
     Serial.print(port);
-    Serial.println(F(". save and reboot the system to take effects."));
+    Serial.println(". save and reboot the system to take effects.");
   } else if (strcmp(lineparser[0], "save") == 0) {
     uint8_t* p = (uint8_t*)&config;
     config.crc = 0xffff;
     for (size_t i = 0; i < sizeof(config) - sizeof(config.crc); i++) {
       config.crc = update_crc(config.crc, p[i]);
     }
-    Serial.print(F("Writing config to EEPROM..."));
+    Serial.print("Writing config to EEPROM...");
     EEPROM.begin(sizeof(config));
     EEPROM.put(0, config);
     EEPROM.commit();
     EEPROM.end();
 
-    Serial.println(F("Done."));
+    Serial.println("Done.");
   } else if (strcmp(lineparser[0], "?") == 0 || strcmp(lineparser[0], "help") == 0) {
-    Serial.println(F("Available commands: nodename ssid key servername port exit"));
+    Serial.println("Available commands: nodename ssid key servername port exit");
   } else {
-    Serial.println(F("Unrecognized command."));
+    Serial.println("Unrecognized command.");
   }
   return true;
 }
@@ -1023,7 +1023,7 @@ void loop_command_line()
           return;
         }
         // else
-        Serial.print(F("# "));
+        Serial.print("# ");
       }
     }
   }
@@ -1035,8 +1035,8 @@ void loop_normal()
   // enter command line mode when enter presses
   if (Serial.available() && Serial.read() == '\r') {
     operation_mode = OPERATION_MODE_COMMAND_LINE;
-    Serial.println(F("Entering command line mode. '?' to help, 'exit' to exit."));
-    Serial.print(F("# "));
+    Serial.println("Entering command line mode. '?' to help, 'exit' to exit.");
+    Serial.print("# ");
     return;
   }
 
@@ -1144,7 +1144,7 @@ void loop_normal()
       if (send_message(buf)) break;
       //else
       // Perform autoreconnect when something fails
-      Serial.println(F("Connection error. performing autoreconnect..."));
+      Serial.println("Connection error. performing autoreconnect...");
       delay(970);
       connect();
     }
