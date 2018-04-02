@@ -895,7 +895,7 @@ void setup() {
 #ifdef ARDUINO_ARCH_ESP32
   esp_wifi_set_ps(WIFI_PS_MODEM) == ESP_OK;
 #elif ARDUINO_ARCH_ESP8266
-  wifi_set_sleep_type(LIGHT_SLEEP_T);
+  wifi_set_sleep_type(MODEM_SLEEP_T);
 #endif
 }
 
