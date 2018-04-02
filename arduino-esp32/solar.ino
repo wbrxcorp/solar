@@ -1,5 +1,5 @@
 // arduino --upload --board espressif:esp32:esp32:FlashFreq=40,UploadSpeed=115200 --port /dev/ttyUSB0 solar.ino
-// arduino --verify --board esp8266com:esp8266:d1_mini:CpuFrequency=80,FlashSize=4M1M solar.ino
+// arduino --upload --board esp8266com:esp8266:d1_mini:CpuFrequency=80,FlashSize=4M1M,UploadSpeed=115200 --port /dev/ttyUSB0 solar.ino
 #include <EEPROM.h>
 #ifdef ARDUINO_ARCH_ESP32
 #include <WiFi.h>
@@ -9,8 +9,6 @@
 #include <SoftwareSerial.h>
 #include <ESP8266WiFi.h>
 #include <ESP8266mDNS.h>
-#else
-#error "Invalid architecture"
 #endif
 
 #define HIBYTE(word) ((uint8_t)((word & 0xff00) >> 8))
@@ -20,7 +18,7 @@
   #define RS485_TX_SOCKET 17
   #define RS485_RX_SOCKET 16
   #define RS485_RTS_SOCKET 21
-  #define COMMAND_LINE_ONLY_MODE_SOCKET 26
+  #define COMMAND_LINE_ONLY_MODE_SOCKET 22
   #define PW1_SW_SOCKET 35
   #define PW1_LED_SOCKET 33
   #define PW2_SW_SOCKET 27
@@ -31,10 +29,10 @@
   #define PW4_LED_SOCKET 2
   #define PW_IND_LED_SOCKET 34
 #elif ARDUINO_ARCH_ESP8266
-  #define RS485_TX_SOCKET 3
-  #define RS485_RX_SOCKET 4
-  #define RS485_RTS_SOCKET 2
-  #define COMMAND_LINE_ONLY_MODE_SOCKET 0
+  #define RS485_TX_SOCKET D3
+  #define RS485_RX_SOCKET D4
+  #define RS485_RTS_SOCKET D2
+  #define COMMAND_LINE_ONLY_MODE_SOCKET D1
 #endif
 
 #define OPERATION_MODE_NORMAL 0
@@ -46,7 +44,7 @@
 #define FORCE_SHUTDOWN_TIMEOUT 6000
 #define MESSAGE_TIMEOUT 10000
 
-#define COMM_BUF_MAX 128
+#define COMM_BUF_MAX 256
 
 const uint16_t DEFAULT_PORT = 29574; // default server port number
 
@@ -265,8 +263,6 @@ LineBuffer cmdline_buffer(COMM_BUF_MAX, '\r'/*cu sends \r instead of \n*/);
   HardwareSerial RS485(1);  // Use UART1 (need to change TX/RX pins)
 #elif ARDUINO_ARCH_ESP8266
   SoftwareSerial RS485(RS485_RX_SOCKET, RS485_TX_SOCKET, false, 256);
-#else
-  #error "Invalid architecture"
 #endif
 WiFiClient tcp_client;
 
@@ -518,8 +514,6 @@ void connect()
           Serial.println("Not Found.");
         }
       }
-#else
-  #error "Invalid architecture"
 #endif
       else {
         Serial.println("Failed to start mDNS.");
@@ -536,7 +530,7 @@ void connect()
     if (connected) {
       Serial.println("Connected.");
       char buf[64];
-      sprintf(buf, PSTR("INIT\tnodename:%s"), config.nodename);
+      sprintf(buf, "INIT\tnodename:%s", config.nodename);
       send_message(buf);
       return;
     }
@@ -683,7 +677,7 @@ void process_message(const char* message)
   Serial.print(F("Received: "));
   Serial.println(message);
 
-  if (strlen(message) < 3 || strncmp_P(message, PSTR("OK\t"), 3) != 0) return;
+  if (strlen(message) < 3 || strncmp(message, "OK\t", 3) != 0) return;
   // else
   const char* pt = message + 3;
   int32_t date = -1, time = -1;
@@ -758,7 +752,7 @@ void process_message(const char* message)
       data[2/*0x9015*/] = year << 8 | month;
       put_registers(0x9013/*Real Time Clock*/, data, 3);
       char buf[32];
-      sprintf_P(buf, PSTR("Date saved: 20%02u-%02u-%02u %02u:%02u:%02u"), year, month, day, hour, minute, second);
+      sprintf(buf, "Date saved: 20%02u-%02u-%02u %02u:%02u:%02u", year, month, day, hour, minute, second);
       Serial.println(buf);
     }
   }
@@ -794,10 +788,10 @@ void setup() {
     Serial.print(F("). entering command line only mode.\r\n# "));
     memset(&config, 0, sizeof(config));
 
-    strcpy_P(config.nodename, PSTR("kennel01"));
-    strcpy_P(config.ssid, PSTR("YOUR_ESSID"));
-    strcpy_P(config.key, PSTR("YOUR_WPA_KEY"));
-    strcpy_P(config.servername, PSTR("_solar._tcp"));
+    strcpy(config.nodename, "kennel01");
+    strcpy(config.ssid, "YOUR_ESSID");
+    strcpy(config.key, "YOUR_WPA_KEY");
+    strcpy(config.servername, "_solar._tcp");
     config.port = DEFAULT_PORT;
     operation_mode = OPERATION_MODE_COMMAND_LINE_ONLY;
     return;
@@ -824,8 +818,6 @@ void setup() {
   RS485.begin(115200, SERIAL_8N1, RS485_RX_SOCKET, RS485_TX_SOCKET); // USE 16/17 pins originally assigned to UART2
 #elif ARDUINO_ARCH_ESP8266
   RS485.begin(115200);
-#else
-  #error "Invalid architecture"
 #endif
   EPSolarTracerDeviceInfo info;
   if (get_device_info(info)) {
@@ -843,15 +835,15 @@ void setup() {
   if (get_register(0x9013/*Real Time Clock*/, 3, reg, 3)) {
     uint64_t rtc = reg.getRTCValue(0);
     char buf[32];
-    sprintf_P(buf, PSTR("RTC: %lu %06lu"), (uint32_t)(rtc / 1000000L), (uint32_t)(rtc % 1000000LL));
+    sprintf(buf, "RTC: %lu %06lu", (uint32_t)(rtc / 1000000L), (uint32_t)(rtc % 1000000LL));
     Serial.println(buf);
     if (get_register(0x9000/*battery type, battery capacity*/, 2, reg)) {
-      const char* battery_type_str[] = { PSTR("User Defined"), PSTR("Sealed"), PSTR("GEL"), PSTR("Flooded") };
+      const char* battery_type_str[] = { "User Defined", "Sealed", "GEL", "Flooded" };
       int battery_type = reg.getIntValue(0);
       int battery_capacity = reg.getIntValue(2);
-      sprintf_P(buf, PSTR("Battery type: %d("), battery_type);
+      sprintf(buf, "Battery type: %d(", battery_type);
       strcat(buf, battery_type_str[battery_type]);
-      sprintf_P(buf + strlen(buf), PSTR("), %dAh"), battery_capacity);
+      sprintf(buf + strlen(buf), "), %dAh", battery_capacity);
       Serial.println(buf);
       if (get_register(0x311d/*Battery real rated voltage*/, 1, reg)) {
         battery_rated_voltage = (uint8_t)reg.getFloatValue(0);
@@ -905,7 +897,7 @@ bool process_command_line(const char* line) // true = go to next line,  false = 
   LineParser lineparser(line);
   if (lineparser.get_count() == 0 || lineparser[0][0] =='#') return true;
 
-  if (strcmp_P(lineparser[0], PSTR("exit")) == 0 || strcmp_P(lineparser[0], PSTR("quit")) == 0) {
+  if (strcmp(lineparser[0], "exit") == 0 || strcmp(lineparser[0], "quit") == 0) {
     if (operation_mode == OPERATION_MODE_COMMAND_LINE_ONLY) {
       Serial.println(F("This is 'command line only' mode. make sure wifi config is right and restart system."));
       return true;
@@ -914,7 +906,7 @@ bool process_command_line(const char* line) // true = go to next line,  false = 
     operation_mode = OPERATION_MODE_NORMAL;
     Serial.println(F("Exitting command line mode."));
     return false;
-  } else if (strcmp_P(lineparser[0], PSTR("nodename")) == 0) {
+  } else if (strcmp(lineparser[0], "nodename") == 0) {
     if (lineparser.get_count() < 2) {
       Serial.print(F("Current nodename is '"));
       Serial.print(config.nodename);
@@ -928,11 +920,11 @@ bool process_command_line(const char* line) // true = go to next line,  false = 
     Serial.print(F("Nodename set to '"));
     Serial.print(config.nodename);
     Serial.println(F("'. save and reboot the system to take effects."));
-  } else if (strcmp_P(lineparser[0], PSTR("ssid")) == 0) {
+  } else if (strcmp(lineparser[0], "ssid") == 0) {
     if (lineparser.get_count() < 2) {
-      Serial.print(F("Current SSID is '"));
+      Serial.print("Current SSID is '");
       Serial.print(config.ssid);
-      Serial.println(F("'."));
+      Serial.println("'.");
       return true;
     }
     // else
@@ -941,11 +933,11 @@ bool process_command_line(const char* line) // true = go to next line,  false = 
     Serial.print(F("SSID set to '"));
     Serial.print(config.ssid);
     Serial.println(F("'. save and reboot the system to take effects."));
-  } else if (strcmp_P(lineparser[0], PSTR("key")) == 0) {
+  } else if (strcmp(lineparser[0], "key") == 0) {
     if (lineparser.get_count() < 2) {
-      Serial.print(F("Current WPA Key is '"));
+      Serial.print("Current WPA Key is '");
       Serial.print(config.key);
-      Serial.println(F("'."));
+      Serial.println("'.");
       return true;
     }
     // else
@@ -953,8 +945,8 @@ bool process_command_line(const char* line) // true = go to next line,  false = 
     config.key[sizeof(config.key) - 1] = '\0';
     Serial.print(F("WPA Key set to '"));
     Serial.print(config.key);
-    Serial.println(F("'. save and reboot the system to take effects."));
-  } else if (strcmp_P(lineparser[0], PSTR("servername")) == 0) {
+    Serial.println("'. save and reboot the system to take effects.");
+  } else if (strcmp(lineparser[0], "servername") == 0) {
     if (lineparser.get_count() < 2) {
       Serial.print(F("Current Server name is '"));
       Serial.print(config.servername);
@@ -967,7 +959,7 @@ bool process_command_line(const char* line) // true = go to next line,  false = 
     Serial.print(F("Server name set to '"));
     Serial.print(config.servername);
     Serial.println(F("'. save and reboot the system to take effects."));
-  } else if (strcmp_P(lineparser[0], PSTR("port")) == 0) {
+  } else if (strcmp(lineparser[0], "port") == 0) {
     if (lineparser.get_count() < 2) {
       Serial.print(F("Current port is "));
       Serial.print(config.port);
@@ -985,7 +977,7 @@ bool process_command_line(const char* line) // true = go to next line,  false = 
     Serial.print(F("Server port set to "));
     Serial.print(port);
     Serial.println(F(". save and reboot the system to take effects."));
-  } else if (strcmp_P(lineparser[0], PSTR("save")) == 0) {
+  } else if (strcmp(lineparser[0], "save") == 0) {
     uint8_t* p = (uint8_t*)&config;
     config.crc = 0xffff;
     for (size_t i = 0; i < sizeof(config) - sizeof(config.crc); i++) {
@@ -998,7 +990,7 @@ bool process_command_line(const char* line) // true = go to next line,  false = 
     EEPROM.end();
 
     Serial.println(F("Done."));
-  } else if (strcmp_P(lineparser[0], PSTR("?")) == 0 || strcmp_P(lineparser[0], PSTR("help")) == 0) {
+  } else if (strcmp(lineparser[0], "?") == 0 || strcmp(lineparser[0], "help") == 0) {
     Serial.println(F("Available commands: nodename ssid key servername port exit"));
   } else {
     Serial.println(F("Unrecognized command."));
@@ -1088,45 +1080,45 @@ void loop_normal()
     while (true) {
       char buf[64];
       if (success) {
-        strcpy_P(buf, PSTR("DATA\tpiv:"));
+        strcpy(buf, "DATA\tpiv:");
         dtostrf(piv, 4, 2, buf + strlen(buf));
         tcp_client.write(buf);
 
-        strcpy_P(buf, PSTR("\tpia:"));
+        strcpy(buf, "\tpia:");
         dtostrf(pia, 4, 2, buf + strlen(buf));
         tcp_client.write(buf);
 
-        strcpy_P(buf, PSTR("\tpiw:"));
+        strcpy(buf, "\tpiw:");
         dtostrf(piw, 4, 2, buf + strlen(buf));
         tcp_client.write(buf);
 
-        strcpy_P(buf, PSTR("\tbv:"));
+        strcpy(buf, "\tbv:");
         dtostrf(bv, 4, 2, buf + strlen(buf));
         tcp_client.write(buf);
 
-        strcpy_P(buf, PSTR("\tpoa:"));
+        strcpy(buf, "\tpoa:");
         dtostrf(poa, 4, 2, buf + strlen(buf));
         tcp_client.write(buf);
 
-        strcpy_P(buf, PSTR("\tload:"));
+        strcpy(buf, "\tload:");
         dtostrf(load, 4, 2, buf + strlen(buf));
         tcp_client.write(buf);
 
-        strcpy_P(buf, PSTR("\ttemp:"));
+        strcpy(buf, "\ttemp:");
         dtostrf(temp, 4, 2, buf + strlen(buf));
         tcp_client.write(buf);
 
-        strcpy_P(buf, PSTR("\tlkwh:"));
+        strcpy(buf, "\tlkwh:");
         dtostrf(lkwh, 4, 2, buf + strlen(buf));
         tcp_client.write(buf);
 
-        strcpy_P(buf, PSTR("\tkwh:"));
+        strcpy(buf, "\tkwh:");
         dtostrf(kwh, 4, 2, buf + strlen(buf));
         tcp_client.write(buf);
 
         /*
-        sprintf_P(buf, PSTR("\tpw:%d"), pw);
-        sprintf_P(buf + strlen(buf), PSTR("\tpw1:%d"), read_pw1()? 1 : 0);
+        sprintf(buf, "\tpw:%d", pw);
+        sprintf(buf + strlen(buf), "\tpw1:%d", read_pw1()? 1 : 0);
         tcp_client.write(buf);
         */
       } else {
@@ -1134,12 +1126,12 @@ void loop_normal()
       }
 
       if (session_id[0]) {
-        strcpy_P(buf, PSTR("\tsession:"));
+        strcpy(buf, "\tsession:");
         strcat(buf, session_id);
         tcp_client.write(buf);
       }
 
-      strcpy_P(buf, PSTR("\tnodename:"));
+      strcpy(buf, "\tnodename:");
       strcat(buf, config.nodename);
 
       if (send_message(buf)) break;
