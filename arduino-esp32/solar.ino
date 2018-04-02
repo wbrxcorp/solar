@@ -9,6 +9,7 @@
 #include <SoftwareSerial.h>
 #include <ESP8266WiFi.h>
 #include <ESP8266mDNS.h>
+#include <user_interface.h>
 #endif
 
 #define HIBYTE(word) ((uint8_t)((word & 0xff00) >> 8))
@@ -890,6 +891,12 @@ void setup() {
   Serial.println(WiFi.localIP());
 
   connect();
+
+#ifdef ARDUINO_ARCH_ESP32
+  esp_wifi_set_ps(WIFI_PS_MODEM) == ESP_OK;
+#elif ARDUINO_ARCH_ESP8266
+  wifi_set_sleep_type(LIGHT_SLEEP_T);
+#endif
 }
 
 bool process_command_line(const char* line) // true = go to next line,  false = go to next loop
@@ -1144,11 +1151,6 @@ void loop_normal()
 
     last_report_time = current_time;
   }
-  #ifdef ARDUINO_ARCH_ESP32
-  if (esp_wifi_set_ps(WIFI_PS_MODEM) == ESP_OK) {
-    delay(1000);
-  }
-  #endif
 }
 
 void loop()
