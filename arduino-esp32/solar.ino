@@ -1,4 +1,4 @@
-// arduino --upload --board espressif:esp32:esp32:FlashFreq=40,UploadSpeed=115200 --port /dev/ttyUSB0 solar.ino
+// arduino --upload --board espressif:esp32:mhetesp32minikit:FlashFreq=80,UploadSpeed=921600 --port /dev/ttyUSB0 solar.ino
 // arduino --upload --board esp8266com:esp8266:d1_mini:CpuFrequency=80,FlashSize=4M1M,UploadSpeed=115200 --port /dev/ttyUSB0 solar.ino
 #include <EEPROM.h>
 #ifdef ARDUINO_ARCH_ESP32
@@ -45,62 +45,46 @@
 #define FORCE_SHUTDOWN_TIMEOUT 6000
 #define MESSAGE_TIMEOUT 10000
 
-#define COMM_BUF_MAX 256
+//#define COMM_BUF_MAX 256
 
 const uint16_t DEFAULT_PORT = 29574; // default server port number
 
 class LineBuffer {
-  char* buf = NULL;
-  size_t max_size = 0;
-  size_t size = 0;
+  String buf;
   char terminator = '\n';
 public:
-  LineBuffer(size_t _max_size, char _terminator = '\n') : max_size(_max_size), terminator(_terminator) {
-    this->buf = new char[_max_size];
-  }
-  ~LineBuffer() {
-    delete [] buf;
-  }
-  bool push(char c) { // returns true if completed(terminated by \n)
-    if (size < max_size - 1) buf[size++] = c;
-    if (c == this->terminator && size == max_size) buf[max_size - 1] = this->terminator;
-    return memchr(buf, this->terminator, size) != NULL;
+  LineBuffer() {;}
+  LineBuffer(char _terminator) : terminator(_terminator) { ; }
+  bool push(char c) {
+    buf += c;
+    return this->get_line_size() >= 0;
   }
   bool push(const char* str) {
-    for (const char* pt = str; *pt != '\0'; pt++) {
-      if (size < max_size - 1) buf[size++] = *pt;
-      if (*pt == this->terminator && size == max_size) buf[max_size - 1] = this->terminator;
-    }
-    return memchr(buf, this->terminator, size) != NULL;
+    buf += str;
+    return this->get_line_size() >= 0;
   }
-  bool push(const uint8_t* bytes, size_t len) {
-    for (int i = 0; i < len; i++) {
-      if (size < max_size - 1) buf[size++] = (char)bytes[i];
-      if (bytes[i] == this->terminator && size == max_size) buf[max_size - 1] = this->terminator;
+  bool push(const uint8_t* data, size_t size) {
+    for (int i = 0; i < size; i++) {
+      buf.concat((char)data[i]);
     }
-    return memchr(buf, this->terminator, size) != NULL;
+    return this->get_line_size() >= 0;
   }
   int get_line_size() const {
-    const char* pos = (const char*)memchr(buf, this->terminator, size);
-    if (pos == NULL) return -1;
-    return pos - buf;
+    return buf.indexOf(terminator);
   }
   bool pop(char* dst, size_t dstsize) {
-    if (this->get_line_size() < 0) return false;
-    const char* pt = this->buf;
-    while (*pt != this->terminator) {
-      if (pt - this->buf < dstsize - 1) *dst++ = *pt++;
-    }
-    *dst = '\0';
+    if (dstsize < 1) return false;
+    int line_size = this->get_line_size();
+    if (line_size < 0) return false;
 
-    pt++;
-    size_t pos = (pt - this->buf);
-    memmove(this->buf, pt, this->size - pos);
-    this->size -= pos;
+    int copy_size = std::min(line_size, (int)dstsize - 1);
+    strncpy(dst, buf.c_str(), copy_size);
+    dst[copy_size] = '\0';
 
+    buf.remove(0, line_size + 1);
     return true;
   }
-  void clear() { this->size = 0; }
+  void clear() { buf = ""; }
 };
 
 class LineParser {
@@ -257,8 +241,8 @@ public:
   }
 };
 
-LineBuffer receive_buffer(COMM_BUF_MAX);
-LineBuffer cmdline_buffer(COMM_BUF_MAX, '\r'/*cu sends \r instead of \n*/);
+LineBuffer receive_buffer;
+LineBuffer cmdline_buffer('\r'/*cu sends \r instead of \n*/);
 
 #ifdef ARDUINO_ARCH_ESP32
   HardwareSerial RS485(1);  // Use UART1 (need to change TX/RX pins)
