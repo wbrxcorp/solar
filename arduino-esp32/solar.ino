@@ -45,8 +45,8 @@
 #define FORCE_SHUTDOWN_TIMEOUT 6000
 #define MESSAGE_TIMEOUT 10000
 
-//#define COMM_BUF_MAX 256
-
+const char* DEFAULT_NODENAME = "kennel01";
+const char* DEFAULT_SERVERNAME = "_solar._tcp";
 const uint16_t DEFAULT_PORT = 29574; // default server port number
 
 class LineBuffer {
@@ -776,10 +776,10 @@ void setup() {
     Serial.print("). entering command line only mode.\r\n# ");
     memset(&config, 0, sizeof(config));
 
-    strcpy(config.nodename, "kennel01");
+    strcpy(config.nodename, DEFAULT_NODENAME);
     strcpy(config.ssid, "YOUR_ESSID");
     strcpy(config.key, "YOUR_WPA_KEY");
-    strcpy(config.servername, "_solar._tcp");
+    strcpy(config.servername, DEFAULT_SERVERNAME);
     config.port = DEFAULT_PORT;
     operation_mode = OPERATION_MODE_COMMAND_LINE_ONLY;
     return;
