@@ -16,6 +16,7 @@
 #define LOBYTE(word) ((uint8_t)(word & 0xff))
 
 #ifdef ARDUINO_ARCH_ESP32
+  // pin definitions for MH-ET ESP32 Mini Kit
   #define RS485_TX_SOCKET 17
   #define RS485_RX_SOCKET 16
   #define RS485_RTS_SOCKET 21
@@ -26,10 +27,9 @@
   #define PW2_LED_SOCKET 25
   #define PW3_SW_SOCKET 32
   #define PW3_LED_SOCKET 4
-  #define PW4_SW_SOCKET 0
-  #define PW4_LED_SOCKET 2
-  #define PW_IND_LED_SOCKET 34
+  #define INTEGRATED_LED_SOCKET 2
 #elif ARDUINO_ARCH_ESP8266
+  // pin definitions for D1 Mini
   #define RS485_TX_SOCKET D3
   #define RS485_RX_SOCKET D4
   #define RS485_RTS_SOCKET D2
@@ -608,10 +608,8 @@ void poweroff_pw()
 
 bool read_pw1()
 {
-#ifdef ARDUINO_ARCH_ESP32
-  bool pw1_on = digitalRead(PW1_LED_SOCKET) == LOW;
-  digitalWrite(PW_IND_LED_SOCKET, pw1_on? HIGH : LOW);
-  return pw1_on;
+#ifdef PW1_LED_SOCKET
+  return digitalRead(PW1_LED_SOCKET) == LOW;
 #else
   return false;
 #endif
@@ -747,12 +745,17 @@ void setup() {
   Serial.begin(115200);
   pinMode(RS485_RTS_SOCKET, OUTPUT);
   pinMode(COMMAND_LINE_ONLY_MODE_SOCKET, INPUT_PULLUP); // Short to enter command line only mode
-#ifdef ARDUINO_ARCH_ESP32
+
+#ifdef INTEGRATED_LED_SOCKET
+  pinMode(INTEGRATED_LED_SOCKET, OUTPUT);
+#endif
+#if defined(PW1_SW_SOCKET) && defined(PW1_LED_SOCKET)
   pinMode(PW1_SW_SOCKET, OUTPUT);
   pinMode(PW1_LED_SOCKET, INPUT_PULLUP);
+#endif
+#if defined(PW2_SW_SOCKET) && defined(PW2_LED_SOCKET)
   pinMode(PW2_SW_SOCKET, OUTPUT);
   pinMode(PW2_LED_SOCKET, INPUT_PULLUP);
-  pinMode(PW_IND_LED_SOCKET, OUTPUT);
 #endif
 
   // read config from EEPROM
@@ -1135,6 +1138,9 @@ void loop_normal()
 
     last_report_time = current_time;
   }
+#ifdef INTEGRATED_LED_SOCKET
+  digitalWrite(2, current_time / 1000 % 2 == 0);
+#endif
 }
 
 void loop()
