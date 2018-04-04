@@ -33,8 +33,6 @@
   #define ALT_PW1_LED_SOCKET 33
   #define ALT_PW2_SW_SOCKET 34
   #define ALT_PW2_LED_SOCKET 14 // TMS at default
-
-  #define INTEGRATED_LED_SOCKET 2
 #elif ARDUINO_ARCH_ESP8266
   // pin definitions for D1 Mini
   #define RS485_TX_SOCKET D3
@@ -770,10 +768,7 @@ void setup() {
   Serial.begin(115200);
   pinMode(RS485_RTS_SOCKET, OUTPUT);
   pinMode(COMMAND_LINE_ONLY_MODE_SOCKET, INPUT_PULLUP); // Short to enter command line only mode
-
-#ifdef INTEGRATED_LED_SOCKET
-  pinMode(INTEGRATED_LED_SOCKET, OUTPUT);
-#endif
+  pinMode(LED_BUILTIN, OUTPUT);
 
   // read config from EEPROM
   Serial.write("Loading config from EEPROM...");
@@ -1184,9 +1179,7 @@ void loop_normal()
 
     last_report_time = current_time;
   }
-#ifdef INTEGRATED_LED_SOCKET
-  digitalWrite(2, current_time / 1000 % 2 == 0);
-#endif
+  digitalWrite(LED_BUILTIN, current_time / 1000 % 2 == 0);
 }
 
 void loop()
