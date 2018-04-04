@@ -21,12 +21,19 @@
   #define RS485_RX_SOCKET 16
   #define RS485_RTS_SOCKET 21
   #define COMMAND_LINE_ONLY_MODE_SOCKET 22
-  #define PW1_SW_SOCKET 35
-  #define PW1_LED_SOCKET 33
-  #define PW2_SW_SOCKET 27
-  #define PW2_LED_SOCKET 25
-  #define PW3_SW_SOCKET 32
-  #define PW3_LED_SOCKET 4
+
+  // For Non-SPI mode
+  #define PW1_SW_SOCKET 18
+  #define PW1_LED_SOCKET 19
+  #define PW2_SW_SOCKET 23
+  #define PW2_LED_SOCKET 5
+
+  // For SPI mode
+  #define ALT_PW1_SW_SOCKET 35
+  #define ALT_PW1_LED_SOCKET 33
+  #define ALT_PW2_SW_SOCKET 34
+  #define ALT_PW2_LED_SOCKET 14 // TMS at default
+
   #define INTEGRATED_LED_SOCKET 2
 #elif ARDUINO_ARCH_ESP8266
   // pin definitions for D1 Mini
@@ -34,6 +41,11 @@
   #define RS485_RX_SOCKET D4
   #define RS485_RTS_SOCKET D2
   #define COMMAND_LINE_ONLY_MODE_SOCKET D1
+
+  #define PW1_SW_SOCKET D5
+  #define PW1_LED_SOCKET D6
+  #define PW2_SW_SOCKET D7
+  #define PW2_LED_SOCKET D8
 #endif
 
 #define OPERATION_MODE_NORMAL 0
@@ -268,6 +280,13 @@ struct {
   uint16_t port;
   uint16_t crc;
 } config;
+
+struct {
+  int pw1_sw = PW1_SW_SOCKET;
+  int pw1_led = PW1_LED_SOCKET;
+  int pw2_sw = PW2_SW_SOCKET;
+  int pw2_led = PW2_LED_SOCKET;
+} edogawa_unit_pins;
 
 uint16_t update_crc(uint16_t crc, uint8_t val)
 {
@@ -608,51 +627,57 @@ void poweroff_pw()
 
 bool read_pw1()
 {
-#ifdef PW1_LED_SOCKET
-  return digitalRead(PW1_LED_SOCKET) == LOW;
-#else
-  return false;
-#endif
+  if (edogawa_unit_pins.pw1_led < 0) return false;
+  // else
+  return digitalRead(edogawa_unit_pins.pw1_led) == LOW;
 }
 
 void poweron_pw1()
 {
-#ifdef ARDUINO_ARCH_ESP32
-  digitalWrite(PW1_SW_SOCKET, LOW);
+  if (edogawa_unit_pins.pw1_sw < 0) {
+    Serial.println("pw1 not available");
+    return;
+  }
+  // else
+
+  digitalWrite(edogawa_unit_pins.pw1_sw, LOW);
   poweron_pw(); // main power on
   delay(500);
-  digitalWrite(PW1_SW_SOCKET, HIGH);
+  digitalWrite(edogawa_unit_pins.pw1_sw, HIGH);
   delay(200);
-  digitalWrite(PW1_SW_SOCKET, LOW);
-#endif
+  digitalWrite(edogawa_unit_pins.pw1_sw, LOW);
 }
 
 void poweroff_pw1()
 {
-#ifdef ARDUINO_ARCH_ESP32
-  digitalWrite(PW1_SW_SOCKET, LOW);
+  if (edogawa_unit_pins.pw1_sw < 0) {
+    Serial.println("pw1 not available");
+    return;
+  }
+  // else
+
+  digitalWrite(edogawa_unit_pins.pw1_sw, LOW);
   delay(100);
-  digitalWrite(PW1_SW_SOCKET, HIGH);
+  digitalWrite(edogawa_unit_pins.pw1_sw, HIGH);
   delay(200);
-  digitalWrite(PW1_SW_SOCKET, LOW);
+  digitalWrite(edogawa_unit_pins.pw1_sw, LOW);
   // Wait for ACPI shutdown
   unsigned long time = millis();
   while (read_pw1()) {
     if (millis() - time > ACPI_SHUTDOWN_TIMEOUT) {
       // force OFF
       time = millis();
-      digitalWrite(PW1_SW_SOCKET, HIGH);
+      digitalWrite(edogawa_unit_pins.pw1_sw, HIGH);
       while (read_pw1()) {
         if (millis() - time > FORCE_SHUTDOWN_TIMEOUT) break;
         // else
         delay(100);
       }
-      digitalWrite(PW1_SW_SOCKET, LOW);
+      digitalWrite(edogawa_unit_pins.pw1_sw, LOW);
       break;
     }
     delay(100);
   }
-#endif
 }
 
 void process_message(const char* message)
@@ -749,14 +774,6 @@ void setup() {
 #ifdef INTEGRATED_LED_SOCKET
   pinMode(INTEGRATED_LED_SOCKET, OUTPUT);
 #endif
-#if defined(PW1_SW_SOCKET) && defined(PW1_LED_SOCKET)
-  pinMode(PW1_SW_SOCKET, OUTPUT);
-  pinMode(PW1_LED_SOCKET, INPUT_PULLUP);
-#endif
-#if defined(PW2_SW_SOCKET) && defined(PW2_LED_SOCKET)
-  pinMode(PW2_SW_SOCKET, OUTPUT);
-  pinMode(PW2_LED_SOCKET, INPUT_PULLUP);
-#endif
 
   // read config from EEPROM
   Serial.write("Loading config from EEPROM...");
@@ -795,6 +812,35 @@ void setup() {
   Serial.println(config.servername);
   Serial.print("Server port: ");
   Serial.println(config.port);
+
+
+  if (false/*use_spi*/) {
+#ifdef ALT_PW1_SW_SOCKET
+    edogawa_unit_pins.pw1_sw = ALT_PW1_SW_SOCKET;
+#else
+    edogawa_unit_pins.pw1_sw = -1;
+#endif
+#ifdef ALT_PW1_LED_SOCKET
+    edogawa_unit_pins.pw1_led = ALT_PW1_LED_SOCKET;
+#else
+    edogawa_unit_pins.pw1_led = -1;
+#endif
+#ifdef ALT_PW2_SW_SOCKET
+    edogawa_unit_pins.pw2_sw = ALT_PW2_SW_SOCKET;
+#else
+    edogawa_unit_pins.pw2_sw = -1;
+#endif
+#ifdef ALT_PW2_LED_SOCKET
+    edogawa_unit_pins.pw2_led = ALT_PW2_LED_SOCKET;
+#else
+    edogawa_unit_pins.pw2_led = -1;
+#endif
+  }
+
+  if (edogawa_unit_pins.pw1_sw >= 0) pinMode(edogawa_unit_pins.pw1_sw, OUTPUT);
+  if (edogawa_unit_pins.pw1_led >= 0) pinMode(edogawa_unit_pins.pw1_led, INPUT_PULLUP);
+  if (edogawa_unit_pins.pw2_sw >= 0) pinMode(edogawa_unit_pins.pw2_sw, OUTPUT);
+  if (edogawa_unit_pins.pw2_led >= 0) pinMode(edogawa_unit_pins.pw2_led, INPUT_PULLUP);
 
   if (digitalRead(COMMAND_LINE_ONLY_MODE_SOCKET) == LOW) { // LOW == SHORT(pulled up)
     Serial.print("Entering command line only mode...\r\n# ");
