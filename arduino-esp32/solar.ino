@@ -12,6 +12,9 @@
 #include <user_interface.h>
 #endif
 
+#include <Adafruit_SSD1306.h>
+Adafruit_SSD1306 display(-1);
+
 #define HIBYTE(word) ((uint8_t)((word & 0xff00) >> 8))
 #define LOBYTE(word) ((uint8_t)(word & 0xff))
 
@@ -200,14 +203,17 @@ public:
   size_t size() const { return _size; }
   const uint8_t* data() const { return _data; }
 
-  int getIntValue(size_t offset) const {
+  uint16_t getWordValue(size_t offset) const {
     if (offset > _size - 2) return 0;
-    return (int)MKWORD(_data[offset], _data[offset + 1]);
+    return MKWORD(_data[offset], _data[offset + 1]);
+  }
+
+  int16_t getIntValue(size_t offset) const {
+    return (int16_t)getWordValue(offset);
   }
 
   float getFloatValue(size_t offset) const {
-    if (offset > _size - 2) return 0.0f;
-    return (float)MKWORD(_data[offset], _data[offset + 1]) / 100.0f;
+    return (float)getIntValue(offset) / 100.0f;
   }
 
   double getDoubleValue(size_t offset) const {
@@ -738,6 +744,12 @@ void setup() {
   pinMode(PW1_LED_SOCKET, INPUT_PULLUP);
   pinMode(LED_BUILTIN, OUTPUT);
 
+  display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
+  display.clearDisplay();
+  display.setTextSize(1);
+  display.setTextColor(WHITE);
+  display.setCursor(0,0);
+
   // read config from EEPROM
   Serial.write("Loading config from EEPROM...");
   EEPROM.begin(sizeof(config));
@@ -762,6 +774,11 @@ void setup() {
     strcpy(config.servername, DEFAULT_SERVERNAME);
     config.port = DEFAULT_PORT;
     operation_mode = OPERATION_MODE_COMMAND_LINE_ONLY;
+
+    display.println("EEPROM not valid");
+    display.println("-Command line only mode-");
+    display.display();
+
     return;
   }
 
@@ -776,9 +793,17 @@ void setup() {
   Serial.print("Server port: ");
   Serial.println(config.port);
 
+  display.println(config.nodename);
+  display.printf("SSID: %s\n", config.ssid);
+  display.display();
+
   if (digitalRead(COMMAND_LINE_ONLY_MODE_SOCKET) == LOW) { // LOW == SHORT(pulled up)
     Serial.print("Entering command line only mode...\r\n# ");
     operation_mode = OPERATION_MODE_COMMAND_LINE_ONLY;
+
+    display.println("-Command line only mode-");
+    display.display();
+
     return;
   }
 
@@ -795,6 +820,11 @@ void setup() {
     Serial.println(info.get_product_code());
     Serial.print("Revision: ");
     Serial.println(info.get_revision());
+
+    display.printf("Vendor: %s\n", info.get_vendor_name());
+    display.printf("Product: %s\n", info.get_product_code());
+    display.printf("Revision: %s\n", info.get_revision());
+    display.display();
   } else {
     Serial.println("Getting charge controller device info failed!");
   }
@@ -844,6 +874,8 @@ void setup() {
   }
 
   Serial.print("Connecting to WiFi AP");
+  display.println("Connecting WiFi...");
+  display.display();
   WiFi.disconnect();
   WiFi.mode(WIFI_STA);
   WiFi.setAutoReconnect(true);
@@ -857,7 +889,18 @@ void setup() {
   Serial.print("IP address: ");
   Serial.println(WiFi.localIP());
 
+  display.clearDisplay();
+  display.setCursor(0,0);
+  display.println("WiFi connected.");
+  display.print("IP address: ");
+  display.println(WiFi.localIP());
+  display.display();
+
+  display.println("Connecting to server...");
+  display.display();
   connect();
+  display.println("Connected.");
+  display.display();
 
 #ifdef ARDUINO_ARCH_ESP32
   esp_wifi_set_ps(WIFI_PS_MODEM) == ESP_OK;
@@ -964,6 +1007,15 @@ bool process_command_line(const char* line) // true = go to next line,  false = 
     EEPROM.end();
 
     Serial.println("Done.");
+  } else if (strcmp_P(lineparser[0], PSTR("pw1")) == 0 && lineparser.get_count() > 1 && isdigit(lineparser[1][0])) {
+    int pw = atoi(lineparser[1]);
+    if (pw == 0) {
+      Serial.println(F("Power1 OFF"));
+      if (read_pw1()) poweroff_pw1(); // atx power off
+    } else if (pw == 1) {
+      Serial.println(F("Power1 ON"));
+      poweron_pw1();
+    }
   } else if (strcmp(lineparser[0], "?") == 0 || strcmp(lineparser[0], "help") == 0) {
     Serial.println("Available commands: nodename ssid key servername port exit");
   } else {
@@ -1004,8 +1056,18 @@ void loop_normal()
     operation_mode = OPERATION_MODE_COMMAND_LINE;
     Serial.println("Entering command line mode. '?' to help, 'exit' to exit.");
     Serial.print("# ");
+
+    display.clearDisplay();
+    display.setCursor(0,0);
+    display.println("-Command line mode-");
+    display.display();
+
     return;
   }
+
+  display.clearDisplay();
+  display.setCursor(0,0);
+  display.printf("NODE %s\n", config.nodename);
 
   unsigned long current_time = millis();
   if (current_time - last_report_time >= REPORT_INTERVAL) {
@@ -1019,6 +1081,7 @@ void loop_normal()
     double piw;
     double load;
     float temp;
+    int cs;
     double lkwh;
     double kwh;
     int pw;
@@ -1037,79 +1100,69 @@ void loop_normal()
         load = reg.getDoubleValue(0);
         temp = reg.getFloatValue(4);
         delay(50);
-        if (get_register(0x3304, 1, reg)) {
-          lkwh = reg.getDoubleValue(0);
-          delay(50);
-          if (get_register(0x330c, 1, reg)) {
-            kwh = reg.getDoubleValue(0);
-            if (get_register(0x0002, 1, reg)) { // Manual control the load
-              pw = reg.getBoolValue(0)? 1 : 0;
-              success = true;
+        if (get_register(0x3201, 1, reg)) { // Charging equipment status
+          cs = (reg.getWordValue(0) >> 2) & 0x0003;
+          if (get_register(0x3304, 1, reg)) {
+            lkwh = reg.getDoubleValue(0);
+            delay(50);
+            if (get_register(0x330c, 1, reg)) {
+              kwh = reg.getDoubleValue(0);
+              if (get_register(0x0002, 1, reg)) { // Manual control the load
+                pw = reg.getBoolValue(0)? 1 : 0;
+                success = true;
+              }
             }
           }
         }
       }
     }
 
-    while (true) {
-      char buf[64];
-      if (success) {
-        strcpy(buf, "DATA\tpiv:");
-        dtostrf(piv, 4, 2, buf + strlen(buf));
-        tcp_client.write(buf);
+    String message;
 
-        strcpy(buf, "\tpia:");
-        dtostrf(pia, 4, 2, buf + strlen(buf));
-        tcp_client.write(buf);
+    if (success) {
+      bool pw1 = read_pw1();
 
-        strcpy(buf, "\tpiw:");
-        dtostrf(piw, 4, 2, buf + strlen(buf));
-        tcp_client.write(buf);
+      message = String("PV   ") + piw + "W\n"
+        + "LOAD " + load + "W\n"
+        + "BATT " + bv + "V\n" +
+        + "TEMP " + temp + "deg.\n"
+        + "PW1  " + (pw1? "ON" : "OFF") + '\n';
+      display.print(message);
 
-        strcpy(buf, "\tbv:");
-        dtostrf(bv, 4, 2, buf + strlen(buf));
-        tcp_client.write(buf);
-
-        strcpy(buf, "\tpoa:");
-        dtostrf(poa, 4, 2, buf + strlen(buf));
-        tcp_client.write(buf);
-
-        strcpy(buf, "\tload:");
-        dtostrf(load, 4, 2, buf + strlen(buf));
-        tcp_client.write(buf);
-
-        strcpy(buf, "\ttemp:");
-        dtostrf(temp, 4, 2, buf + strlen(buf));
-        tcp_client.write(buf);
-
-        strcpy(buf, "\tlkwh:");
-        dtostrf(lkwh, 4, 2, buf + strlen(buf));
-        tcp_client.write(buf);
-
-        strcpy(buf, "\tkwh:");
-        dtostrf(kwh, 4, 2, buf + strlen(buf));
-        tcp_client.write(buf);
-
-        /*
-        sprintf(buf, "\tpw:%d", pw);
-        sprintf(buf + strlen(buf), "\tpw1:%d", read_pw1()? 1 : 0);
-        tcp_client.write(buf);
-        */
-      } else {
-        tcp_client.write("NODATA");
+      float btcv = 0.0f;
+      if (battery_rated_voltage && temperature_compensation_coefficient && temp < 25.0f && piv >= bv && cs > 0) {
+        btcv = 0.001 * temperature_compensation_coefficient * (25.0f - temp) * (battery_rated_voltage / 2);
       }
 
-      if (session_id[0]) {
-        strcpy(buf, "\tsession:");
-        strcat(buf, session_id);
-        tcp_client.write(buf);
-      }
+      message = String("DATA\tpiv:") + piv
+        + "\tpia:" + pia
+        + "\tpiw:" + piw
+        + "\tbv:" + bv
+        + "\tpoa:" + poa
+        + "\tload:" + load
+        + "\ttemp:" + temp
+        + "\tlkwh:" + lkwh
+        + "\tkwh:" + kwh
+        + "\tpw:" + pw
+        + "\tbtcv:" + btcv
+        + "\tpw1:" + (pw1? 1 : 0);
+    } else {
+      display.print("!Controller disconnected!");
 
-      strcpy(buf, "\tnodename:");
-      strcat(buf, config.nodename);
+      message = "NODATA";
+    }
 
-      if (send_message(buf)) break;
-      //else
+    display.display();
+
+    if (session_id[0]) {
+      message += "\tsession:";
+      message += session_id;
+    }
+
+    message += "\tnodename:";
+    message += config.nodename;
+
+    while (!send_message(message.c_str())) {
       // Perform autoreconnect when something fails
       Serial.println("Connection error. performing autoreconnect...");
       delay(970);
