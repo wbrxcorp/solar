@@ -1,5 +1,5 @@
-// arduino --upload --board espressif:esp32:mhetesp32minikit:FlashFreq=80,UploadSpeed=921600 --port /dev/ttyUSB0 solar.ino
-// arduino --upload --board esp8266com:esp8266:d1_mini:CpuFrequency=80,FlashSize=4M1M,UploadSpeed=115200 --port /dev/ttyUSB0 solar.ino
+// arduino --upload --board espressif:esp32:mhetesp32minikit:FlashFreq=80,UploadSpeed=921600 --port /dev/ttyUSB0 .
+// arduino --upload --board esp8266com:esp8266:d1_mini:CpuFrequency=80,FlashSize=4M1M,UploadSpeed=115200 --port /dev/ttyUSB0 .
 #include <EEPROM.h>
 #ifdef ARDUINO_ARCH_ESP32
 #include <WiFi.h>
@@ -11,9 +11,6 @@
 #include <ESP8266mDNS.h>
 #include <user_interface.h>
 #endif
-
-#include <Adafruit_SSD1306.h>
-Adafruit_SSD1306 display(-1);
 
 #define HIBYTE(word) ((uint8_t)((word & 0xff00) >> 8))
 #define LOBYTE(word) ((uint8_t)(word & 0xff))
@@ -48,6 +45,9 @@ Adafruit_SSD1306 display(-1);
 const char* DEFAULT_NODENAME = "kennel01";
 const char* DEFAULT_SERVERNAME = "_solar._tcp";
 const uint16_t DEFAULT_PORT = 29574; // default server port number
+
+#include "Adafruit_SSD1306.h"
+Adafruit_SSD1306 display(-1);
 
 class LineBuffer {
   String buf;
@@ -744,7 +744,7 @@ void setup() {
   pinMode(PW1_LED_SOCKET, INPUT_PULLUP);
   pinMode(LED_BUILTIN, OUTPUT);
 
-  display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
+  display.begin(SSD1306_SWITCHCAPVCC, SSD1306_I2C_ADDRESS);
   display.clearDisplay();
   display.setTextSize(1);
   display.setTextColor(WHITE);
