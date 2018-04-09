@@ -17,7 +17,7 @@ public:
     delay(500);
     digitalWrite(swPin, HIGH);
     delay(200);
-    digitalWrite(PW1_SW_SOCKET, LOW);
+    digitalWrite(swPin, LOW);
   }
 
   void power_off()
