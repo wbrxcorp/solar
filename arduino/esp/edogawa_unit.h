@@ -4,16 +4,24 @@
 #include <Arduino.h>
 
 class EdogawaUnit {
-  int swPin, ledPin;
-  uint16_t acpiShutdownTimeout, forceShutdownTimeout;
+  int swPin = -1, ledPin = -1;
+  uint16_t acpiShutdownTimeout = 10000, forceShutdownTimeout = 6000;
 public:
-  EdogawaUnit(int _swPin, int _ledPin, uint16_t _acpiShutdownTimeout = 10000, uint16_t _forceShutdownTimeout = 6000) : swPin(_swPin), ledPin(_ledPin), acpiShutdownTimeout(_acpiShutdownTimeout), forceShutdownTimeout(_forceShutdownTimeout) { ; }
+  EdogawaUnit() { ; }
+  void begin(int _swPin, int _ledPin, uint16_t _acpiShutdownTimeout = 10000, uint16_t _forceShutdownTimeout = 6000)
+  {
+    swPin = _swPin;
+    ledPin = _ledPin;
+    acpiShutdownTimeout = _acpiShutdownTimeout;
+    forceShutdownTimeout = _forceShutdownTimeout;
+    pinMode(swPin, OUTPUT);
+    pinMode(ledPin, INPUT_PULLUP);
+  }
   bool is_power_on() { return digitalRead(ledPin) == LOW; }
   void power_on()
   {
     if (is_power_on()) return;
     digitalWrite(swPin, LOW);
-    epsolar.load_on(true); // main power on
     delay(500);
     digitalWrite(swPin, HIGH);
     delay(200);

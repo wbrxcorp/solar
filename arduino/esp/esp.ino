@@ -1,5 +1,5 @@
 // arduino --upload --board espressif:esp32:mhetesp32minikit:FlashFreq=80,UploadSpeed=921600 --port /dev/ttyUSB0 .
-// arduino --upload --board esp8266com:esp8266:d1_mini:CpuFrequency=80,FlashSize=4M1M,UploadSpeed=115200 --port /dev/ttyUSB0 .
+// arduino --upload --board esp8266com:esp8266:d1_mini:CpuFrequency=80,FlashSize=4M1M,UploadSpeed=921600 --port /dev/ttyUSB0 .
 #include <EEPROM.h>
 #ifdef ARDUINO_ARCH_ESP32
 #include <WiFi.h>
@@ -23,37 +23,36 @@
   #define LED_BUILTIN 2
 #endif
 
+#ifdef ARDUINO_ARCH_ESP8266
+  #undef LED_BUILTIN
+#endif
+
 #define RS485_TX_SOCKET D3
 #define RS485_RX_SOCKET D4
 #define RS485_RTS_SOCKET D7
-#define COMMAND_LINE_ONLY_MODE_SOCKET D8
 #define PW1_SW_SOCKET D5
 #define PW1_LED_SOCKET D6
 
-#define OPERATION_MODE_NORMAL 0
-#define OPERATION_MODE_COMMAND_LINE 1
-#define OPERATION_MODE_COMMAND_LINE_ONLY 2
-
 #define REPORT_INTERVAL 5000
 #define MESSAGE_TIMEOUT 10000
+#define COMMAND_LINE_ONLY_MODE_WAIT_SECONDS 3
 
 const char* DEFAULT_NODENAME = "kennel01";
 const char* DEFAULT_SERVERNAME = "_solar._tcp";
 const uint16_t DEFAULT_PORT = 29574; // default server port number
 
-#include "epsolar.h"
 #ifdef ARDUINO_ARCH_ESP32
   HardwareSerial RS485(1);  // Use UART1 (need to change TX/RX pins)
 #elif ARDUINO_ARCH_ESP8266
   SoftwareSerial RS485(RS485_RX_SOCKET, RS485_TX_SOCKET, false, 256);
 #endif
-EPSolar epsolar(RS485, RS485_RTS_SOCKET);
 
-#include "edogawa_unit.h"
-EdogawaUnit edogawaUnit(PW1_SW_SOCKET, PW1_LED_SOCKET);
+#include "command_line.h"
 
 #include "Adafruit_SSD1306.h"
 Adafruit_SSD1306 display(-1);
+
+#include "globals.h"
 
 class LineBuffer {
   String buf;
@@ -93,57 +92,11 @@ public:
   void clear() { buf = ""; }
 };
 
-class LineParser {
-  char* buf = NULL;
-  size_t len = 0;
-  int count = 0;
-
-protected:
-  inline bool is_whitespace(char c) { return (c == ' ' || c == '\t'); }
-public:
-  LineParser(const char* line) {
-    while (is_whitespace(*line)) line++;
-    this->len = strlen(line);
-    this->buf = new char[this->len + 1];
-    strcpy(this->buf, line);
-    for (int i = 0; i < len; i++) {
-      if (is_whitespace(this->buf[i])) this->buf[i] = '\0';
-    }
-    const char* pt = this->buf;
-    while (pt - this->buf < len) {
-      if (*pt) {
-        this->count++;
-        pt = strchr(pt, '\0');
-      } else {
-        while (pt - this->buf < len && *pt == '\0') pt++;
-      }
-    }
-  }
-  ~LineParser() {
-    delete [] buf;
-  }
-
-  int get_count() const { return this->count; }
-
-  const char* operator[](int index) const {
-    if (index >= count) return NULL;
-    // else
-    const char* pt = this->buf;
-    for (int i = 0; i < index; i++) {
-      while (*pt) pt++;
-      while (!*pt) pt++;
-    }
-    return pt;
-  }
-};
-
-
 LineBuffer receive_buffer;
 LineBuffer cmdline_buffer('\r'/*cu sends \r instead of \n*/);
 
 WiFiClient tcp_client;
 
-uint8_t operation_mode = OPERATION_MODE_NORMAL;
 unsigned long last_report_time = 0;
 char session_id[48] = "";
 uint8_t battery_rated_voltage = 0; // 12 or 24(V)
@@ -152,27 +105,18 @@ uint8_t temperature_compensation_coefficient = 0; // 0-9(mV)
   bool mdns_started = false;
 #endif
 
-struct {
-  char nodename[32];
-  char ssid[34];
-  char key[64];
-  char servername[48];
-  uint16_t port;
-  uint16_t crc;
-} config;
-
 void connect()
 {
   unsigned long retry_delay = 1;/*sec*/
-  String _tmp_hostname = "nodexxx";
-  _tmp_hostname += config.nodename;
-  const char* tmp_hostname = _tmp_hostname.c_str();
   int servername_len = strlen(config.servername);
 
   while (true) {
     int connected = 0;
 
 #ifdef ARDUINO_ARCH_ESP32
+    String _tmp_hostname = "nodexxx";
+    _tmp_hostname += config.nodename;
+    const char* tmp_hostname = _tmp_hostname.c_str();
     if (servername_len > 6 && strcmp(config.servername + servername_len - 6, ".local") == 0) {
       Serial.printf("Querying hostname '%s' via mDNS...", config.servername);
       char servername_without_suffix[servername_len - 5];
@@ -180,6 +124,7 @@ void connect()
       servername_without_suffix[servername_len - 6] = '\0';
 
       if (!mdns_init()) {
+        String _tmp_hostname = "nodexxx";
         if (!mdns_hostname_set(tmp_hostname)) {
           struct ip4_addr addr;
           addr.addr = 0;
@@ -241,7 +186,7 @@ void connect()
         MDNS.end();
       }
 #elif ARDUINO_ARCH_ESP8266
-      if (mdns_started || MDNS.begin(tmp_hostname)) {
+      if (mdns_started || MDNS.begin(wifi_station_get_hostname())) {
         if (mdns_started) MDNS.update();
         else mdns_started = true;
         if (MDNS.queryService((const char*)(servicename + 1), "tcp") > 0) {
@@ -405,11 +350,9 @@ void process_message(const char* message)
 
 void setup() {
   Serial.begin(115200);
-  pinMode(RS485_RTS_SOCKET, OUTPUT);
-  pinMode(COMMAND_LINE_ONLY_MODE_SOCKET, INPUT_PULLUP); // Short to enter command line only mode
-  pinMode(PW1_SW_SOCKET, OUTPUT);
-  pinMode(PW1_LED_SOCKET, INPUT_PULLUP);
+#ifdef LED_BUILTIN
   pinMode(LED_BUILTIN, OUTPUT);
+#endif
 
   display.begin(SSD1306_SWITCHCAPVCC, SSD1306_I2C_ADDRESS);
   display.clearDisplay();
@@ -464,21 +407,30 @@ void setup() {
   display.printf("SSID: %s\n", config.ssid);
   display.display();
 
-  if (digitalRead(COMMAND_LINE_ONLY_MODE_SOCKET) == LOW) { // LOW == SHORT(pulled up)
-    Serial.print("Entering command line only mode...\r\n# ");
-    operation_mode = OPERATION_MODE_COMMAND_LINE_ONLY;
+  // wait ESC key to enter command line only mode
+  Serial.println("Send ESC to enter command line only mode...");
+  unsigned long startTime = millis();
+  while ((millis() - startTime) / 1000 < COMMAND_LINE_ONLY_MODE_WAIT_SECONDS) {
+    if (!Serial.available()) continue;
+    if (Serial.read() == 0x1b) {
+      Serial.print("Entering command line only mode...\r\n# ");
+      operation_mode = OPERATION_MODE_COMMAND_LINE_ONLY;
 
-    display.println("-Command line only mode-");
-    display.display();
+      display.println("-Command line only mode-");
+      display.display();
 
-    return;
+      return;
+    }
   }
+
+  edogawaUnit.begin(PW1_SW_SOCKET, PW1_LED_SOCKET);
 
 #ifdef ARDUINO_ARCH_ESP32
   RS485.begin(EPSOLAR_COMM_SPEED, SERIAL_8N1, RS485_RX_SOCKET, RS485_TX_SOCKET); // USE 16/17 pins originally assigned to UART2
 #elif ARDUINO_ARCH_ESP8266
   RS485.begin(EPSOLAR_COMM_SPEED);
 #endif
+  epsolar.begin(&RS485, RS485_RTS_SOCKET);
   EPSolarTracerDeviceInfo info;
   if (epsolar.get_device_info(info)) {
     Serial.print("Vendor: ");
@@ -576,122 +528,6 @@ void setup() {
 #endif
 }
 
-bool process_command_line(const char* line) // true = go to next line,  false = go to next loop
-{
-  LineParser lineparser(line);
-  if (lineparser.get_count() == 0 || lineparser[0][0] =='#') return true;
-
-  if (strcmp(lineparser[0], "exit") == 0 || strcmp(lineparser[0], "quit") == 0) {
-    if (operation_mode == OPERATION_MODE_COMMAND_LINE_ONLY) {
-      Serial.println("This is 'command line only' mode. make sure wifi config is right and restart system.");
-      return true;
-    }
-    // else
-    operation_mode = OPERATION_MODE_NORMAL;
-    Serial.println("Exitting command line mode.");
-    return false;
-  } else if (strcmp(lineparser[0], "nodename") == 0) {
-    if (lineparser.get_count() < 2) {
-      Serial.print("Current nodename is '");
-      Serial.print(config.nodename);
-      Serial.println("'.");
-      return true;
-    }
-    // else
-    // TODO: validation
-    strncpy(config.nodename, lineparser[1], sizeof(config.nodename));
-    config.nodename[sizeof(config.nodename) - 1] = '\0'; // ensure null terminated as strncpy may not put it on tail
-    Serial.print("Nodename set to '");
-    Serial.print(config.nodename);
-    Serial.println("'. save and reboot the system to take effects.");
-  } else if (strcmp(lineparser[0], "ssid") == 0) {
-    if (lineparser.get_count() < 2) {
-      Serial.print("Current SSID is '");
-      Serial.print(config.ssid);
-      Serial.println("'.");
-      return true;
-    }
-    // else
-    strncpy(config.ssid, lineparser[1], sizeof(config.ssid));
-    config.ssid[sizeof(config.ssid) - 1] = '\0';
-    Serial.print("SSID set to '");
-    Serial.print(config.ssid);
-    Serial.println("'. save and reboot the system to take effects.");
-  } else if (strcmp(lineparser[0], "key") == 0) {
-    if (lineparser.get_count() < 2) {
-      Serial.print("Current WPA Key is '");
-      Serial.print(config.key);
-      Serial.println("'.");
-      return true;
-    }
-    // else
-    strncpy(config.key, lineparser[1], sizeof(config.key));
-    config.key[sizeof(config.key) - 1] = '\0';
-    Serial.print("WPA Key set to '");
-    Serial.print(config.key);
-    Serial.println("'. save and reboot the system to take effects.");
-  } else if (strcmp(lineparser[0], "servername") == 0) {
-    if (lineparser.get_count() < 2) {
-      Serial.print("Current Server name is '");
-      Serial.print(config.servername);
-      Serial.println("'.");
-      return true;
-    }
-    // else
-    strncpy(config.servername, lineparser[1], sizeof(config.servername));
-    config.servername[sizeof(config.servername) - 1] = '\0';
-    Serial.print("Server name set to '");
-    Serial.print(config.servername);
-    Serial.println("'. save and reboot the system to take effects.");
-  } else if (strcmp(lineparser[0], "port") == 0) {
-    if (lineparser.get_count() < 2) {
-      Serial.print("Current port is ");
-      Serial.print(config.port);
-      Serial.println('.');
-      return true;
-    }
-    // else
-    long port = atol(lineparser[1]);
-    if (port < 1 || port > 65535) {
-      Serial.println("Invalid port number.");
-      return true;
-    }
-    // else
-    config.port = (uint16_t)port;
-    Serial.print("Server port set to ");
-    Serial.print(port);
-    Serial.println(". save and reboot the system to take effects.");
-  } else if (strcmp(lineparser[0], "save") == 0) {
-    uint8_t* p = (uint8_t*)&config;
-    config.crc = 0xffff;
-    for (size_t i = 0; i < sizeof(config) - sizeof(config.crc); i++) {
-      config.crc = update_crc(config.crc, p[i]);
-    }
-    Serial.print("Writing config to EEPROM...");
-    EEPROM.begin(sizeof(config));
-    EEPROM.put(0, config);
-    EEPROM.commit();
-    EEPROM.end();
-
-    Serial.println("Done.");
-  } else if (strcmp_P(lineparser[0], PSTR("pw1")) == 0 && lineparser.get_count() > 1 && isdigit(lineparser[1][0])) {
-    int pw = atoi(lineparser[1]);
-    if (pw == 0) {
-      Serial.println(F("Power1 OFF"));
-      edogawaUnit.power_off(); // atx power off
-    } else if (pw == 1) {
-      Serial.println(F("Power1 ON"));
-      epsolar.load_on(true); // main power on first
-      edogawaUnit.power_on();
-    }
-  } else if (strcmp(lineparser[0], "?") == 0 || strcmp(lineparser[0], "help") == 0) {
-    Serial.println("Available commands: nodename ssid key servername port exit");
-  } else {
-    Serial.println("Unrecognized command.");
-  }
-  return true;
-}
-
 void loop_command_line()
 {
   int available = Serial.available();
@@ -719,8 +555,8 @@ void loop_command_line()
 
 void loop_normal()
 {
-  // enter command line mode when enter presses
-  if (Serial.available() && Serial.read() == '\r') {
+  // enter command line mode when ESC presses
+  if (Serial.available() && Serial.read() == 0x1b) {
     operation_mode = OPERATION_MODE_COMMAND_LINE;
     Serial.println("Entering command line mode. '?' to help, 'exit' to exit.");
     Serial.print("# ");
@@ -836,7 +672,9 @@ void loop_normal()
 
     last_report_time = current_time;
   }
+#ifdef LED_BUILTIN
   digitalWrite(LED_BUILTIN, current_time / 1000 % 2 == 0);
+#endif
 }
 
 void loop()

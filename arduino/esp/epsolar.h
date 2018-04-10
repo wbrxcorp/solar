@@ -114,13 +114,21 @@ public:
 };
 
 class EPSolar {
-  Stream& RS485;
+  Stream* RS485;
   int rtsPin;
 public:
-  EPSolar(Stream& _RS485, int _rtsPin) : RS485(_RS485), rtsPin(_rtsPin) {;}
+  EPSolar() : RS485(NULL) {;}
+
+  void begin(Stream* _RS485, int _rtsPin)
+  {
+    RS485 = _RS485;
+    rtsPin = _rtsPin;
+    pinMode(rtsPin, OUTPUT);
+  }
 
   void send_modbus_message(const uint8_t* message, size_t size)
   {
+    Stream& RS485 = *(this->RS485);
     while(RS485.available()) RS485.read();
     digitalWrite(rtsPin,HIGH);
     //delayMicroseconds(500);
@@ -141,6 +149,7 @@ public:
     byte hdr[8];
     int retry_count = 0;
     while (retry_count < max_retry) {
+      Stream& RS485 = *(this->RS485);
       if (RS485.readBytes(hdr, sizeof(hdr)) && memcmp(hdr, message, 4) == 0) {
         uint16_t crc = 0xffff;
         for (int i = 0; i < sizeof(hdr); i++) crc = update_crc(crc, hdr[i]);
@@ -191,6 +200,7 @@ public:
       send_modbus_message(message, sizeof(message));
 
       uint8_t hdr[3];
+      Stream& RS485 = *(this->RS485);
       if (RS485.readBytes(hdr, sizeof(hdr)) == sizeof(hdr)) {
         //Serial.print("hdr received: ");
         //print_bytes(hdr, 3);
@@ -237,6 +247,7 @@ public:
 
     send_modbus_message(message, sizeof(message));
     delay(50);
+    Stream& RS485 = *(this->RS485);
     while (RS485.available()) RS485.read(); // simply discard response(TODO: check the response)
     return true;
   }
@@ -262,6 +273,7 @@ public:
     //print_bytes(message, sizeof(message));
     send_modbus_message(message, sizeof(message));
     delay(50);
+    Stream& RS485 = *(this->RS485);
     while (RS485.available()) RS485.read(); // simply discard response(TODO: check the response)
     return true;
   }
