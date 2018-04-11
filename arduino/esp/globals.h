@@ -25,4 +25,6 @@ extern EdogawaUnit edogawaUnit;
 #include "epsolar.h"
 extern EPSolar epsolar;
 
+extern bool debug_mode;
+
 #endif // __GLOBALS_H__

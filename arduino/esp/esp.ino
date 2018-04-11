@@ -27,11 +27,11 @@
   #undef LED_BUILTIN
 #endif
 
-#define RS485_TX_SOCKET D3
-#define RS485_RX_SOCKET D4
-#define RS485_RTS_SOCKET D7
-#define PW1_SW_SOCKET D5
-#define PW1_LED_SOCKET D6
+#define RS485_TX_SOCKET D3  // ESP8266 IO0
+#define RS485_RX_SOCKET D4  // ESP8266 IO2
+#define RS485_RTS_SOCKET D7 // ESP8266 IO13
+#define PW1_SW_SOCKET D5    // ESP8266 IO14
+#define PW1_LED_SOCKET D6   // ESP8266 IO12
 
 #define REPORT_INTERVAL 5000
 #define MESSAGE_TIMEOUT 10000
@@ -51,6 +51,8 @@ const uint16_t DEFAULT_PORT = 29574; // default server port number
 
 #include "Adafruit_SSD1306.h"
 Adafruit_SSD1306 display(-1);
+
+#include "logo.h"
 
 #include "globals.h"
 
@@ -237,6 +239,10 @@ bool send_message(const char* message)
   tcp_client.write(message, strlen(message));
   tcp_client.write('\n');
 
+  if (debug_mode) {
+    Serial.println(message);
+  }
+
   while (true) { // wait for response
     int available;
     unsigned long t = millis();
@@ -355,10 +361,11 @@ void setup() {
 #endif
 
   display.begin(SSD1306_SWITCHCAPVCC, SSD1306_I2C_ADDRESS);
+#ifdef ARDUINO_ARCH_ESP32
   display.clearDisplay();
-  display.setTextSize(1);
-  display.setTextColor(WHITE);
-  display.setCursor(0,0);
+  display.drawXBitmap(0, 0, logo_bits, 128, 64, 1);
+  display.display();
+#endif
 
   // read config from EEPROM
   Serial.write("Loading config from EEPROM...");
@@ -403,12 +410,9 @@ void setup() {
   Serial.print("Server port: ");
   Serial.println(config.port);
 
-  display.println(config.nodename);
-  display.printf("SSID: %s\n", config.ssid);
-  display.display();
-
   // wait ESC key to enter command line only mode
   Serial.println("Send ESC to enter command line only mode...");
+
   unsigned long startTime = millis();
   while ((millis() - startTime) / 1000 < COMMAND_LINE_ONLY_MODE_WAIT_SECONDS) {
     if (!Serial.available()) continue;
@@ -422,6 +426,14 @@ void setup() {
       return;
     }
   }
+
+  display.clearDisplay();
+  display.setTextColor(WHITE);
+  display.setTextSize(1);
+  display.setCursor(0,0);
+  display.println(config.nodename);
+  display.printf("SSID: %s\n", config.ssid);
+  display.display();
 
   edogawaUnit.begin(PW1_SW_SOCKET, PW1_LED_SOCKET);
 
@@ -522,7 +534,7 @@ void setup() {
   display.display();
 
 #ifdef ARDUINO_ARCH_ESP32
-  esp_wifi_set_ps(WIFI_PS_MODEM) == ESP_OK;
+  esp_wifi_set_ps(WIFI_PS_MAX_MODEM) == ESP_OK;
 #elif ARDUINO_ARCH_ESP8266
   wifi_set_sleep_type(MODEM_SLEEP_T);
 #endif

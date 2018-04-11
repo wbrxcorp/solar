@@ -167,6 +167,35 @@ bool save(const LineParser& lineparser)
   return true;
 }
 
+bool pw(const LineParser& lineparser)
+{
+  if (lineparser.get_count() < 2) {
+    EPSolarTracerInputRegister reg;
+    if (epsolar.get_register(0x0002, 1, reg)) { // Manual control the load
+      Serial.println(reg.getBoolValue(0)? "on" : "off");
+    } else {
+      Serial.println("No response from charge controller.");
+    }
+    return true;
+  }
+  // else
+  if (!isdigit(lineparser[1][0])) {
+    Serial.println("Invalid parameter. (must be 1 or 0)");
+    return true;
+  }
+
+  int _pw = atoi(lineparser[1]);
+  if (_pw == 0) {
+    Serial.println("Turning main power OFF");
+    epsolar.load_on(false);
+  } else if (_pw == 1) {
+    Serial.println("Turning main power ON");
+    epsolar.load_on(true);
+  }
+
+  return true;
+}
+
 bool pw1(const LineParser& lineparser)
 {
   if (lineparser.get_count() < 2) {
@@ -194,6 +223,30 @@ bool pw1(const LineParser& lineparser)
   return true;
 }
 
+bool debug(const LineParser& lineparser)
+{
+  if (lineparser.get_count() < 2) {
+    Serial.print("Debug mode is ");
+    Serial.println(debug_mode? "on" : "off");
+    return true;
+  }
+  // else
+  if (!isdigit(lineparser[1][0])) {
+    Serial.println("Invalid parameter. (must be 1 or 0)");
+    return true;
+  }
+
+  int _debug = atoi(lineparser[1]);
+  if (_debug == 0) {
+    debug_mode = false;
+    Serial.println("Debug mode set to OFF");
+  } else if (_debug == 1) {
+    debug_mode = true;
+    Serial.println("Debug mode set to ON");
+  }
+  return true;
+}
+
 bool process_command_line(const char* line) // true = go to next line,  false = go to next loop
 {
   LineParser lineparser(line);
@@ -210,7 +263,9 @@ bool process_command_line(const char* line) // true = go to next line,  false = 
     { "servername", servername },
     { "port", port },
     { "save", save },
+    { "pw", pw },
     { "pw1", pw1 },
+    { "debug", debug },
     { NULL, NULL }
   };
 

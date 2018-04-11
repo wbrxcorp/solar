@@ -6,3 +6,5 @@ CONFIG config;
 EdogawaUnit edogawaUnit;
 
 EPSolar epsolar;
+
+bool debug_mode = false;
