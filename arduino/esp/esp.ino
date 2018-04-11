@@ -361,11 +361,10 @@ void setup() {
 #endif
 
   display.begin(SSD1306_SWITCHCAPVCC, SSD1306_I2C_ADDRESS);
-#ifdef ARDUINO_ARCH_ESP32
+
   display.clearDisplay();
   display.drawXBitmap(0, 0, logo_bits, 128, 64, 1);
   display.display();
-#endif
 
   // read config from EEPROM
   Serial.write("Loading config from EEPROM...");
@@ -638,7 +637,8 @@ void loop_normal()
       message = String("PV   ") + piw + "W\n"
         + "LOAD " + load + "W\n"
         + "BATT " + bv + "V\n" +
-        + "TEMP " + temp + "deg.\n"
+        + "TEMP " + temp + "deg.\n" +
+        + "PW   " + (pw? "ON" : "OFF") + '\n'
         + "PW1  " + (pw1? "ON" : "OFF") + '\n';
       display.print(message);
 
