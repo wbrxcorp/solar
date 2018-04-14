@@ -47,6 +47,7 @@ const uint16_t DEFAULT_PORT = 29574; // default server port number
   SoftwareSerial RS485(RS485_RX_SOCKET, RS485_TX_SOCKET, false, 256);
 #endif
 
+#include "network.h"
 #include "command_line.h"
 
 #include "Adafruit_SSD1306.h"
@@ -56,48 +57,7 @@ Adafruit_SSD1306 display(-1);
 
 #include "globals.h"
 
-class LineBuffer {
-  String buf;
-  char terminator = '\n';
-public:
-  LineBuffer() {;}
-  LineBuffer(char _terminator) : terminator(_terminator) { ; }
-  bool push(char c) {
-    buf += c;
-    return this->get_line_size() >= 0;
-  }
-  bool push(const char* str) {
-    buf += str;
-    return this->get_line_size() >= 0;
-  }
-  bool push(const uint8_t* data, size_t size) {
-    for (int i = 0; i < size; i++) {
-      buf.concat((char)data[i]);
-    }
-    return this->get_line_size() >= 0;
-  }
-  int get_line_size() const {
-    return buf.indexOf(terminator);
-  }
-  bool pop(char* dst, size_t dstsize) {
-    if (dstsize < 1) return false;
-    int line_size = this->get_line_size();
-    if (line_size < 0) return false;
-
-    int copy_size = std::min(line_size, (int)dstsize - 1);
-    strncpy(dst, buf.c_str(), copy_size);
-    dst[copy_size] = '\0';
-
-    buf.remove(0, line_size + 1);
-    return true;
-  }
-  void clear() { buf = ""; }
-};
-
-LineBuffer receive_buffer;
-LineBuffer cmdline_buffer('\r'/*cu sends \r instead of \n*/);
-
-WiFiClient tcp_client;
+String cmdline_buffer;
 
 unsigned long last_report_time = 0;
 char session_id[48] = "";
@@ -106,166 +66,6 @@ uint8_t temperature_compensation_coefficient = 0; // 0-9(mV)
 #ifdef ARDUINO_ARCH_ESP8266
   bool mdns_started = false;
 #endif
-
-void connect()
-{
-  unsigned long retry_delay = 1;/*sec*/
-  int servername_len = strlen(config.servername);
-
-  while (true) {
-    int connected = 0;
-
-#ifdef ARDUINO_ARCH_ESP32
-    String _tmp_hostname = "nodexxx";
-    _tmp_hostname += config.nodename;
-    const char* tmp_hostname = _tmp_hostname.c_str();
-    if (servername_len > 6 && strcmp(config.servername + servername_len - 6, ".local") == 0) {
-      Serial.printf("Querying hostname '%s' via mDNS...", config.servername);
-      char servername_without_suffix[servername_len - 5];
-      strncpy(servername_without_suffix, config.servername, servername_len - 6);
-      servername_without_suffix[servername_len - 6] = '\0';
-
-      if (!mdns_init()) {
-        String _tmp_hostname = "nodexxx";
-        if (!mdns_hostname_set(tmp_hostname)) {
-          struct ip4_addr addr;
-          addr.addr = 0;
-          esp_err_t err = mdns_query_a(servername_without_suffix, 5000,  &addr);
-          if (!err) {
-              IPAddress addr2 = IPAddress(addr.addr);
-              Serial.print("Found. Connecting to ");
-              Serial.print(addr2);
-              Serial.print(':');
-              Serial.print(config.port);
-              Serial.print("...");
-
-              connected = tcp_client.connect(addr2, config.port);
-          } else {
-            Serial.println("Failed to obtain server IP address via mDNS.");
-          }
-        } else {
-          Serial.println("Failed to set mDNS hostname.");
-        }
-        mdns_free();
-      } else {
-        Serial.println("Failed to start mDNS.");
-      }
-    } else
-#endif
-    if (config.servername[0] == '_' && strcmp(config.servername + servername_len - 5, "._tcp") == 0) {
-      char servicename[servername_len - 4];
-      strncpy(servicename, config.servername, servername_len - 5);
-      servicename[servername_len - 5] = '\0';
-      Serial.printf("Querying service %s._tcp via mDNS...", servicename);
-
-#ifdef ARDUINO_ARCH_ESP32
-      if (MDNS.begin(tmp_hostname)) {
-        mdns_result_t * results;
-        esp_err_t err = mdns_query_ptr(servicename, "_tcp", 5000, 20,  &results);
-        if (err) {
-          Serial.println("Error.");
-        } else if (!results) {
-          Serial.println("Not Found.");
-        } else {
-          mdns_ip_addr_t * addr = results->addr;
-          while(addr){
-            if(addr->addr.type == MDNS_IP_PROTOCOL_V4) break;
-            addr = addr->next;
-          }
-          if (addr) {
-            IPAddress addr2 = IPAddress(addr->addr.u_addr.ip4.addr);
-            Serial.print("Found. Connecting to ");
-            Serial.print(addr2);
-            Serial.print(':');
-            Serial.print(results->port);
-            Serial.print("...");
-            connected = tcp_client.connect(addr2, results->port);
-          } else {
-            Serial.println("No IPv4 address attatched to the service.");
-          }
-          mdns_query_results_free(results);
-        }
-        MDNS.end();
-      }
-#elif ARDUINO_ARCH_ESP8266
-      if (mdns_started || MDNS.begin(wifi_station_get_hostname())) {
-        if (mdns_started) MDNS.update();
-        else mdns_started = true;
-        if (MDNS.queryService((const char*)(servicename + 1), "tcp") > 0) {
-          IPAddress addr = MDNS.IP(0);
-          uint16_t port = MDNS.port(0);
-          Serial.print("Found. Connecting to ");
-          Serial.print(addr);
-          Serial.print(':');
-          Serial.print(port);
-          Serial.print("...");
-          connected = tcp_client.connect(addr, port);
-        } else {
-          Serial.println("Not Found.");
-        }
-      }
-#endif
-      else {
-        Serial.println("Failed to start mDNS.");
-      }
-    } else {
-      Serial.print("Connecting to ");
-      Serial.print(config.servername);
-      Serial.print(':');
-      Serial.print(config.port);
-      Serial.print("...");
-      connected = tcp_client.connect(config.servername, config.port);
-    }
-
-    if (connected) {
-      Serial.println("Connected.");
-      char buf[64];
-      sprintf(buf, "INIT\tnodename:%s", config.nodename);
-      send_message(buf);
-      return;
-    }
-    // else
-    Serial.print("Connection failed. Performing retry (");
-    Serial.print(retry_delay);
-    Serial.println("sec)...");
-    delay(retry_delay * 1000);
-    retry_delay *= 2;
-    if (retry_delay > 60) retry_delay = 60;
-  }
-}
-
-bool send_message(const char* message)
-{
-  tcp_client.write(message, strlen(message));
-  tcp_client.write('\n');
-
-  if (debug_mode) {
-    Serial.println(message);
-  }
-
-  while (true) { // wait for response
-    int available;
-    unsigned long t = millis();
-    while ((available = tcp_client.available()) == 0) {
-      delay(100);
-      if (millis() > t + MESSAGE_TIMEOUT) {
-        Serial.println("Message timeout.");
-        return false;
-      }
-    }
-    uint8_t buf[available];
-    int r = tcp_client.readBytes(buf, available);
-    if (receive_buffer.push(buf, r)) {
-      int line_size;
-      while ((line_size = receive_buffer.get_line_size()) >= 0) {
-        char line[line_size + 1];
-        receive_buffer.pop(line, line_size + 1);
-        process_message(line);
-      }
-      return true;
-    }
-  }
-}
 
 void process_message(const char* message)
 {
@@ -363,6 +163,9 @@ void setup() {
   display.begin(SSD1306_SWITCHCAPVCC, SSD1306_I2C_ADDRESS);
 
   display.clearDisplay();
+  display.setTextColor(WHITE);
+  display.setTextSize(1);
+  display.setCursor(0,0);
   display.drawXBitmap(0, 0, logo_bits, 128, 64, 1);
   display.display();
 
@@ -409,6 +212,13 @@ void setup() {
   Serial.print("Server port: ");
   Serial.println(config.port);
 
+#ifdef ARDUINO_ARCH_ESP32
+  RS485.begin(EPSOLAR_COMM_SPEED, SERIAL_8N1, RS485_RX_SOCKET, RS485_TX_SOCKET); // USE 16/17 pins originally assigned to UART2
+#elif ARDUINO_ARCH_ESP8266
+  RS485.begin(EPSOLAR_COMM_SPEED);
+#endif
+  epsolar.begin(&RS485, RS485_RTS_SOCKET);
+
   // wait ESC key to enter command line only mode
   Serial.println("Send ESC to enter command line only mode...");
 
@@ -419,6 +229,7 @@ void setup() {
       Serial.print("Entering command line only mode...\r\n# ");
       operation_mode = OPERATION_MODE_COMMAND_LINE_ONLY;
 
+      display.clearDisplay();
       display.println("-Command line only mode-");
       display.display();
 
@@ -427,21 +238,12 @@ void setup() {
   }
 
   display.clearDisplay();
-  display.setTextColor(WHITE);
-  display.setTextSize(1);
-  display.setCursor(0,0);
   display.println(config.nodename);
   display.printf("SSID: %s\n", config.ssid);
   display.display();
 
   edogawaUnit.begin(PW1_SW_SOCKET, PW1_LED_SOCKET);
 
-#ifdef ARDUINO_ARCH_ESP32
-  RS485.begin(EPSOLAR_COMM_SPEED, SERIAL_8N1, RS485_RX_SOCKET, RS485_TX_SOCKET); // USE 16/17 pins originally assigned to UART2
-#elif ARDUINO_ARCH_ESP8266
-  RS485.begin(EPSOLAR_COMM_SPEED);
-#endif
-  epsolar.begin(&RS485, RS485_RTS_SOCKET);
   EPSolarTracerDeviceInfo info;
   if (epsolar.get_device_info(info)) {
     Serial.print("Vendor: ");
@@ -528,7 +330,8 @@ void setup() {
 
   display.println("Connecting to server...");
   display.display();
-  connect();
+  set_message_timeout(MESSAGE_TIMEOUT);
+  connect("boot:1");
   display.println("Connected.");
   display.display();
 
@@ -543,22 +346,30 @@ void loop_command_line()
 {
   int available = Serial.available();
   if (available > 0) {
-    uint8_t buf[available];
-    size_t len = Serial.readBytes(buf, available);
-    Serial.write(buf, len); // echo back
-    if (cmdline_buffer.push(buf, len)) {
-      int line_size; // can't be size_t as it can be negative value
-      while ((line_size = cmdline_buffer.get_line_size()) >= 0) {
-        char line[line_size + 1];
-        cmdline_buffer.pop(line, line_size + 1);
-        Serial.println();
-        if (!process_command_line(line)) {
-          cmdline_buffer.clear();
-          return;
-        }
-        // else
-        Serial.print("# ");
+    for(int i = 0; i < available; i++) {
+      char c = (char)Serial.read();
+      if (c == '\r' || (c >= 0x20 && c < 0x7f)) {
+        Serial.write(c); // echo back
+        cmdline_buffer.concat(c);
+      } else if (c == 0x7f/*DEL*/ && cmdline_buffer.length() > 0 && cmdline_buffer.charAt(cmdline_buffer.length() - 1) >= 0x20) {
+        cmdline_buffer.remove(cmdline_buffer.length() - 1, 1);
+        const char del_seq[] = { 0x08, 0x20, 0x08, 0x00 };
+        Serial.write(del_seq);
       }
+    }
+    int line_size;
+    while ((line_size = cmdline_buffer.indexOf('\r')) >= 0) {
+      char line[line_size + 1];
+      strncpy(line, cmdline_buffer.c_str(), line_size);
+      line[line_size] = '\0';
+      cmdline_buffer.remove(0, line_size + 1);
+      Serial.println();
+      if (!process_command_line(line)) {
+        cmdline_buffer = "";
+        return;
+      }
+      // else
+      Serial.print("# ");
     }
   }
   delay(50);
@@ -586,7 +397,7 @@ void loop_normal()
 
   unsigned long current_time = millis();
   if (current_time - last_report_time >= REPORT_INTERVAL) {
-    if (!tcp_client.connected()) {
+    if (!connected()) {
       Serial.println("TCP session disconnected. Recovering.");
       connect();
     }
@@ -675,9 +486,10 @@ void loop_normal()
     message += "\tnodename:";
     message += config.nodename;
 
-    while (!send_message(message.c_str())) {
+    while (!send_message(message.c_str(), process_message)) {
       // Perform autoreconnect when something fails
       Serial.println("Connection error. performing autoreconnect...");
+      disconnect();
       delay(970);
       connect();
     }

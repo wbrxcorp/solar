@@ -247,6 +247,29 @@ bool debug(const LineParser& lineparser)
   return true;
 }
 
+bool device_info(const LineParser& lineparser)
+{
+  EPSolarTracerDeviceInfo info;
+  if (epsolar.get_device_info(info)) {
+    Serial.print("Vendor: ");
+    Serial.println(info.get_vendor_name());
+    Serial.print("Product: ");
+    Serial.println(info.get_product_code());
+    Serial.print("Revision: ");
+    Serial.println(info.get_revision());
+  } else {
+    Serial.println("Getting charge controller device info failed!");
+  }
+  return true;
+}
+
+bool uptime(const LineParser& lineparser)
+{
+  Serial.print("Uptime(in millis): ");
+  Serial.println(millis());
+  return true;
+}
+
 bool process_command_line(const char* line) // true = go to next line,  false = go to next loop
 {
   LineParser lineparser(line);
@@ -266,6 +289,8 @@ bool process_command_line(const char* line) // true = go to next line,  false = 
     { "pw", pw },
     { "pw1", pw1 },
     { "debug", debug },
+    { "deviceinfo", device_info },
+    { "uptime", uptime },
     { NULL, NULL }
   };
 
