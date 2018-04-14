@@ -17,14 +17,8 @@
   bool mdns_started = false;
 #endif
 
-unsigned long message_timeout = 10000;
 WiFiClient tcp_client;
 String receive_buffer;
-
-void set_message_timeout(unsigned long timeout)
-{
-  message_timeout = timeout;
-}
 
 bool connect(const char* nodename, const char* servername, uint16_t port)
 {
@@ -147,38 +141,27 @@ bool connected()
   return tcp_client.connected();
 }
 
-bool send_message(const char* message, void (*process_message)(const char*))
+bool send_message(const char* message)
 {
+  if (!tcp_client.connected()) return false;
   tcp_client.write(message, strlen(message));
   tcp_client.write('\n');
-
-  if (debug_mode) {
-    Serial.println(message);
-  }
-
-  while (true) { // wait for response
-
-    unsigned long t = millis();
-
-    while (receive_buffer.indexOf('\n') < 0) {
-      if (millis() > t + message_timeout) {
-        Serial.println("Message timeout.");
-        return false;
-      }
-      int available = tcp_client.available();
-      if (available) for(int i = 0; i < available; i++) receive_buffer.concat((char)tcp_client.read());
-      else delay(100);
-    }
-
-    int line_size;
-    while ((line_size = receive_buffer.indexOf('\n')) >= 0) {
-      char line[line_size + 1];
-      strncpy(line, receive_buffer.c_str(), line_size);
-      line[line_size] = '\0';
-      receive_buffer.remove(0, line_size + 1);
-      process_message(line);
-    }
-    break;
-  }
   return true;
+}
+
+int receive_message(void (*process_message)(const char*))
+{
+  int available = tcp_client.available();
+  for(int i = 0; i < available; i++) receive_buffer.concat((char)tcp_client.read());
+  int line_size;
+  int cnt = 0;
+  while ((line_size = receive_buffer.indexOf('\n')) >= 0) {
+    char line[line_size + 1];
+    strncpy(line, receive_buffer.c_str(), line_size);
+    line[line_size] = '\0';
+    receive_buffer.remove(0, line_size + 1);
+    process_message(line);
+    cnt++;
+  }
+  return cnt;
 }

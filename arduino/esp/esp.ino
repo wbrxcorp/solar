@@ -31,6 +31,7 @@
 #define PW1_SW_SOCKET D5    // ESP8266 IO14
 #define PW1_LED_SOCKET D6   // ESP8266 IO12
 
+#define CHECK_INTERVAL 1000
 #define REPORT_INTERVAL 5000
 #define MESSAGE_TIMEOUT 10000
 #define COMMAND_LINE_ONLY_MODE_WAIT_SECONDS 3
@@ -57,10 +58,24 @@ Adafruit_SSD1306 display(-1);
 
 String cmdline_buffer;
 
-unsigned long last_report_time = 0;
+unsigned long last_message_sent = 0;
+unsigned long last_message_received = 0;
+unsigned long last_checked = 0;
+unsigned long last_reported = 0;
 char session_id[48] = "";
 uint8_t battery_rated_voltage = 0; // 12 or 24(V)
 uint8_t temperature_compensation_coefficient = 0; // 0-9(mV)
+
+typedef struct strEPSolarValues {
+  float piv,pia,bv,poa;
+  double piw;
+  double load;
+  float temp;
+  int cs;
+  double lkwh;
+  double kwh;
+  int pw;
+} EPSolarValues;
 
 void process_message(const char* message)
 {
@@ -158,7 +173,8 @@ void connect(const char* additional_init_params = NULL)
         init_str += '\t';
         init_str += additional_init_params;
       }
-      if (send_message(init_str.c_str(), process_message)) return;
+      send_message(init_str.c_str());
+      break;
     }
     // else
     Serial.print("Connection failed. Performing retry (");
@@ -168,6 +184,8 @@ void connect(const char* additional_init_params = NULL)
     retry_delay *= 2;
     if (retry_delay > 60) retry_delay = 60;
   }
+
+  last_message_sent = millis();
 }
 
 void setup() {
@@ -346,7 +364,6 @@ void setup() {
 
   display.println("Connecting to server...");
   display.display();
-  set_message_timeout(MESSAGE_TIMEOUT);
   connect("boot:1");
   display.println("Connected.");
   display.display();
@@ -367,10 +384,15 @@ void loop_command_line()
       if (c == '\r' || (c >= 0x20 && c < 0x7f)) {
         Serial.write(c); // echo back
         cmdline_buffer.concat(c);
-      } else if (c == 0x7f/*DEL*/ && cmdline_buffer.length() > 0 && cmdline_buffer.charAt(cmdline_buffer.length() - 1) >= 0x20) {
-        cmdline_buffer.remove(cmdline_buffer.length() - 1, 1);
-        const char del_seq[] = { 0x08, 0x20, 0x08, 0x00 };
-        Serial.write(del_seq);
+      } else if (c == 0x7f/*DEL*/) {
+        int len = cmdline_buffer.length();
+        if (len > 0 && cmdline_buffer.charAt(len - 1) >= 0x20) {
+          cmdline_buffer.remove(len - 1, 1);
+          const char del_seq[] = { 0x08, 0x20, 0x08, 0x00 };
+          Serial.write(del_seq);
+        } else {
+          Serial.write(0x07);
+        }
       }
     }
     int line_size;
@@ -391,9 +413,43 @@ void loop_command_line()
   delay(50);
 }
 
+bool getEPSolarValues(EPSolarValues& values)
+{
+  EPSolarTracerInputRegister reg;
+  // TODO: apply https://github.com/wbrxcorp/solar/commit/a664b0577e7c9bbcac6448741c43e58ce6750e43
+  if (!epsolar.get_register(0x3100, 6, reg)) return false;
+  // else
+  values.piv = reg.getFloatValue(0);
+  values.pia = reg.getFloatValue(2);
+  values.piw = reg.getDoubleValue(4);
+  values.bv = reg.getFloatValue(8);
+  values.poa = reg.getFloatValue(10);
+
+  if (!epsolar.get_register(0x310e, 3, reg)) return false;
+  //else
+  values.load = reg.getDoubleValue(0);
+  values.temp = reg.getFloatValue(4);
+
+  if (!epsolar.get_register(0x3201, 1, reg)) return false; // Charging equipment status
+  //else
+  values.cs = (reg.getWordValue(0) >> 2) & 0x0003;
+
+  if (!epsolar.get_register(0x3304, 1, reg)) return false;
+  //else
+  values.lkwh = reg.getDoubleValue(0);
+
+  if (!epsolar.get_register(0x330c, 1, reg)) return false;
+  values.kwh = reg.getDoubleValue(0);
+  if (!epsolar.get_register(0x0002, 1, reg)) return false; // Manual control the load
+  // else
+  values.pw = reg.getBoolValue(0)? 1 : 0;
+
+  return true;
+}
+
 void loop_normal()
 {
-  // enter command line mode when ESC presses
+  // enter command line mode when ESC pressed
   if (Serial.available() && Serial.read() == 0x1b) {
     operation_mode = OPERATION_MODE_COMMAND_LINE;
     Serial.println("Entering command line mode. '?' to help, 'exit' to exit.");
@@ -407,114 +463,83 @@ void loop_normal()
     return;
   }
 
+  unsigned long current_time = millis();
+#ifdef LED_BUILTIN
+  digitalWrite(LED_BUILTIN, current_time / 1000 % 2 == 0);
+#endif
+
+  if (receive_message(process_message) > 0) last_message_received = current_time;
+
+  if (last_message_sent > last_message_received && current_time - last_message_sent >= MESSAGE_TIMEOUT) {
+    Serial.println("Message timeout. Disconnecting.");
+    disconnect();
+  }
+
+  if (!connected()) {
+    Serial.println("Connection lost. Performing autoreconnect...");
+    connect();
+    return;
+  }
+
+  if (current_time - last_checked <= CHECK_INTERVAL) return;
+
+  // else
   display.clearDisplay();
   display.setCursor(0,0);
   display.printf("NODE %s\n", config.nodename);
 
-  unsigned long current_time = millis();
-  if (current_time - last_report_time >= REPORT_INTERVAL) {
-    if (!connected()) {
-      Serial.println("TCP session disconnected. Recovering.");
-      connect();
+  String message;
+  EPSolarValues values;
+  if (getEPSolarValues(values)) {
+    bool pw1 = edogawaUnit.is_power_on();
+
+    message = String("PV   ") + values.piw + "W\n"
+      + "LOAD " + values.load + "W\n"
+      + "BATT " + values.bv + "V\n" +
+      + "TEMP " + values.temp + "deg.\n" +
+      + "PW   " + (values.pw? "ON" : "OFF") + '\n'
+      + "PW1  " + (pw1? "ON" : "OFF") + '\n';
+    display.print(message);
+
+    float btcv = 0.0f;
+    if (battery_rated_voltage && temperature_compensation_coefficient && values.temp < 25.0f && values.piv >= values.bv && values.cs > 0) {
+      btcv = 0.001 * temperature_compensation_coefficient * (25.0f - values.temp) * (battery_rated_voltage / 2);
     }
 
-    EPSolarTracerInputRegister reg;
-    float piv,pia,bv,poa;
-    double piw;
-    double load;
-    float temp;
-    int cs;
-    double lkwh;
-    double kwh;
-    int pw;
+    message = String("DATA\tpiv:") + values.piv
+      + "\tpia:" + values.pia
+      + "\tpiw:" + values.piw
+      + "\tbv:" + values.bv
+      + "\tpoa:" + values.poa
+      + "\tload:" + values.load
+      + "\ttemp:" + values.temp
+      + "\tlkwh:" + values.lkwh
+      + "\tkwh:" + values.kwh
+      + "\tpw:" + values.pw
+      + "\tbtcv:" + btcv
+      + "\tpw1:" + (pw1? 1 : 0);
+  } else {
+    display.print("!Controller disconnected!");
 
-    bool success = false;
-
-    // TODO: apply https://github.com/wbrxcorp/solar/commit/a664b0577e7c9bbcac6448741c43e58ce6750e43
-    if (epsolar.get_register(0x3100, 6, reg)) {
-      piv = reg.getFloatValue(0);
-      pia = reg.getFloatValue(2);
-      piw = reg.getDoubleValue(4);
-      bv = reg.getFloatValue(8);
-      poa = reg.getFloatValue(10);
-      if (epsolar.get_register(0x310e, 3, reg)) {
-        load = reg.getDoubleValue(0);
-        temp = reg.getFloatValue(4);
-        if (epsolar.get_register(0x3201, 1, reg)) { // Charging equipment status
-          cs = (reg.getWordValue(0) >> 2) & 0x0003;
-          if (epsolar.get_register(0x3304, 1, reg)) {
-            lkwh = reg.getDoubleValue(0);
-            if (epsolar.get_register(0x330c, 1, reg)) {
-              kwh = reg.getDoubleValue(0);
-              if (epsolar.get_register(0x0002, 1, reg)) { // Manual control the load
-                pw = reg.getBoolValue(0)? 1 : 0;
-                success = true;
-              }
-            }
-          }
-        }
-      }
-    }
-
-    String message;
-
-    if (success) {
-      bool pw1 = edogawaUnit.is_power_on();
-
-      message = String("PV   ") + piw + "W\n"
-        + "LOAD " + load + "W\n"
-        + "BATT " + bv + "V\n" +
-        + "TEMP " + temp + "deg.\n" +
-        + "PW   " + (pw? "ON" : "OFF") + '\n'
-        + "PW1  " + (pw1? "ON" : "OFF") + '\n';
-      display.print(message);
-
-      float btcv = 0.0f;
-      if (battery_rated_voltage && temperature_compensation_coefficient && temp < 25.0f && piv >= bv && cs > 0) {
-        btcv = 0.001 * temperature_compensation_coefficient * (25.0f - temp) * (battery_rated_voltage / 2);
-      }
-
-      message = String("DATA\tpiv:") + piv
-        + "\tpia:" + pia
-        + "\tpiw:" + piw
-        + "\tbv:" + bv
-        + "\tpoa:" + poa
-        + "\tload:" + load
-        + "\ttemp:" + temp
-        + "\tlkwh:" + lkwh
-        + "\tkwh:" + kwh
-        + "\tpw:" + pw
-        + "\tbtcv:" + btcv
-        + "\tpw1:" + (pw1? 1 : 0);
-    } else {
-      display.print("!Controller disconnected!");
-
-      message = "NODATA";
-    }
-
-    display.display();
-
-    if (session_id[0]) {
-      message += "\tsession:";
-      message += session_id;
-    }
-
-    message += "\tnodename:";
-    message += config.nodename;
-
-    while (!send_message(message.c_str(), process_message)) {
-      // Perform autoreconnect when something fails
-      Serial.println("Connection error. performing autoreconnect...");
-      disconnect();
-      delay(970);
-      connect();
-    }
-
-    last_report_time = current_time;
+    message = "NODATA";
   }
-#ifdef LED_BUILTIN
-  digitalWrite(LED_BUILTIN, current_time / 1000 % 2 == 0);
-#endif
+
+  display.display();
+
+  last_checked = current_time;
+  if (current_time - last_reported <= REPORT_INTERVAL || last_message_received < last_message_sent) return;
+
+  // else
+  if (session_id[0]) {
+    message += "\tsession:";
+    message += session_id;
+  }
+
+  message += "\tnodename:";
+  message += config.nodename;
+
+  send_message(message.c_str());
+  last_message_sent = last_reported = current_time;
 }
 
 void loop()
