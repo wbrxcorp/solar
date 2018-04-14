@@ -100,11 +100,12 @@ def process_connection(conn, addr):
                     t = now.strftime("%H%M%S")
                     response_data["d"] = d
                     response_data["t"] = t
-                    response_data["pw"] = 1
                     node_config = get_node_config(nodename)
                     if node_config is not None:
                         for k,v in node_config.iteritems():
                             if v is not None: response_data[k] = v
+                if "boot" in parsed_data:
+                    print "# it just booted"
 
             sys.stdout.flush()
 
