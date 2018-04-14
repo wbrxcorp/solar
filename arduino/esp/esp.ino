@@ -129,7 +129,6 @@ void process_message(const char* message)
   }
 
   if (date > 20170101L && time >= 0) {
-    uint16_t data[3];
     uint16_t year = date / 10000 - 2000;
     uint16_t month = date % 10000 / 100;
     uint16_t day = date % 100;
@@ -137,15 +136,37 @@ void process_message(const char* message)
     uint16_t minute = time % 10000 / 100;
     uint16_t second = time % 100;
 
-    if (year < 100 && month > 0 && month < 13 && day > 0 && day < 32 && hour < 24 && minute < 60 && second < 60) {
-      data[0/*0x9013*/] = minute << 8 | second;
-      data[1/*0x9014*/] = day << 8 | hour;
-      data[2/*0x9015*/] = year << 8 | month;
-      epsolar.put_registers(0x9013/*Real Time Clock*/, data, 3);
+    if (epsolar.set_rtc(year, month, day, hour, minute, second)) {
       char buf[32];
       sprintf(buf, "Date saved: 20%02u-%02u-%02u %02u:%02u:%02u", year, month, day, hour, minute, second);
       Serial.println(buf);
+    } else {
+      Serial.println("RTC did not saved(invalid date or communication error).");
     }
+  }
+}
+
+void connect(const char* additional_init_params = NULL)
+{
+  unsigned long retry_delay = 1;/*sec*/
+
+  while (true) {
+    if (connect(config.nodename, config.servername, config.port)) {
+      String init_str = "INIT\tnodename:";
+      init_str += config.nodename;
+      if (additional_init_params) {
+        init_str += '\t';
+        init_str += additional_init_params;
+      }
+      if (send_message(init_str.c_str(), process_message)) return;
+    }
+    // else
+    Serial.print("Connection failed. Performing retry (");
+    Serial.print(retry_delay);
+    Serial.println("sec)...");
+    delay(retry_delay * 1000);
+    retry_delay *= 2;
+    if (retry_delay > 60) retry_delay = 60;
   }
 }
 

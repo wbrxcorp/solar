@@ -282,6 +282,16 @@ public:
   {
     put_register(0x0002/*manual load control*/, on? (uint16_t)0xff00:(uint16_t)0x0000);
   }
+
+  bool set_rtc(uint16_t year, uint16_t month, uint16_t day, uint16_t hour, uint16_t minute, uint16_t second)
+  {
+    if (year > 99 || month < 1 || month > 12 || day < 1 || day > 31 || hour > 23 || minute > 59 || second > 59) return false;
+    uint16_t data[3];
+    data[0/*0x9013*/] = minute << 8 | second;
+    data[1/*0x9014*/] = day << 8 | hour;
+    data[2/*0x9015*/] = year << 8 | month;
+    return put_registers(0x9013/*Real Time Clock*/, data, 3);
+  }
 };
 
 #endif // __EPSOLAR_H_

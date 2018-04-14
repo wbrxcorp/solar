@@ -2,7 +2,7 @@
 #define __NETWORK_H__
 
 void set_message_timeout(unsigned long timeout);
-void connect(const char* additional_init_params = NULL);
+bool connect(const char* nodename, const char* servername, uint16_t port);
 void disconnect();
 bool connected();
 bool send_message(const char* message, void (*process_message)(const char*));
