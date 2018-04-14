@@ -3,13 +3,11 @@
 #include <EEPROM.h>
 #ifdef ARDUINO_ARCH_ESP32
 #include <WiFi.h>
-#include <ESPmDNS.h>
 #include <esp_wifi.h>
 #elif ARDUINO_ARCH_ESP8266
-#include <SoftwareSerial.h>
 #include <ESP8266WiFi.h>
-#include <ESP8266mDNS.h>
 #include <user_interface.h>
+#include <SoftwareSerial.h>
 #endif
 
 #ifdef ARDUINO_ARCH_ESP32
@@ -63,9 +61,6 @@ unsigned long last_report_time = 0;
 char session_id[48] = "";
 uint8_t battery_rated_voltage = 0; // 12 or 24(V)
 uint8_t temperature_compensation_coefficient = 0; // 0-9(mV)
-#ifdef ARDUINO_ARCH_ESP8266
-  bool mdns_started = false;
-#endif
 
 void process_message(const char* message)
 {

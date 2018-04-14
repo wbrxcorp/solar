@@ -7,10 +7,15 @@
 #elif ARDUINO_ARCH_ESP8266
 #include <ESP8266WiFi.h>
 #include <ESP8266mDNS.h>
+#include <user_interface.h>
 #endif
 
 #include "globals.h"
 #include "network.h"
+
+#ifdef ARDUINO_ARCH_ESP8266
+  bool mdns_started = false;
+#endif
 
 unsigned long message_timeout = 10000;
 WiFiClient tcp_client;
