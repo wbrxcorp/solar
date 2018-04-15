@@ -34,6 +34,7 @@
 #define CHECK_INTERVAL 1000
 #define REPORT_INTERVAL 5000
 #define MESSAGE_TIMEOUT 10000
+#define MODBUS_TIMEOUT 100
 #define COMMAND_LINE_ONLY_MODE_WAIT_SECONDS 3
 
 const char* DEFAULT_NODENAME = "kennel01";
@@ -251,6 +252,7 @@ void setup() {
 #elif ARDUINO_ARCH_ESP8266
   RS485.begin(EPSOLAR_COMM_SPEED);
 #endif
+  RS485.setTimeout(MODBUS_TIMEOUT);
   epsolar.begin(&RS485, RS485_RTS_SOCKET);
 
   // wait ESC key to enter command line only mode

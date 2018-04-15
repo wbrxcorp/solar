@@ -41,17 +41,17 @@ bool EPSolar::get_device_info(EPSolarTracerDeviceInfo& info, int max_retry/* = 5
   uint8_t message[] = {slave_id, 0x2b, 0x0e, 0x01/*basic info*/,0x00, 0x00, 0x00 };
   put_crc(message, sizeof(message) - 2);
 
-  send_modbus_message(message, sizeof(message));
-
-  int cnt = 0;
-  while (!receive_modbus_device_info_response(*(this->RS485), slave_id, info)) {
+  for (int i = 0; i < max_retry; i++) {
+    send_modbus_message(message, sizeof(message));
+    if (receive_modbus_device_info_response(*(this->RS485), slave_id, info)) {
+      if (i > 0) Serial.println("Retry successful.");
+      return true;
+    }
+    //else
     Serial.println("Retrying...");
-    delay(200);
-    cnt++;
-    if (cnt >= max_retry) return false;
   }
 
-  return true;
+  return false;
 }
 
 static bool receive_modbus_input_response(EPSOLAR_SERIAL_TYPE& RS485, uint8_t slave_id, uint8_t function_code, EPSolarTracerInputRegister& reg)
@@ -59,8 +59,12 @@ static bool receive_modbus_input_response(EPSOLAR_SERIAL_TYPE& RS485, uint8_t sl
   uint8_t hdr[3];
   int nread = RS485.readBytes(hdr, sizeof(hdr));
   if (nread != sizeof(hdr)) {
-    Serial.printf("modbus: received header too short(expected=%u octets,actual=%d octets)", sizeof(hdr), nread);
-    Serial.println();
+    if (nread == 0) {
+      Serial.println("modbus: response timeout");
+    } else {
+      Serial.printf("modbus: received header too short(expected=%u octets,actual=%d octets)", sizeof(hdr), nread);
+      Serial.println();
+    }
     return false;
   }
   //else
@@ -103,19 +107,19 @@ bool EPSolar::get_register(uint16_t addr, uint8_t num, EPSolarTracerInputRegiste
   uint8_t message[] = {slave_id, function_code, HIBYTE(addr), LOBYTE(addr), 0x00, num, 0x00, 0x00 };
   put_crc(message, sizeof(message) - 2);
 
-  send_modbus_message(message, sizeof(message));
-  if (debug_mode) {
-    Serial.print("modbus sent: ");
-    print_bytes(message, sizeof(message));
-  }
-
-  int cnt = 0;
-  while (!receive_modbus_input_response(*(this->RS485), slave_id, function_code, reg)) {
+  for (int i = 0; i < max_retry; i++) {
+    send_modbus_message(message, sizeof(message));
+    if (debug_mode) {
+      Serial.print("modbus sent: ");
+      print_bytes(message, sizeof(message));
+    }
+    if (receive_modbus_input_response(*(this->RS485), slave_id, function_code, reg)) {
+      if (i > 0) Serial.println("Retry successful.");
+      return true;
+    }
+    // else
     Serial.println("Retrying...");
-    delay(200);
-    cnt++;
-    if (cnt >= max_retry) return false;
   }
 
-  return true;
+  return false;
 }
