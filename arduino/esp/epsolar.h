@@ -1,9 +1,14 @@
 #ifndef __EPSOLAR_H_
 #define __EPSOLAR_H_
 
+#ifdef ARDUINO_ARCH_ESP8266
+#include <SoftwareSerial.h>
+#endif
+
 #include "crc.h"
 
 #define EPSOLAR_COMM_SPEED 115200
+#define MIN_MESSAGE_INTERVAL 10
 
 class EPSolarTracerDeviceInfo {
   String vendor_name;
@@ -113,22 +118,34 @@ public:
   }
 };
 
-class EPSolar {
-  Stream* RS485;
-  int rtsPin;
-public:
-  EPSolar() : RS485(NULL) {;}
+#ifdef ARDUINO_ARCH_ESP32
+typedef HardwareSerial EPSOLAR_SERIAL_TYPE;
+#elif ARDUINO_ARCH_ESP8266
+typedef SoftwareSerial EPSOLAR_SERIAL_TYPE;
+#endif
 
-  void begin(Stream* _RS485, int _rtsPin)
+class EPSolar {
+  EPSOLAR_SERIAL_TYPE* RS485;
+  int rtsPin;
+  unsigned long last_message;
+public:
+  EPSolar() : RS485(NULL), last_message(0L) {;}
+
+  void begin(EPSOLAR_SERIAL_TYPE* _RS485, int _rtsPin)
   {
     RS485 = _RS485;
     rtsPin = _rtsPin;
+    last_message = 0L;
     pinMode(rtsPin, OUTPUT);
   }
 
   void send_modbus_message(const uint8_t* message, size_t size)
   {
-    Stream& RS485 = *(this->RS485);
+    unsigned long current_time = millis();
+    if (current_time - last_message < MIN_MESSAGE_INTERVAL) {
+      delay(MIN_MESSAGE_INTERVAL - (current_time - last_message));
+    }
+    EPSOLAR_SERIAL_TYPE& RS485 = *(this->RS485);
     while(RS485.available()) RS485.read();
     digitalWrite(rtsPin,HIGH);
     //delayMicroseconds(500);
@@ -136,108 +153,14 @@ public:
     RS485.flush();
     delayMicroseconds(500);
     digitalWrite(rtsPin,LOW);
+    last_message = current_time;
   }
 
   // http://www.modbus.org/docs/Modbus_Application_Protocol_V1_1b.pdf
-  bool get_device_info(EPSolarTracerDeviceInfo& info, int max_retry = 5)
-  {
-    byte message[] = {0x01, 0x2b, 0x0e, 0x01/*basic info*/,0x00, 0x00, 0x00 };
-    put_crc(message, sizeof(message) - 2);
+  bool get_device_info(EPSolarTracerDeviceInfo& info, int max_retry = 5);
 
-    send_modbus_message(message, sizeof(message));
+  bool get_register(uint16_t addr, uint8_t num, EPSolarTracerInputRegister& reg, int max_retry = 5);
 
-    byte hdr[8];
-    int retry_count = 0;
-    while (retry_count < max_retry) {
-      Stream& RS485 = *(this->RS485);
-      if (RS485.readBytes(hdr, sizeof(hdr)) && memcmp(hdr, message, 4) == 0) {
-        uint16_t crc = 0xffff;
-        for (int i = 0; i < sizeof(hdr); i++) crc = update_crc(crc, hdr[i]);
-
-        uint8_t num_objects = hdr[7];
-        for (int i = 0; i < num_objects; i++) {
-          uint8_t object_hdr[2];
-          if (RS485.readBytes(object_hdr, sizeof(object_hdr)) != sizeof(object_hdr)) break;
-          crc = update_crc(update_crc(crc, object_hdr[0]), object_hdr[1]);
-          uint8_t object_value[object_hdr[1]];
-          if (RS485.readBytes(object_value, sizeof(object_value)) != sizeof(object_value)) break;
-          for (int i = 0; i < sizeof(object_value); i++) crc = update_crc(crc, object_value[i]);
-          info.set_value(object_hdr[0], object_hdr[1], object_value);
-        }
-        // crc check
-        uint8_t rx_crc[2] = {0, 0};
-        if (RS485.readBytes(rx_crc, sizeof(rx_crc)) == sizeof(rx_crc) && !RS485.available() && rx_crc[0] == LOBYTE(crc) && rx_crc[1] == HIBYTE(crc)) return true;
-      }
-      // else
-      while (RS485.available()) RS485.read(); // discard remaining bytes
-      Serial.println("Retrying...");
-      delay(200);
-      retry_count++;
-    }
-  }
-
-  void print_bytes(const uint8_t* bytes, size_t size)
-  {
-    for (int i = 0; i < size; i++) {
-      char buf[8];
-      sprintf(buf, "%02x ", bytes[i]);
-      Serial.print(buf);
-    }
-    Serial.println();
-  }
-
-  bool get_register(uint16_t addr, uint8_t num, EPSolarTracerInputRegister& reg, int max_retry = 10)
-  {
-    uint8_t function_code = 0x04; // Read Input Register
-    if (addr >= 0x9000 && addr < 0x9100) function_code = 0x03; // Read Holding Register
-    if (addr < 0x2000) function_code = 0x01; // Read Coil Status
-
-    uint8_t message[] = {0x01, function_code, HIBYTE(addr), LOBYTE(addr), 0x00, num, 0x00, 0x00 };
-    put_crc(message, sizeof(message) - 2);
-    //print_bytes(message, sizeof(message));
-
-    for (int i = 0; i < max_retry; i++) {
-      send_modbus_message(message, sizeof(message));
-
-      uint8_t hdr[3];
-      Stream& RS485 = *(this->RS485);
-      if (RS485.readBytes(hdr, sizeof(hdr)) == sizeof(hdr)) {
-        //Serial.print("hdr received: ");
-        //print_bytes(hdr, 3);
-        if (hdr[0] == message[0] && hdr[1] == message[1]) { // check function code and slave address
-          size_t data_size = (size_t)hdr[2];
-          if (data_size < 128) { // too big data
-            uint8_t buf[data_size];
-            if (RS485.readBytes(buf, sizeof(buf)) == sizeof(buf)) {
-              uint8_t rx_crc[2] = {0, 0};
-              if (RS485.readBytes(rx_crc, sizeof(rx_crc)) == sizeof(rx_crc) && !RS485.available()) {
-                // crc check
-                uint16_t crc = update_crc(update_crc(update_crc(0xFFFF,hdr[0]), hdr[1]), hdr[2]);
-                for (int i = 0; i < sizeof(buf); i++) crc = update_crc(crc, buf[i]);
-                if (rx_crc[0] == LOBYTE(crc) && rx_crc[1] == HIBYTE(crc)) {
-                  reg.setData(buf, data_size);
-                  return true;
-                } else {
-                  Serial.println("CRC doesn't match");
-                }
-              }
-            }
-          }
-        }
-      }
-      // else
-      int available = RS485.available();
-      if (available) {
-        uint8_t buf[available];
-        int size = RS485.readBytes(buf, sizeof(buf));
-        Serial.print("Remains: ");
-        print_bytes(buf, size);
-      }
-      Serial.println("Retrying...");
-      delay(200);
-    }
-    return false;
-  }
   bool put_register(uint16_t addr, uint16_t data)
   {
     uint8_t function_code = 0x06; // Preset Single Register(06)
@@ -247,7 +170,7 @@ public:
 
     send_modbus_message(message, sizeof(message));
     delay(50);
-    Stream& RS485 = *(this->RS485);
+    EPSOLAR_SERIAL_TYPE& RS485 = *(this->RS485);
     while (RS485.available()) RS485.read(); // simply discard response(TODO: check the response)
     return true;
   }
@@ -273,7 +196,7 @@ public:
     //print_bytes(message, sizeof(message));
     send_modbus_message(message, sizeof(message));
     delay(50);
-    Stream& RS485 = *(this->RS485);
+    EPSOLAR_SERIAL_TYPE& RS485 = *(this->RS485);
     while (RS485.available()) RS485.read(); // simply discard response(TODO: check the response)
     return true;
   }
