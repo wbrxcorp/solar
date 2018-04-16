@@ -204,6 +204,10 @@ void setup() {
   display.drawXBitmap(0, 0, logo_bits, 128, 64, 1);
   display.display();
 
+  Serial.println();
+  Serial.print("Build date: ");
+  Serial.println(__DATE__ " " __TIME__);
+
   // read config from EEPROM
   Serial.write("Loading config from EEPROM...");
   EEPROM.begin(sizeof(config));
@@ -229,6 +233,7 @@ void setup() {
     config.port = DEFAULT_PORT;
     operation_mode = OPERATION_MODE_COMMAND_LINE_ONLY;
 
+    display.clearDisplay();
     display.println("EEPROM not valid");
     display.println("-Command line only mode-");
     display.display();
