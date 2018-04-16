@@ -50,9 +50,6 @@ const uint16_t DEFAULT_PORT = 29574; // default server port number
 #include "network.h"
 #include "command_line.h"
 
-#include "Adafruit_SSD1306.h"
-Adafruit_SSD1306 display(-1);
-
 #include "logo.h"
 
 #include "globals.h"

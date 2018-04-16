@@ -17,6 +17,10 @@ typedef struct strCONFIG {
   uint16_t crc;
 } CONFIG;
 
+#include "Adafruit_SSD1306.h"
+extern Adafruit_SSD1306 display;
+
+
 extern CONFIG config;
 
 #include "edogawa_unit.h"

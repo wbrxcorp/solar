@@ -273,6 +273,7 @@ bool uptime(const LineParser& lineparser)
 bool reboot(const LineParser& lineparser)
 {
   Serial.println("Rebooting...");
+  display.ssd1306_command(0xae); // Display OFF
   ESP.restart();
   return true; // never reaches here
 }
