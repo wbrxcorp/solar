@@ -270,6 +270,13 @@ bool uptime(const LineParser& lineparser)
   return true;
 }
 
+bool reboot(const LineParser& lineparser)
+{
+  Serial.println("Rebooting...");
+  ESP.restart();
+  return true; // never reaches here
+}
+
 bool process_command_line(const char* line) // true = go to next line,  false = go to next loop
 {
   LineParser lineparser(line);
@@ -291,6 +298,7 @@ bool process_command_line(const char* line) // true = go to next line,  false = 
     { "debug", debug },
     { "deviceinfo", device_info },
     { "uptime", uptime },
+    { "reboot", reboot },
     { NULL, NULL }
   };
 
