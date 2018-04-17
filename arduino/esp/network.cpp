@@ -146,6 +146,9 @@ bool send_message(const char* message)
   if (!tcp_client.connected()) return false;
   tcp_client.write(message, strlen(message));
   tcp_client.write('\n');
+  if (debug_mode) {
+    Serial.println(message);
+  }
   return true;
 }
 

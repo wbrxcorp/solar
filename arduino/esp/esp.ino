@@ -302,34 +302,47 @@ void setup() {
   EPSolarTracerInputRegister reg;
   if (epsolar.get_register(0x9013/*Real Time Clock*/, 3, reg, 3)) {
     uint64_t rtc = reg.getRTCValue(0);
-    char buf[32];
-    sprintf(buf, "RTC: %lu %06lu", (uint32_t)(rtc / 1000000L), (uint32_t)(rtc % 1000000LL));
-    Serial.println(buf);
+    Serial.printf("RTC: %lu %06lu", (uint32_t)(rtc / 1000000L), (uint32_t)(rtc % 1000000LL));
+    Serial.println();
     if (epsolar.get_register(0x9000/*battery type, battery capacity*/, 2, reg)) {
       const char* battery_type_str[] = { "User Defined", "Sealed", "GEL", "Flooded" };
       int battery_type = reg.getIntValue(0);
       int battery_capacity = reg.getIntValue(2);
-      sprintf(buf, "Battery type: %d(", battery_type);
-      strcat(buf, battery_type_str[battery_type]);
-      sprintf(buf + strlen(buf), "), %dAh", battery_capacity);
-      Serial.println(buf);
+      Serial.printf("Battery type: %d(%s), %dAh", battery_type, battery_type_str[battery_type], battery_capacity);
+      Serial.println();
       if (epsolar.get_register(0x311d/*Battery real rated voltage*/, 1, reg)) {
         battery_rated_voltage = (uint8_t)reg.getFloatValue(0);
-        Serial.print("Battery real rated voltage: ");
-        Serial.print((int)battery_rated_voltage);
-        Serial.println("V");
+        Serial.printf("Battery real rated voltage: %dV", (int)battery_rated_voltage);
+        Serial.println();
         if (epsolar.get_register(0x9002/*Temperature compensation coefficient*/, 1, reg)) {
           temperature_compensation_coefficient = (uint8_t)reg.getFloatValue(0);
-          Serial.print("Temperature compensation coefficient: ");
-          Serial.print((int)temperature_compensation_coefficient);
-          Serial.println("mV/Cecelsius degree/2V");
+          Serial.printf("Temperature compensation coefficient: %dmV/Cecelsius degree/2V", (int)temperature_compensation_coefficient);
+          Serial.println("");
           if (epsolar.get_register(0x0006/*Force the load on/off*/, 1, reg)) {
-            Serial.print("Force the load on/off: ");
-            Serial.println(reg.getBoolValue(0)? "on" : "off(used for test)");
+            Serial.printf("Force the load on/off: %s", reg.getBoolValue(0)? "on" : "off(used for test)");
+            Serial.println();
           }
         }
       }
     }
+
+    // lifpo4:
+    //  9000=0(User)
+    //  9002=0
+    //  9003=15.68
+    //  9004=14.6
+    //  9005=14.6
+    //  9006=14.4
+    //  9007=14.4
+    //  9008=13.6
+    //  9009=13.2
+    //  900a=12.4
+    //  900b=12.2
+    //  900c=12.0
+    //  900d=11.0
+    //  900e=10.8
+    //  9067=1(12V) or 2(24V)
+
     if (epsolar.put_register(0x903d/*Load controlling mode*/, (uint16_t)0)) {
       Serial.println("Load controlling mode set to 0(Manual)");
     }
@@ -369,12 +382,15 @@ void setup() {
   display.println("Connecting to server...");
   display.display();
   connect("boot:1");
+  Serial.println(" Connected.");
   display.println("Connected.");
   display.display();
 
 #ifdef ARDUINO_ARCH_ESP32
+  Serial.println("Entering modem sleep(WIFI_PS_MAX_MODEM)...");
   esp_wifi_set_ps(WIFI_PS_MAX_MODEM) == ESP_OK;
 #elif ARDUINO_ARCH_ESP8266
+  Serial.println("Entering modem sleep(MODEM_SLEEP_T)...");
   wifi_set_sleep_type(MODEM_SLEEP_T);
 #endif
 }

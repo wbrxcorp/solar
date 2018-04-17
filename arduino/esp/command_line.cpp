@@ -278,13 +278,13 @@ bool reboot(const LineParser& lineparser)
   return true; // never reaches here
 }
 
-bool read9010(const LineParser& lineparser)
+bool read9022(const LineParser& lineparser)
 {
   EPSolarTracerInputRegister reg;
-  if (epsolar.get_register(0x9010, 2, reg)) {
+  if (epsolar.get_register(0x9022, 2, reg)) {
     //Serial.print("0x900f="); Serial.println(reg.getIntValue(0));
-    Serial.print("0x9010="); Serial.println(reg.getIntValue(0));
-    Serial.print("0x9011="); Serial.println(reg.getIntValue(1));
+    Serial.print("0x9022="); Serial.println(reg.getIntValue(0));
+    Serial.print("0x9023="); Serial.println(reg.getIntValue(1));
   } else {
     Serial.println("Failed");
   }
@@ -315,6 +315,64 @@ bool r9010(const LineParser& lineparser)
   return true;
 }
 
+bool eqcycle(const LineParser& lineparser)
+{
+  if (lineparser.get_count() > 1) {
+    if (!isdigit(lineparser[1][0])) {
+      Serial.println("Invalid parameter. (must be a number)");
+      return true;
+    }
+
+    uint16_t val = (uint16_t)atoi(lineparser[1]);
+
+    if (epsolar.put_register(0x9016, val)) {
+      Serial.printf("Equalization charging cycle set to %d days.", val);
+      Serial.println();
+    } else {
+      Serial.println("Failed");
+    }
+  } else {
+    EPSolarTracerInputRegister reg;
+    if (epsolar.get_register(0x9016, 1, reg)) {
+      Serial.printf("Equalization charging cycle: %d days.", reg.getIntValue(0));
+      Serial.println();
+    }
+  }
+  return true;
+}
+
+bool ratedvoltagecode(const LineParser& lineparser)
+{
+  static const char* str[] = { "Auto", "12V", "24V" };
+  if (lineparser.get_count() > 1) {
+    if (!isdigit(lineparser[1][0])) {
+      Serial.println("Invalid parameter. (must be a number)");
+      return true;
+    }
+
+    uint16_t val = (uint16_t)atoi(lineparser[1]);
+    if (val > 2) {
+      Serial.println("must be 0(Auto), 1(12V) or 2(24V)");
+      return true;
+    }
+
+    if (epsolar.put_register(0x9067, val)) {
+      Serial.printf("Battery rated voltage code set to %d(%s)", val, str[val]);
+      Serial.println();
+    } else {
+      Serial.println("Failed");
+    }
+  } else {
+    EPSolarTracerInputRegister reg;
+    if (epsolar.get_register(0x9067, 1, reg)) {
+      int val = reg.getIntValue(0);
+      Serial.printf("Battery rated voltage code: %d(%s)", val, str[val]);
+      Serial.println();
+    }
+  }
+  return true;
+}
+
 bool process_command_line(const char* line) // true = go to next line,  false = go to next loop
 {
   LineParser lineparser(line);
@@ -337,8 +395,10 @@ bool process_command_line(const char* line) // true = go to next line,  false = 
     { "deviceinfo", device_info },
     { "uptime", uptime },
     { "reboot", reboot },
-    { "read9010", read9010 },
+    { "read9022", read9022 },
     { "r9010", r9010 },
+    { "eqcycle", eqcycle },
+    { "ratedvoltagecode", ratedvoltagecode },
     { NULL, NULL }
   };
 
