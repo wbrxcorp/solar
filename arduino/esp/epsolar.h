@@ -161,45 +161,9 @@ public:
 
   bool get_register(uint16_t addr, uint8_t num, EPSolarTracerInputRegister& reg, int max_retry = 5);
 
-  bool put_register(uint16_t addr, uint16_t data)
-  {
-    uint8_t function_code = 0x06; // Preset Single Register(06)
-    if (addr < 0x2000) function_code = 0x05; // Force Single Coil
-    byte message[] = {0x01, function_code, HIBYTE(addr), LOBYTE(addr), HIBYTE(data), LOBYTE(data), 0x00, 0x00 };
-    put_crc(message, sizeof(message) - 2);
+  bool put_register(uint16_t addr, uint16_t data);
 
-    send_modbus_message(message, sizeof(message));
-    delay(50);
-    EPSOLAR_SERIAL_TYPE& RS485 = *(this->RS485);
-    while (RS485.available()) RS485.read(); // simply discard response(TODO: check the response)
-    return true;
-  }
-
-  bool put_registers(uint16_t addr, uint16_t* data, uint16_t num)
-  {
-    uint8_t data_size_in_bytes = (uint8_t)(sizeof(*data) * num);
-    size_t message_size = 9/*slave address, func code, start addr(H+L), num(H+L), length in bytes, ... , crc(L/H)*/ + data_size_in_bytes;
-    byte message[message_size];
-    message[0] = 0x01;
-    message[1] = 0x10;
-    message[2] = HIBYTE(addr);
-    message[3] = LOBYTE(addr);
-    message[4] = HIBYTE(num);
-    message[5] = LOBYTE(num);
-    message[6] = data_size_in_bytes;
-    for (int i = 0; i < num; i++) {
-      message[7 + i * 2] = HIBYTE(data[i]);
-      message[8 + i * 2] = LOBYTE(data[i]);
-    }
-    put_crc(message, message_size - 2);
-
-    //print_bytes(message, sizeof(message));
-    send_modbus_message(message, sizeof(message));
-    delay(50);
-    EPSOLAR_SERIAL_TYPE& RS485 = *(this->RS485);
-    while (RS485.available()) RS485.read(); // simply discard response(TODO: check the response)
-    return true;
-  }
+  bool put_registers(uint16_t addr, uint16_t* data, uint16_t num);
 
   void load_on(bool on)
   {

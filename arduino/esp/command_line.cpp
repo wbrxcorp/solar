@@ -278,6 +278,43 @@ bool reboot(const LineParser& lineparser)
   return true; // never reaches here
 }
 
+bool read9010(const LineParser& lineparser)
+{
+  EPSolarTracerInputRegister reg;
+  if (epsolar.get_register(0x9010, 2, reg)) {
+    //Serial.print("0x900f="); Serial.println(reg.getIntValue(0));
+    Serial.print("0x9010="); Serial.println(reg.getIntValue(0));
+    Serial.print("0x9011="); Serial.println(reg.getIntValue(1));
+  } else {
+    Serial.println("Failed");
+  }
+  return true;
+}
+
+bool r9010(const LineParser& lineparser)
+{
+  if (lineparser.get_count() > 1) {
+    if (!isdigit(lineparser[1][0])) {
+      Serial.println("Invalid parameter. (must be a number)");
+      return true;
+    }
+
+    uint16_t val = (uint16_t)atoi(lineparser[1]);
+
+    if (epsolar.put_register(0x9010, val)) {
+      Serial.println("Success.");
+    } else {
+      Serial.println("Failed");
+    }
+  } else {
+    EPSolarTracerInputRegister reg;
+    if (epsolar.get_register(0x9010, 1, reg)) {
+      Serial.print("0x9010="); Serial.println(reg.getIntValue(0));
+    }
+  }
+  return true;
+}
+
 bool process_command_line(const char* line) // true = go to next line,  false = go to next loop
 {
   LineParser lineparser(line);
@@ -300,6 +337,8 @@ bool process_command_line(const char* line) // true = go to next line,  false = 
     { "deviceinfo", device_info },
     { "uptime", uptime },
     { "reboot", reboot },
+    { "read9010", read9010 },
+    { "r9010", r9010 },
     { NULL, NULL }
   };
 

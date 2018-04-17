@@ -1,6 +1,21 @@
 #include "globals.h"
 #include "epsolar.h"
 
+static const char* exception_codes[] = {
+  "UNKNOWN(0x00)",
+  "ILLEGAL FUNCTION(0x01)",
+  "ILLEGAL DATA ADDRESS(0x02)",
+  "ILLEGAL DATA VALUE(0x03)",
+  "SLAVE DEVICE FAILURE(0x04)",
+  "ACKNOWLEDGE(0x05)",
+  "SLAVE DEVICE BUSY(0x06)",
+  "UNKNOWN(0x07)",
+  "MEMORY PARITY ERROR(0x08)",
+  "UNKNOWN(0x09)",
+  "GATEWAY PATH UNAVAILABLE(0x0a)",
+  "GATEWAY TARGET DEVICE FAILED TO RESPOND(0x0b)"
+};
+
 static void print_bytes(const uint8_t* bytes, size_t size)
 {
   for (int i = 0; i < size; i++) {
@@ -54,22 +69,43 @@ bool EPSolar::get_device_info(EPSolarTracerDeviceInfo& info, int max_retry/* = 5
   return false;
 }
 
-static bool receive_modbus_input_response(EPSOLAR_SERIAL_TYPE& RS485, uint8_t slave_id, uint8_t function_code, EPSolarTracerInputRegister& reg)
+static bool read_response_bytes(EPSOLAR_SERIAL_TYPE& RS485, uint8_t* buf, size_t expected_size)
 {
-  uint8_t hdr[3];
-  int nread = RS485.readBytes(hdr, sizeof(hdr));
-  if (nread != sizeof(hdr)) {
+  int nread = RS485.readBytes(buf, expected_size);
+  if (nread != expected_size) {
     if (nread == 0) {
       Serial.println("modbus: response timeout");
     } else {
-      Serial.printf("modbus: received header too short(expected=%u octets,actual=%d octets)", sizeof(hdr), nread);
+      Serial.printf("modbus: received data too short(expected=%u octets,actual=%d octets)", expected_size, nread);
       Serial.println();
     }
     return false;
   }
+  // else
+  return true;
+}
+
+static bool receive_modbus_input_response(EPSOLAR_SERIAL_TYPE& RS485, uint8_t slave_id, uint8_t function_code, EPSolarTracerInputRegister& reg)
+{
+  uint8_t hdr[3];
+  if (!read_response_bytes(RS485, hdr, sizeof(hdr))) return false;
+  if (hdr[0] != slave_id) {
+    Serial.println("modbus: response slave id mismatch");
+    return false;
+  }
+  if (hdr[1] == 0x83/*Error*/) {
+    Serial.printf("modbus: slave returned error response(0x83). %s", exception_codes[hdr[2]]);
+    Serial.println();
+    uint8_t crc[2];
+    if (read_response_bytes(RS485, crc, sizeof(crc))) {
+      // TODO: check CRC
+    }
+    return false;
+  }
   //else
-  if (hdr[0] != slave_id ||  hdr[1] != function_code) {
-    Serial.println("modbus: response slave id or function code mismatch");
+  if (hdr[1] != function_code) {
+    Serial.printf("modbus: response function code mismatch. expected=0x%02x,actual=0x%02x", (int)function_code, (int)hdr[1]);
+    Serial.println();
     return false;
   }
   // else
@@ -122,4 +158,80 @@ bool EPSolar::get_register(uint16_t addr, uint8_t num, EPSolarTracerInputRegiste
   }
 
   return false;
+}
+
+static bool receive_modbus_output_response(EPSOLAR_SERIAL_TYPE& RS485, uint8_t slave_id, uint8_t function_code)
+{
+  uint8_t response[3];
+  if (!read_response_bytes(RS485, response, 2)) return false;
+  //else
+  if (response[0] != slave_id) {
+    Serial.println("modbus: response slave id mismatch");
+    return false;
+  }
+  if (response[1] == 0x83/*Error*/) {
+    if (!read_response_bytes(RS485, response + 2, 1)) return false;
+    Serial.printf("modbus: slave returned error response(0x83). %s", exception_codes[response[2]]);
+    Serial.println();
+    uint8_t crc[2];
+    if (read_response_bytes(RS485, crc, sizeof(crc))) {
+      // TODO: check CRC
+    }
+    return false;
+  }
+  //else
+  if (response[1] != function_code) {
+    Serial.printf("modbus: response function code mismatch. expected=0x%02x,actual=0x%02x", (int)function_code, (int)response[1]);
+    Serial.println();
+    return false;
+  }
+  //else
+  return true;
+}
+
+
+bool EPSolar::put_register(uint16_t addr, uint16_t data)
+{
+  uint8_t slave_id = 0x01, function_code = 0x06; // Preset Single Register(06)
+  if (addr < 0x2000) function_code = 0x05; // Force Single Coil
+  byte message[] = {slave_id, function_code, HIBYTE(addr), LOBYTE(addr), HIBYTE(data), LOBYTE(data), 0x00, 0x00 };
+  put_crc(message, sizeof(message) - 2);
+
+  send_modbus_message(message, sizeof(message));
+  delay(50);
+
+  EPSOLAR_SERIAL_TYPE& RS485 = *(this->RS485);
+  if (!receive_modbus_output_response(RS485, slave_id, function_code)) return false;
+  //else
+  while (RS485.available()) RS485.read(); // drop remaining
+  return true;
+}
+
+bool EPSolar::put_registers(uint16_t addr, uint16_t* data, uint16_t num)
+{
+  uint8_t data_size_in_bytes = (uint8_t)(sizeof(*data) * num);
+  size_t message_size = 9/*slave address, func code, start addr(H+L), num(H+L), length in bytes, ... , crc(L/H)*/ + data_size_in_bytes;
+  uint8_t message[message_size];
+  uint8_t slave_id = 0x01, function_code = 0x10; // Preset Multiple Registers(16, 0x10)
+  message[0] = slave_id;
+  message[1] = function_code;
+  message[2] = HIBYTE(addr);
+  message[3] = LOBYTE(addr);
+  message[4] = HIBYTE(num);
+  message[5] = LOBYTE(num);
+  message[6] = data_size_in_bytes;
+  for (int i = 0; i < num; i++) {
+    message[7 + i * 2] = HIBYTE(data[i]);
+    message[8 + i * 2] = LOBYTE(data[i]);
+  }
+  put_crc(message, message_size - 2);
+
+  //print_bytes(message, sizeof(message));
+  send_modbus_message(message, sizeof(message));
+  delay(50);
+  EPSOLAR_SERIAL_TYPE& RS485 = *(this->RS485);
+  if (!receive_modbus_output_response(RS485, slave_id, function_code)) return false;
+  //else
+  while (RS485.available()) RS485.read(); // drop remaining
+  return true;
 }
