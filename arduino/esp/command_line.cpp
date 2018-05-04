@@ -196,10 +196,17 @@ bool pw(const LineParser& lineparser)
   return true;
 }
 
-bool pw1(const LineParser& lineparser)
+bool pwX(const LineParser& lineparser)
 {
+  if (strlen(lineparser[0]) < 3) return true; //strange
+
+  char X = lineparser[0][2];
+  if (X != '1' && X != '2') return true;  // out of range
+
+  EdogawaUnit& edogawaUnit = X == '1'? edogawaUnit1 : edogawaUnit2;
+
   if (lineparser.get_count() < 2) {
-    Serial.print("pw1 is ");
+    Serial.printf("pw%c is ", X);
     Serial.println(edogawaUnit.is_power_on()? "on" : "off");
     return true;
   }
@@ -212,10 +219,12 @@ bool pw1(const LineParser& lineparser)
 
   int pw = atoi(lineparser[1]);
   if (pw == 0) {
-    Serial.println("Turning power1 OFF");
-    edogawaUnit.power_off(); // atx power off
+    Serial.printf("Turning power%c OFF", X);
+    Serial.println();
+    edogawaUnit1.power_off(); // atx power off
   } else if (pw == 1) {
-    Serial.println("Turning power1 ON");
+    Serial.printf("Turning power%c ON", X);
+    Serial.println();
     epsolar.load_on(true); // main power on first
     edogawaUnit.power_on();
   }
@@ -390,7 +399,8 @@ bool process_command_line(const char* line) // true = go to next line,  false = 
     { "port", port },
     { "save", save },
     { "pw", pw },
-    { "pw1", pw1 },
+    { "pw1", pwX },
+    { "pw2", pwX },
     { "debug", debug },
     { "deviceinfo", device_info },
     { "uptime", uptime },

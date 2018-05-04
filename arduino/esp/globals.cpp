@@ -3,7 +3,7 @@
 uint8_t operation_mode = OPERATION_MODE_NORMAL;
 CONFIG config;
 
-EdogawaUnit edogawaUnit;
+EdogawaUnit edogawaUnit1, edogawaUnit2;
 
 EPSolar epsolar;
 

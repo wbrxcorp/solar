@@ -12,6 +12,7 @@
 
 #ifdef ARDUINO_ARCH_ESP32
   // map MH-ET ESP32 Mini Kit's pins to D1 mini's ones
+  #define D0 26
   #define D3 17
   #define D4 16
   #define D5 18
@@ -27,9 +28,11 @@
 
 #define RS485_TX_SOCKET D3  // ESP8266 IO0
 #define RS485_RX_SOCKET D4  // ESP8266 IO2
-#define RS485_RTS_SOCKET D7 // ESP8266 IO13
+#define RS485_RTS_SOCKET D0 // ESP8266 IO16
 #define PW1_SW_SOCKET D5    // ESP8266 IO14
 #define PW1_LED_SOCKET D6   // ESP8266 IO12
+#define PW2_SW_SOCKET D7    // ESP8266 IO13
+#define PW2_LED_SOCKET D8   // ESP8266 IO15
 
 #define CHECK_INTERVAL 1000
 #define REPORT_INTERVAL 5000
@@ -121,20 +124,24 @@ void process_message(const char* message)
       int pw = atoi(value);
       if (pw == 0) {
         Serial.println("Power OFF");
-        if (edogawaUnit.is_power_on()) edogawaUnit.power_off(); // atx power off
+        if (edogawaUnit1.is_power_on()) edogawaUnit1.power_off(); // atx power off
+        if (edogawaUnit2.is_power_on()) edogawaUnit2.power_off(); // atx power off
         epsolar.load_on(false);
       } else if (pw == 1) {
         Serial.println("Power ON");
         epsolar.load_on(true);
       }
-    } else if (strcmp(key, "pw1") == 0 && (isdigit(value[0]) || value[0] == '-')) { // atx power
-      int pw1 = atoi(value);
-      bool pw1_on = edogawaUnit.is_power_on();
-      if (pw1_on && pw1 == 0) { // power off
-        Serial.println("Power1 OFF");
+    } else if (key[0] == 'p' && key[1] == 'w' && (key[2] == '1' || key[2] == '2') && (isdigit(value[0]) || value[0] == '-')) { // atx power
+      EdogawaUnit& edogawaUnit = key[2] == '1'? edogawaUnit1 : edogawaUnit2;
+      int pwX = atoi(value);
+      bool pwX_on = edogawaUnit.is_power_on();
+      if (pwX_on && pwX == 0) { // power off
+        Serial.printf("Power%c OFF", key[2]);
+        Serial.println();
         edogawaUnit.power_off();
-      } else if (!pw1_on && pw1 == 1) { // power on
-        Serial.println("Power1 ON");
+      } else if (!pwX_on && pwX == 1) { // power on
+        Serial.printf("Power%c ON", key[2]);
+        Serial.println();
         epsolar.load_on(true); // main power on first
         edogawaUnit.power_on();
       }
@@ -280,7 +287,8 @@ void setup() {
   display.printf("SSID: %s\n", config.ssid);
   display.display();
 
-  edogawaUnit.begin(PW1_SW_SOCKET, PW1_LED_SOCKET);
+  edogawaUnit1.begin(PW1_SW_SOCKET, PW1_LED_SOCKET);
+  edogawaUnit2.begin(PW2_SW_SOCKET, PW2_LED_SOCKET);
 
   EPSolarTracerDeviceInfo info;
   if (epsolar.get_device_info(info)) {
@@ -511,14 +519,16 @@ void loop_normal()
   String message;
   EPSolarValues values;
   if (getEPSolarValues(values)) {
-    bool pw1 = edogawaUnit.is_power_on();
+    bool pw1 = edogawaUnit1.is_power_on();
+    bool pw2 = edogawaUnit2.is_power_on();
 
     message = String("PV   ") + values.piw + "W\n"
       + "LOAD " + values.load + "W\n"
       + "BATT " + values.bv + "V\n" +
       + "TEMP " + values.temp + "deg.\n" +
       + "PW   " + (values.pw? "ON" : "OFF") + '\n'
-      + "PW1  " + (pw1? "ON" : "OFF") + '\n';
+      + "PW1  " + (pw1? "ON" : "OFF") + '\n'
+      + "PW2  " + (pw2? "ON" : "OFF") + '\n';
     display.print(message);
 
     float btcv = 0.0f;
@@ -537,7 +547,8 @@ void loop_normal()
       + "\tkwh:" + values.kwh
       + "\tpw:" + values.pw
       + "\tbtcv:" + btcv
-      + "\tpw1:" + (pw1? 1 : 0);
+      + "\tpw1:" + (pw1? 1 : 0)
+      + "\tpw2:" + (pw2? 1 : 0);
   } else {
     display.print("!Controller disconnected!");
 

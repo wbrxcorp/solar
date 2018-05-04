@@ -24,7 +24,7 @@ extern Adafruit_SSD1306 display;
 extern CONFIG config;
 
 #include "edogawa_unit.h"
-extern EdogawaUnit edogawaUnit;
+extern EdogawaUnit edogawaUnit1, edogawaUnit2;
 
 #include "epsolar.h"
 extern EPSolar epsolar;
