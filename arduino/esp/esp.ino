@@ -1,5 +1,6 @@
 // arduino --upload --board espressif:esp32:mhetesp32minikit:FlashFreq=80,UploadSpeed=921600 --port /dev/ttyUSB0 .
 // arduino --upload --board esp8266com:esp8266:d1_mini:CpuFrequency=80,FlashSize=4M1M,UploadSpeed=921600 --port /dev/ttyUSB0 .
+// arduino --upload --board arduino:avr:mega:cpu=atmega2560 --port /dev/ttyACM0 .
 #include <EEPROM.h>
 #ifdef ARDUINO_ARCH_ESP32
 #include <WiFi.h>
@@ -20,6 +21,14 @@
   #define D7 23
   #define D8 5
   #define LED_BUILTIN 2
+#elif ARDUINO_AVR_MEGA2560
+  #define D0 2
+  #define D3 18
+  #define D4 19
+  #define D5 3
+  #define D6 4
+  #define D7 5
+  #define D8 6
 #endif
 
 #ifdef ARDUINO_ARCH_ESP8266
@@ -48,6 +57,12 @@ const uint16_t DEFAULT_PORT = 29574; // default server port number
   HardwareSerial RS485(1);  // Use UART1 (need to change TX/RX pins)
 #elif ARDUINO_ARCH_ESP8266
   SoftwareSerial RS485(RS485_RX_SOCKET, RS485_TX_SOCKET, false, 256);
+#elif ARDUINO_AVR_MEGA2560
+  HardwareSerial& RS485 = Serial1;
+#endif
+
+#if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266)
+  #define HAVE_WIFI
 #endif
 
 #include "network.h"
@@ -136,12 +151,14 @@ void process_message(const char* message)
       int pwX = atoi(value);
       bool pwX_on = edogawaUnit.is_power_on();
       if (pwX_on && pwX == 0) { // power off
-        Serial.printf("Power%c OFF", key[2]);
-        Serial.println();
+        Serial.print("Power");
+        Serial.print(key[2]);
+        Serial.println(" OFF");
         edogawaUnit.power_off();
       } else if (!pwX_on && pwX == 1) { // power on
-        Serial.printf("Power%c ON", key[2]);
-        Serial.println();
+        Serial.print("Power");
+        Serial.print(key[2]);
+        Serial.println(" ON");
         epsolar.load_on(true); // main power on first
         edogawaUnit.power_on();
       }
@@ -214,9 +231,13 @@ void setup() {
 
   // read config from EEPROM
   Serial.write("Loading config from EEPROM...");
+#if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266)
   EEPROM.begin(sizeof(config));
+#endif
   EEPROM.get(0, config);
+#if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266)
   EEPROM.end();
+#endif
   uint8_t* p = (uint8_t*)&config;
   uint16_t crc = 0xffff;
   for (size_t i = 0; i < sizeof(config) - sizeof(config.crc); i++) {
@@ -284,7 +305,8 @@ void setup() {
 
   display.clearDisplay();
   display.println(config.nodename);
-  display.printf("SSID: %s\n", config.ssid);
+  display.print("SSID: ");
+  display.println(config.ssid);
   display.display();
 
   edogawaUnit1.begin(PW1_SW_SOCKET, PW1_LED_SOCKET);
@@ -299,9 +321,12 @@ void setup() {
     Serial.print("Revision: ");
     Serial.println(info.get_revision());
 
-    display.printf("Vendor: %s\n", info.get_vendor_name());
-    display.printf("Product: %s\n", info.get_product_code());
-    display.printf("Revision: %s\n", info.get_revision());
+    display.print("Vendor: ");
+    display.println(info.get_vendor_name());
+    display.print("Product: ");
+    display.println(info.get_product_code());
+    display.print("Revision: ");
+    display.println(info.get_revision());
     display.display();
   } else {
     Serial.println("Getting charge controller device info failed!");
@@ -310,25 +335,26 @@ void setup() {
   EPSolarTracerInputRegister reg;
   if (epsolar.get_register(0x9013/*Real Time Clock*/, 3, reg, 3)) {
     uint64_t rtc = reg.getRTCValue(0);
-    Serial.printf("RTC: %lu %06lu", (uint32_t)(rtc / 1000000L), (uint32_t)(rtc % 1000000LL));
-    Serial.println();
+    char buf[128];
+    sprintf(buf, "RTC: %lu %06lu", (uint32_t)(rtc / 1000000L), (uint32_t)(rtc % 1000000LL));
+    Serial.println(buf);
     if (epsolar.get_register(0x9000/*battery type, battery capacity*/, 2, reg)) {
       const char* battery_type_str[] = { "User Defined", "Sealed", "GEL", "Flooded" };
       int battery_type = reg.getIntValue(0);
       int battery_capacity = reg.getIntValue(2);
-      Serial.printf("Battery type: %d(%s), %dAh", battery_type, battery_type_str[battery_type], battery_capacity);
-      Serial.println();
+      sprintf(buf, "Battery type: %d(%s), %dAh", battery_type, battery_type_str[battery_type], battery_capacity);
+      Serial.println(buf);
       if (epsolar.get_register(0x311d/*Battery real rated voltage*/, 1, reg)) {
         battery_rated_voltage = (uint8_t)reg.getFloatValue(0);
-        Serial.printf("Battery real rated voltage: %dV", (int)battery_rated_voltage);
-        Serial.println();
+        sprintf(buf, "Battery real rated voltage: %dV", (int)battery_rated_voltage);
+        Serial.println(buf);
         if (epsolar.get_register(0x9002/*Temperature compensation coefficient*/, 1, reg)) {
           temperature_compensation_coefficient = (uint8_t)reg.getFloatValue(0);
-          Serial.printf("Temperature compensation coefficient: %dmV/Cecelsius degree/2V", (int)temperature_compensation_coefficient);
-          Serial.println("");
+          sprintf(buf, "Temperature compensation coefficient: %dmV/Cecelsius degree/2V", (int)temperature_compensation_coefficient);
+          Serial.println(buf);
           if (epsolar.get_register(0x0006/*Force the load on/off*/, 1, reg)) {
-            Serial.printf("Force the load on/off: %s", reg.getBoolValue(0)? "on" : "off(used for test)");
-            Serial.println();
+            sprintf(buf, "Force the load on/off: %s", reg.getBoolValue(0)? "on" : "off(used for test)");
+            Serial.println(buf);
           }
         }
       }
@@ -364,6 +390,7 @@ void setup() {
     Serial.println("Getting charge controller settings failed!");
   }
 
+#ifdef HAVE_WIFI
   Serial.print("Connecting to WiFi AP");
   display.println("Connecting WiFi...");
   display.display();
@@ -401,6 +428,7 @@ void setup() {
   Serial.println("Entering modem sleep(MODEM_SLEEP_T)...");
   wifi_set_sleep_type(MODEM_SLEEP_T);
 #endif
+#endif // HAVE_WIFI
 }
 
 void loop_command_line()
@@ -496,6 +524,7 @@ void loop_normal()
   digitalWrite(LED_BUILTIN, current_time / 1000 % 2 == 0);
 #endif
 
+#ifdef HAVE_WIFI
   if (receive_message(process_message) > 0) last_message_received = current_time;
 
   if (last_message_sent > last_message_received && current_time - last_message_sent >= MESSAGE_TIMEOUT) {
@@ -508,13 +537,15 @@ void loop_normal()
     connect();
     return;
   }
+#endif
 
   if (current_time - last_checked <= CHECK_INTERVAL) return;
 
   // else
   display.clearDisplay();
   display.setCursor(0,0);
-  display.printf("NODE %s\n", config.nodename);
+  display.print("NODE ");
+  display.println(config.nodename);
 
   String message;
   EPSolarValues values;
@@ -568,8 +599,11 @@ void loop_normal()
 
   message += "\tnodename:";
   message += config.nodename;
-
+#ifdef HAVE_WIFI
   send_message(message.c_str());
+#else
+  Serial.println(message);
+#endif
   last_message_sent = last_reported = current_time;
 }
 

@@ -1,5 +1,10 @@
 #include <Arduino.h>
+
+#if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266)
 #include <pgmspace.h>
+#elif defined(ARDUINO_AVR_MEGA2560)
+#include <avr/pgmspace.h>
+#endif
 
 const uint8_t logo_bits[] PROGMEM = {
   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,

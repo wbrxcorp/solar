@@ -158,10 +158,14 @@ bool save(const LineParser& lineparser)
     config.crc = update_crc(config.crc, p[i]);
   }
   Serial.print("Writing config to EEPROM...");
+#if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266)
   EEPROM.begin(sizeof(config));
+#endif
   EEPROM.put(0, config);
+#if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266)
   EEPROM.commit();
   EEPROM.end();
+#endif
 
   Serial.println("Done.");
   return true;
@@ -206,7 +210,9 @@ bool pwX(const LineParser& lineparser)
   EdogawaUnit& edogawaUnit = X == '1'? edogawaUnit1 : edogawaUnit2;
 
   if (lineparser.get_count() < 2) {
-    Serial.printf("pw%c is ", X);
+    Serial.print("pw");
+    Serial.print(X);
+    Serial.print(" is ");
     Serial.println(edogawaUnit.is_power_on()? "on" : "off");
     return true;
   }
@@ -219,12 +225,14 @@ bool pwX(const LineParser& lineparser)
 
   int pw = atoi(lineparser[1]);
   if (pw == 0) {
-    Serial.printf("Turning power%c OFF", X);
-    Serial.println();
+    Serial.print("Turning power");
+    Serial.print(X);
+    Serial.println(" OFF");
     edogawaUnit1.power_off(); // atx power off
   } else if (pw == 1) {
-    Serial.printf("Turning power%c ON", X);
-    Serial.println();
+    Serial.print("Turning power");
+    Serial.print(X);
+    Serial.println(" ON");
     epsolar.load_on(true); // main power on first
     edogawaUnit.power_on();
   }
@@ -281,9 +289,13 @@ bool uptime(const LineParser& lineparser)
 
 bool reboot(const LineParser& lineparser)
 {
+#if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266)
   Serial.println("Rebooting...");
   display.ssd1306_command(0xae); // Display OFF
   ESP.restart();
+#else
+  Serial.println("Reboot not implemented...");
+#endif
   return true; // never reaches here
 }
 
@@ -335,16 +347,18 @@ bool eqcycle(const LineParser& lineparser)
     uint16_t val = (uint16_t)atoi(lineparser[1]);
 
     if (epsolar.put_register(0x9016, val)) {
-      Serial.printf("Equalization charging cycle set to %d days.", val);
-      Serial.println();
+      Serial.print("Equalization charging cycle set to ");
+      Serial.print(val);
+      Serial.println(" days.");
     } else {
       Serial.println("Failed");
     }
   } else {
     EPSolarTracerInputRegister reg;
     if (epsolar.get_register(0x9016, 1, reg)) {
-      Serial.printf("Equalization charging cycle: %d days.", reg.getIntValue(0));
-      Serial.println();
+      Serial.print("Equalization charging cycle: ");
+      Serial.print(reg.getIntValue(0));
+      Serial.println(" days.");
     }
   }
   return true;
@@ -366,8 +380,11 @@ bool ratedvoltagecode(const LineParser& lineparser)
     }
 
     if (epsolar.put_register(0x9067, val)) {
-      Serial.printf("Battery rated voltage code set to %d(%s)", val, str[val]);
-      Serial.println();
+      Serial.print("Battery rated voltage code set to ");
+      Serial.print(val);
+      Serial.print('(');
+      Serial.print(str[val]);
+      Serial.println(')');
     } else {
       Serial.println("Failed");
     }
@@ -375,8 +392,11 @@ bool ratedvoltagecode(const LineParser& lineparser)
     EPSolarTracerInputRegister reg;
     if (epsolar.get_register(0x9067, 1, reg)) {
       int val = reg.getIntValue(0);
-      Serial.printf("Battery rated voltage code: %d(%s)", val, str[val]);
-      Serial.println();
+      Serial.print("Battery rated voltage code: ");
+      Serial.print(val);
+      Serial.print('(');
+      Serial.print(str[val]);
+      Serial.println(')');
     }
   }
   return true;

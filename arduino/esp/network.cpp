@@ -8,7 +8,11 @@
 #include <ESP8266WiFi.h>
 #include <ESP8266mDNS.h>
 #include <user_interface.h>
+#else
+  #define NO_WIFI
 #endif
+
+#ifndef NO_WIFI
 
 #include "globals.h"
 #include "network.h"
@@ -168,3 +172,5 @@ int receive_message(void (*process_message)(const char*))
   }
   return cnt;
 }
+
+#endif // NO_WIFI

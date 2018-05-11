@@ -18,8 +18,10 @@ static const char* exception_codes[] = {
 
 static void print_bytes(const uint8_t* bytes, size_t size)
 {
+  char buf[4];
   for (int i = 0; i < size; i++) {
-    Serial.printf("%02x ", bytes[i]);
+    sprintf(buf, "%02x ", bytes[i]);
+    Serial.print(buf);
   }
   Serial.println();
 }
@@ -76,8 +78,11 @@ static bool read_response_bytes(EPSOLAR_SERIAL_TYPE& RS485, uint8_t* buf, size_t
     if (nread == 0) {
       Serial.println("modbus: response timeout");
     } else {
-      Serial.printf("modbus: received data too short(expected=%u octets,actual=%d octets)", expected_size, nread);
-      Serial.println();
+      Serial.print("modbus: received data too short(expected=");
+      Serial.print(expected_size);
+      Serial.print(" octets,actual=");
+      Serial.print(nread);
+      Serial.println(" octets)");
     }
     return false;
   }
@@ -94,7 +99,8 @@ static bool receive_modbus_input_response(EPSOLAR_SERIAL_TYPE& RS485, uint8_t sl
     return false;
   }
   if (hdr[1] == 0x83/*Error*/) {
-    Serial.printf("modbus: slave returned error response(0x83). %s", exception_codes[hdr[2]]);
+    Serial.print("modbus: slave returned error response(0x83). ");
+    Serial.println(exception_codes[hdr[2]]);
     Serial.println();
     uint8_t crc[2];
     if (read_response_bytes(RS485, crc, sizeof(crc))) {
@@ -104,16 +110,22 @@ static bool receive_modbus_input_response(EPSOLAR_SERIAL_TYPE& RS485, uint8_t sl
   }
   //else
   if (hdr[1] != function_code) {
-    Serial.printf("modbus: response function code mismatch. expected=0x%02x,actual=0x%02x", (int)function_code, (int)hdr[1]);
-    Serial.println();
+    char buf[3];
+    Serial.print("modbus: response function code mismatch. expected=0x");
+    sprintf(buf, "%02f", (int)function_code);
+    Serial.print(buf);
+    Serial.print(",actual=0x");
+    sprintf(buf, "%02f", (int)hdr[1]);
+    Serial.println(buf);
     return false;
   }
   // else
   size_t data_size = (size_t)hdr[2];
   uint8_t buf[data_size];
   if (RS485.readBytes(buf, sizeof(buf)) != sizeof(buf)) {
-    Serial.printf("modbus: received response payload too short(expected=%u octets)", sizeof(buf));
-    Serial.println();
+    Serial.print("modbus: received response payload too short(expected=");
+    Serial.print(sizeof(buf));
+    Serial.println(" octets)");
     return false;
   }
   // else
@@ -171,8 +183,8 @@ static bool receive_modbus_output_response(EPSOLAR_SERIAL_TYPE& RS485, uint8_t s
   }
   if (response[1] == 0x83/*Error*/) {
     if (!read_response_bytes(RS485, response + 2, 1)) return false;
-    Serial.printf("modbus: slave returned error response(0x83). %s", exception_codes[response[2]]);
-    Serial.println();
+    Serial.print("modbus: slave returned error response(0x83). ");
+    Serial.println(exception_codes[response[2]]);
     uint8_t crc[2];
     if (read_response_bytes(RS485, crc, sizeof(crc))) {
       // TODO: check CRC
@@ -181,8 +193,13 @@ static bool receive_modbus_output_response(EPSOLAR_SERIAL_TYPE& RS485, uint8_t s
   }
   //else
   if (response[1] != function_code) {
-    Serial.printf("modbus: response function code mismatch. expected=0x%02x,actual=0x%02x", (int)function_code, (int)response[1]);
-    Serial.println();
+    char buf[3];
+    Serial.print("modbus: response function code mismatch. expected=0x");
+    sprintf(buf, "%02x", (int)function_code);
+    Serial.print(buf);
+    Serial.print(",actual=0x");
+    sprintf(buf, "%02x", (int)response[1]);
+    Serial.println(buf);
     return false;
   }
   //else

@@ -118,7 +118,7 @@ public:
   }
 };
 
-#ifdef ARDUINO_ARCH_ESP32
+#if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_AVR_MEGA2560)
 typedef HardwareSerial EPSOLAR_SERIAL_TYPE;
 #elif ARDUINO_ARCH_ESP8266
 typedef SoftwareSerial EPSOLAR_SERIAL_TYPE;
