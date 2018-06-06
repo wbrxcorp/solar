@@ -228,7 +228,7 @@ bool pwX(const LineParser& lineparser)
     Serial.print("Turning power");
     Serial.print(X);
     Serial.println(" OFF");
-    edogawaUnit1.power_off(); // atx power off
+    edogawaUnit.power_off(); // atx power off
   } else if (pw == 1) {
     Serial.print("Turning power");
     Serial.print(X);
