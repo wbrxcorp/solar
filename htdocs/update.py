@@ -136,10 +136,10 @@ if __name__ == '__main__':
                     r2 = restkit.request("https://api.nanopool.org/v1/%s/approximated_earnings/1.0" % coin_id)
                     if r2.status_int == 200:
                         earnings = json.loads(r2.body_string())
-                    if earnings["status"]:
-                        prices["data"]["daily_dollars_per_hashrate"] = earnings["data"]["day"]["dollars"]
-                        prices["data"]["daily_coins_per_hashrate"] = earnings["data"]["day"]["coins"]
-                        write_file_atomic(filename, json.dumps(prices))
+                        if earnings["status"]:
+                            prices["data"]["daily_dollars_per_hashrate"] = earnings["data"]["day"]["dollars"]
+                            prices["data"]["daily_coins_per_hashrate"] = earnings["data"]["day"]["coins"]
+                            write_file_atomic(filename, json.dumps(prices))
 
         if "pool" in coin and coin["pool"] == "mph":
             user_id = coin["mph_user_id"]
@@ -174,14 +174,18 @@ if __name__ == '__main__':
             address = coin["address"]
 
             filename = "%s.user.json" % coin_id
+            user = None
             if should_download_new_file(filename):
                 r = restkit.request("https://api.nanopool.org/v1/%s/user/%s" % (coin_id, address))
                 if r.status_int == 200:
                     user = json.loads(r.body_string())
-                    if user["status"]:
-                        h6 = float(user["data"]["avgHashrate"]["h6"])
-                        user["data"]["daily_dollars"], user["data"]["daily_coins"] = get_daily_earnings(coin_id, h6)
-                        write_file_atomic(filename, json.dumps(user))
+            elif os.path.isfile(filename):
+                user = json.load(open(filename))
+
+            if user is not None and user["status"]:
+                h6 = float(user["data"]["avgHashrate"]["h6"])
+                user["data"]["daily_dollars"], user["data"]["daily_coins"] = get_daily_earnings(coin_id, h6)
+                write_file_atomic(filename, json.dumps(user))
 
             if os.path.isfile(filename):
                 user = json.load(open(filename))
