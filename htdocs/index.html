@@ -12,11 +12,10 @@
     var rate = $resource("usd.json");
     var btcRate = $resource("btc.json");
     var coins = $resource("coins.json");
-    var user = $resource(":coin.user.json");
+    var user = $resource(":coin.json");
     var userSettings = $resource(":coin.settings.json");
     var workers = $resource("workers.json");
     var price = $resource(":coin.prices.json");
-    var products = $resource("products.json");
     $scope.refresh = function(coins) {
       if ($scope.timer) {
           $timeout.cancel($scope.timer);
@@ -42,9 +41,6 @@
       });
       workers.query({}, function(data) {
         $scope.workers = data;
-      });
-      products.query({}, function(data) {
-        $scope.products = data;
       });
       $scope.timer = $timeout(function() {
         $scope.refresh(coins);
@@ -101,15 +97,6 @@
         <td>{{worker.id}}</td>
         <td><span ng-repeat="coin in worker.coins">{{coin.id}}(￥{{coin.daily_dollars * usd.rates.JPY | number:0}}) </span></td>
         <td>￥{{worker.daily_dollars * usd.rates.JPY | number:0}}</td>
-      </tr>
-    </table>
-
-    <table class="table">
-      <tr><th>Product</th><th>price</th><th>Availability</th></tr>
-      <tr ng-repeat="product in products">
-        <td><a href="https://www.amazon.co.jp/dp/{{product.asin}}" target="_blank">{{product.title}}</a></td>
-        <td>￥{{product.price | number:0}}</td>
-        <td>{{product.availability}}</td>
       </tr>
     </table>
 
