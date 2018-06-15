@@ -111,15 +111,28 @@ if __name__ == '__main__':
         for row in cur:
             system_config[row[0]] = row[1]
 
-    filename = "usd.json"
+    filename = "eur.json"
     if should_download_new_file(filename):
-        r = restkit.request("http://api.fixer.io/latest?base=USD")
+        r = restkit.request("http://data.fixer.io/api/latest?access_key=%s" % system_config["fixer_api_access_key"])
         if r.status_int == 200: write_file_atomic(filename, r.body_string())
+    eur = json.load(open(filename))
+    usd = {
+        "rates":{
+            "JPY":eur["rates"]["JPY"] / eur["rates"]["USD"]
+        }
+    }
 
-    filename = "btc.json"
-    if should_download_new_file(filename, 10):
-        r = restkit.request("https://api.coindesk.com/v1/bpi/currentprice.json")
-        if r.status_int == 200: write_file_atomic(filename, r.body_string())
+    write_file_atomic("usd.json", json.dumps(usd))
+
+    btc = {
+        "bpi":{
+            "USD":{
+                "rate_float":eur["rates"]["USD"] / eur["rates"]["BTC"]
+            }
+        }
+    }
+
+    write_file_atomic("btc.json", json.dumps(btc))
 
     coins = json.load(open("coins.json"))
     workers = {}
@@ -212,7 +225,7 @@ if __name__ == '__main__':
 
     # update amazon products
     amazon = json.load(open("amazon.json"))
-    amazon_update_products(amazon, system_config)
+    #amazon_update_products(amazon, system_config)
     products = {}
 
     with Connection() as cur:
@@ -233,6 +246,8 @@ create table system_config(`key` varchar(32) primary key,`value` varchar(128));
 insert into system_config(`key`,`value`) values('amazon_access_key_id','YOUR_ACCESS_KEY_HERE');
 insert into system_config(`key`,`value`) values('amazon_secret_access_key','YOUR_SECRET_ACCESS_KEY_HERE');
 insert into system_config(`key`,`value`) values('amazon_associate_tag','YOUR_ASSOCIATE_TAG_HERE');
+
+insert into system_config(`key`,`value`) values('fixer_api_access_key','YOUR_FIXER_API_ACCESS_KEY_HERE');
 
 create table products (
     asin varchar(32) not null primary key,
