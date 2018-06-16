@@ -139,22 +139,7 @@ public:
     pinMode(rtsPin, OUTPUT);
   }
 
-  void send_modbus_message(const uint8_t* message, size_t size)
-  {
-    unsigned long current_time = millis();
-    if (current_time - last_message < MIN_MESSAGE_INTERVAL) {
-      delay(MIN_MESSAGE_INTERVAL - (current_time - last_message));
-    }
-    EPSOLAR_SERIAL_TYPE& RS485 = *(this->RS485);
-    while(RS485.available()) RS485.read();
-    digitalWrite(rtsPin,HIGH);
-    //delayMicroseconds(500);
-    RS485.write(message, size);
-    RS485.flush();
-    delayMicroseconds(500);
-    digitalWrite(rtsPin,LOW);
-    last_message = current_time;
-  }
+  void send_modbus_message(const uint8_t* message, size_t size);
 
   // http://www.modbus.org/docs/Modbus_Application_Protocol_V1_1b.pdf
   bool get_device_info(EPSolarTracerDeviceInfo& info, int max_retry = 5);

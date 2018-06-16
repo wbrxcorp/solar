@@ -146,6 +146,24 @@ static bool receive_modbus_input_response(EPSOLAR_SERIAL_TYPE& RS485, uint8_t sl
   return true;
 }
 
+void EPSolar::send_modbus_message(const uint8_t* message, size_t size)
+{
+  unsigned long current_time = millis();
+  if (current_time - last_message < MIN_MESSAGE_INTERVAL) {
+    delay(MIN_MESSAGE_INTERVAL - (current_time - last_message));
+  }
+
+  EPSOLAR_SERIAL_TYPE& RS485 = *(this->RS485);
+  while(RS485.available()) RS485.read();
+  digitalWrite(rtsPin,HIGH);
+  delayMicroseconds(304);// 35bit = 304us in 115200bps
+  RS485.write(message, size);
+  RS485.flush();
+  delayMicroseconds(304);// 35bit = 304us in 115200bps
+  digitalWrite(rtsPin,LOW);
+  last_message = current_time;
+}
+
 bool EPSolar::get_register(uint16_t addr, uint8_t num, EPSolarTracerInputRegister& reg, int max_retry/* = 10*/)
 {
   uint8_t slave_id = 0x01, function_code = 0x04; // Read Input Register
