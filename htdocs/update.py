@@ -223,23 +223,22 @@ if __name__ == '__main__':
 
     write_file_atomic("workers.json", json.dumps(sorted(workers_list, key=lambda x:-x["daily_dollars"])))
 
-    # update amazon products
-    amazon = json.load(open("amazon.json"))
-    #amazon_update_products(amazon, system_config)
-    products = {}
+    xmr_prices = json.load(open("xmr.prices.json"))
+    etn_prices = json.load(open("etn.prices.json"))
+    eth_prices = json.load(open("eth.prices.json"))
+    etc_prices = json.load(open("etc.prices.json"))
 
-    with Connection() as cur:
-        cur.execute("select asin,title,price,availability from products")
-        for row in cur:
-            asin, title, price, availability = (row[0], row[1], row[2], row[3])
-            products[asin] = {"asin":asin,"title":title,"price":price,"availability":availability}
+    with open("xmretn", "w") as f:
+        if xmr_prices["data"]["daily_dollars_per_hashrate"] >= etn_prices["data"]["daily_dollars_per_hashrate"]:
+            f.write("xmr")
+        else:
+            f.write("etn")
 
-    amazon_result = []
-    for asin in amazon:
-        if asin not in products: continue
-        amazon_result.append(products[asin])
-
-    write_file_atomic("products.json", json.dumps(amazon_result))
+    with open("ethetc", "w") as f:
+        if eth_prices["data"]["daily_dollars_per_hashrate"] >= etc_prices["data"]["daily_dollars_per_hashrate"]:
+            f.write("eth")
+        else:
+            f.write("etc")
 
 """
 create table system_config(`key` varchar(32) primary key,`value` varchar(128));
