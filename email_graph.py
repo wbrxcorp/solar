@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import argparse,smtplib,datetime,socket
-import email.mime.multipart,email.mime.text,email.mime.application,email.header
+import email.mime.multipart,email.mime.text,email.mime.image,email.header
 
 import graph
 
@@ -22,8 +22,8 @@ if __name__ == '__main__':
     msg["From"] = args.gmail_addr
     msg["To"] = args.recipient_addr
     msg["Subject"] = email.header.Header(u"%s %s のグラフ" % (nodename,date), "utf-8")
-    msg.attach(email.mime.text.MIMEText("グラフ"))
-    imgpart = email.mime.application.MIMEApplication(graph.generate_graph(nodename,date), "image/png")
+    msg.attach(email.mime.text.MIMEText("グラフ", "plain", "utf-8"))
+    imgpart = email.mime.image.MIMEImage(graph.generate_graph(nodename,date), "png")
     imgpart["Content-Disposition"] = 'attachment; filename="graph%s.png"' % date
     msg.attach(imgpart)
 
