@@ -95,7 +95,13 @@ static bool receive_modbus_input_response(EPSOLAR_SERIAL_TYPE& RS485, uint8_t sl
   uint8_t hdr[3];
   if (!read_response_bytes(RS485, hdr, sizeof(hdr))) return false;
   if (hdr[0] != slave_id) {
-    Serial.println("modbus: response slave id mismatch");
+    char buf[3];
+    Serial.print("modbus: response slave id mismatch. expected=0x");
+    sprintf(buf, "%02x", (int)slave_id);
+    Serial.print(buf);
+    Serial.print(",actual=0x");
+    sprintf(buf, "%02x", (int)hdr[0]);
+    Serial.println(buf);
     return false;
   }
   if (hdr[1] == 0x83/*Error*/) {
@@ -196,7 +202,13 @@ static bool receive_modbus_output_response(EPSOLAR_SERIAL_TYPE& RS485, uint8_t s
   if (!read_response_bytes(RS485, response, 2)) return false;
   //else
   if (response[0] != slave_id) {
-    Serial.println("modbus: response slave id mismatch");
+    char buf[3];
+    Serial.print("modbus: response slave id mismatch. expected=0x");
+    sprintf(buf, "%02x", (int)slave_id);
+    Serial.print(buf);
+    Serial.print(",actual=0x");
+    sprintf(buf, "%02x", (int)response[0]);
+    Serial.println(buf);
     return false;
   }
   if (response[1] == 0x83/*Error*/) {
