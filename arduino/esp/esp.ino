@@ -392,13 +392,23 @@ void setup() {
 
 #ifdef HAVE_WIFI
   Serial.print("Connecting to WiFi AP");
-  display.println("Connecting WiFi...");
-  display.display();
   WiFi.disconnect();
   WiFi.mode(WIFI_STA);
   WiFi.setAutoReconnect(true);
   WiFi.begin(config.ssid, config.key);
+  char rot[] = {'|','/','-','\\', '\0'};
+  char minus[] = {'-', '\0'};
+  int irot = 0;
   while (WiFi.status() != WL_CONNECTED) {
+    display.setCursor(0, display.getCursorY());
+    display.print("Connecting WiFi...");
+    int16_t x, y;
+    uint16_t w, h;
+    display.getTextBounds(minus, display.getCursorX(), display.getCursorY(), &x, &y, &w, &h);
+    display.fillRect(x, y, w, h, 0);
+    display.print(rot[irot++]);
+    if (!rot[irot]) irot = 0;
+    display.display();
     delay(500);
     Serial.print(".");
     //Serial.println(WiFi.status());
