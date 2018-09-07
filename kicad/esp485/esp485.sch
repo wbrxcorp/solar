@@ -1,0 +1,194 @@
+EESchema Schematic File Version 2
+LIBS:power
+LIBS:device
+LIBS:switches
+LIBS:relays
+LIBS:motors
+LIBS:transistors
+LIBS:conn
+LIBS:linear
+LIBS:regul
+LIBS:74xx
+LIBS:cmos4000
+LIBS:adc-dac
+LIBS:memory
+LIBS:xilinx
+LIBS:microcontrollers
+LIBS:dsp
+LIBS:microchip
+LIBS:analog_switches
+LIBS:motorola
+LIBS:texas
+LIBS:intel
+LIBS:audio
+LIBS:interface
+LIBS:digital-audio
+LIBS:philips
+LIBS:display
+LIBS:cypress
+LIBS:siliconi
+LIBS:opto
+LIBS:atmel
+LIBS:contrib
+LIBS:valves
+LIBS:components
+EELAYER 25 0
+EELAYER END
+$Descr A4 11693 8268
+encoding utf-8
+Sheet 1 1
+Title ""
+Date ""
+Rev ""
+Comp ""
+Comment1 ""
+Comment2 ""
+Comment3 ""
+Comment4 ""
+$EndDescr
+$Comp
+L ESP-13-WROOM-02 U?
+U 1 1 5B923A7D
+P 5800 4050
+F 0 "U?" H 5800 3950 50  0000 C CNN
+F 1 "ESP-WROOM-02" H 5800 4500 50  0000 C CNN
+F 2 "" H 5700 4050 50  0001 C CNN
+F 3 "" H 5700 4050 50  0001 C CNN
+	1    5800 4050
+	1    0    0    -1  
+$EndComp
+$Comp
+L MAX3485 U?
+U 1 1 5B923B04
+P 3900 2550
+F 0 "U?" H 4050 2500 60  0000 C CNN
+F 1 "MAX3485" H 3900 3000 60  0000 C CNN
+F 2 "" H 3900 2550 60  0000 C CNN
+F 3 "" H 3900 2550 60  0000 C CNN
+	1    3900 2550
+	1    0    0    -1  
+$EndComp
+$Comp
+L CP C?
+U 1 1 5B923BE7
+P 7850 1850
+F 0 "C?" H 7875 1950 50  0000 L CNN
+F 1 "CP" H 7875 1750 50  0000 L CNN
+F 2 "" H 7888 1700 50  0001 C CNN
+F 3 "" H 7850 1850 50  0001 C CNN
+	1    7850 1850
+	1    0    0    -1  
+$EndComp
+$Comp
+L R R?
+U 1 1 5B923C52
+P 2300 4950
+F 0 "R?" V 2380 4950 50  0000 C CNN
+F 1 "10K" V 2300 4950 50  0000 C CNN
+F 2 "" V 2230 4950 50  0001 C CNN
+F 3 "" H 2300 4950 50  0001 C CNN
+	1    2300 4950
+	1    0    0    -1  
+$EndComp
+$Comp
+L R R?
+U 1 1 5B923CFF
+P 2550 4950
+F 0 "R?" V 2630 4950 50  0000 C CNN
+F 1 "10K" V 2550 4950 50  0000 C CNN
+F 2 "" V 2480 4950 50  0001 C CNN
+F 3 "" H 2550 4950 50  0001 C CNN
+	1    2550 4950
+	1    0    0    -1  
+$EndComp
+$Comp
+L R R?
+U 1 1 5B923D91
+P 2850 4950
+F 0 "R?" V 2930 4950 50  0000 C CNN
+F 1 "10K" V 2850 4950 50  0000 C CNN
+F 2 "" V 2780 4950 50  0001 C CNN
+F 3 "" H 2850 4950 50  0001 C CNN
+	1    2850 4950
+	1    0    0    -1  
+$EndComp
+$Comp
+L R R?
+U 1 1 5B92407F
+P 8600 4350
+F 0 "R?" V 8680 4350 50  0000 C CNN
+F 1 "10K" V 8600 4350 50  0000 C CNN
+F 2 "" V 8530 4350 50  0001 C CNN
+F 3 "" H 8600 4350 50  0001 C CNN
+	1    8600 4350
+	1    0    0    -1  
+$EndComp
+$Comp
+L R R?
+U 1 1 5B924085
+P 8850 4350
+F 0 "R?" V 8930 4350 50  0000 C CNN
+F 1 "10K" V 8850 4350 50  0000 C CNN
+F 2 "" V 8780 4350 50  0001 C CNN
+F 3 "" H 8850 4350 50  0001 C CNN
+	1    8850 4350
+	1    0    0    -1  
+$EndComp
+$Comp
+L R R?
+U 1 1 5B92408B
+P 9150 4350
+F 0 "R?" V 9230 4350 50  0000 C CNN
+F 1 "10K" V 9150 4350 50  0000 C CNN
+F 2 "" V 9080 4350 50  0001 C CNN
+F 3 "" H 9150 4350 50  0001 C CNN
+	1    9150 4350
+	1    0    0    -1  
+$EndComp
+$Comp
+L R R?
+U 1 1 5B9244E1
+P 3800 1300
+F 0 "R?" V 3880 1300 50  0000 C CNN
+F 1 "20K" V 3800 1300 50  0000 C CNN
+F 2 "" V 3730 1300 50  0001 C CNN
+F 3 "" H 3800 1300 50  0001 C CNN
+	1    3800 1300
+	1    0    0    -1  
+$EndComp
+$Comp
+L R R?
+U 1 1 5B9244E7
+P 4050 1300
+F 0 "R?" V 4130 1300 50  0000 C CNN
+F 1 "20K" V 4050 1300 50  0000 C CNN
+F 2 "" V 3980 1300 50  0001 C CNN
+F 3 "" H 4050 1300 50  0001 C CNN
+	1    4050 1300
+	1    0    0    -1  
+$EndComp
+$Comp
+L Conn_02x06_Odd_Even J?
+U 1 1 5B9244FA
+P 10000 3650
+F 0 "J?" H 10050 3950 50  0000 C CNN
+F 1 "Conn_02x06_Odd_Even" H 10050 3250 50  0000 C CNN
+F 2 "" H 10000 3650 50  0001 C CNN
+F 3 "" H 10000 3650 50  0001 C CNN
+	1    10000 3650
+	1    0    0    -1  
+$EndComp
+$Comp
+L Conn_01x04 J?
+U 1 1 5B92459B
+P 1450 2900
+F 0 "J?" H 1450 3100 50  0000 C CNN
+F 1 "Conn_01x04" H 1450 2600 50  0000 C CNN
+F 2 "" H 1450 2900 50  0001 C CNN
+F 3 "" H 1450 2900 50  0001 C CNN
+	1    1450 2900
+	1    0    0    -1  
+$EndComp
+Text Notes 7950 7500 0    60   ~ 0
+ESP485
+$EndSCHEMATC
