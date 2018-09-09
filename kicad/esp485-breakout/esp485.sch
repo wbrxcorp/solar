@@ -265,13 +265,13 @@ Wire Wire Line
 Wire Wire Line
 	7650 4150 7650 4000
 Wire Wire Line
-	7650 4000 9200 4050
+	7650 4000 9200 3950
 Wire Wire Line
 	6750 4550 7800 4550
 Wire Wire Line
 	7800 4550 7800 4100
 Wire Wire Line
-	7800 4100 9200 4350
+	7800 4100 9200 4250
 Wire Wire Line
 	2900 4450 3050 4450
 Wire Wire Line
@@ -281,7 +281,7 @@ Wire Wire Line
 Wire Wire Line
 	7900 4200 7900 5050
 Wire Wire Line
-	9200 3950 8550 3550
+	9200 3850 8550 3550
 Wire Wire Line
 	8550 3550 7250 3550
 Connection ~ 7250 3550
@@ -294,7 +294,7 @@ Wire Wire Line
 Wire Wire Line
 	4550 4050 4550 3400
 Wire Wire Line
-	4550 3400 9200 2300
+	4550 3400 9200 2200
 Wire Wire Line
 	4800 4150 4550 4150
 Wire Wire Line
@@ -340,11 +340,11 @@ Connection ~ 4150 4800
 Wire Wire Line
 	7750 4350 7750 3800
 Wire Wire Line
-	7750 3800 9200 4150
+	7750 3800 9200 4050
 Wire Wire Line
 	7700 4450 7700 3900
 Wire Wire Line
-	7700 3900 9200 4250
+	7700 3900 9200 4150
 Wire Wire Line
 	2600 4250 2600 4400
 Wire Wire Line
@@ -362,7 +362,7 @@ Wire Wire Line
 Wire Wire Line
 	4450 2400 4900 2400
 Wire Wire Line
-	5200 2300 9200 3750
+	5200 2300 9200 2500
 Wire Wire Line
 	4150 4550 4150 4800
 Wire Wire Line
@@ -417,61 +417,48 @@ Wire Wire Line
 Wire Wire Line
 	6750 1900 7250 1900
 $Comp
-L Connector_Generic:Conn_01x08 J1
+L Connector_Generic:Conn_01x07 J1
 U 1 1 5B94B3AE
 P 9400 2300
 F 0 "J1" H 9480 2292 50  0000 L CNN
-F 1 "Conn_01x08" H 9480 2201 50  0000 L CNN
-F 2 "Pin_Headers:Pin_Header_Straight_1x08_Pitch2.54mm" H 9400 2300 50  0001 C CNN
+F 1 "Conn_01x07" H 9480 2201 50  0000 L CNN
+F 2 "Pin_Headers:Pin_Header_Straight_1x07_Pitch2.54mm" H 9400 2300 50  0001 C CNN
 F 3 "~" H 9400 2300 50  0001 C CNN
 	1    9400 2300
 	1    0    0    -1  
 $EndComp
 $Comp
-L Connector_Generic:Conn_01x08 J2
+L Connector_Generic:Conn_01x07 J2
 U 1 1 5B94E662
 P 9400 3950
 F 0 "J2" H 9480 3942 50  0000 L CNN
-F 1 "Conn_01x08" H 9480 3851 50  0000 L CNN
-F 2 "Pin_Headers:Pin_Header_Straight_1x08_Pitch2.54mm" H 9400 3950 50  0001 C CNN
+F 1 "Conn_01x07" H 9480 3851 50  0000 L CNN
+F 2 "Pin_Headers:Pin_Header_Straight_1x07_Pitch2.54mm" H 9400 3950 50  0001 C CNN
 F 3 "~" H 9400 3950 50  0001 C CNN
 	1    9400 3950
 	1    0    0    -1  
 $EndComp
-$Comp
-L power:GND #PWR0101
-U 1 1 5B951BD5
-P 8550 2200
-F 0 "#PWR0101" H 8550 1950 50  0001 C CNN
-F 1 "GND" H 8555 2027 50  0000 C CNN
-F 2 "" H 8550 2200 50  0001 C CNN
-F 3 "" H 8550 2200 50  0001 C CNN
-	1    8550 2200
-	1    0    0    -1  
-$EndComp
 Wire Wire Line
-	9200 2100 8550 2200
-Wire Wire Line
-	4700 3200 9200 2200
+	4700 3200 9200 2100
 Wire Wire Line
 	8800 5150 8750 5150
 Wire Wire Line
 	8800 5150 9000 2450
 Wire Wire Line
-	9000 2450 9200 2400
+	9000 2450 9200 2300
 Wire Wire Line
-	8700 2550 9200 2500
+	8700 2550 9200 2400
 Wire Wire Line
 	8100 2750 9200 2700
 Wire Wire Line
-	6750 3950 9200 3850
+	6750 3950 9200 3750
 $Comp
 L Switch:SW_Push SW1
 U 1 1 5B9460EF
 P 3250 4850
 F 0 "SW1" H 3250 5135 50  0000 C CNN
 F 1 "SW_Push" H 3250 5044 50  0000 C CNN
-F 2 "tact:generic tactile switch" H 3250 5050 50  0001 C CNN
+F 2 "tact:tactile_switch_smd_4x3mm_2p" H 3250 5050 50  0001 C CNN
 F 3 "" H 3250 5050 50  0001 C CNN
 	1    3250 4850
 	1    0    0    -1  
@@ -490,7 +477,7 @@ U 1 1 5B949D0E
 P 6650 5550
 F 0 "SW2" H 6650 5835 50  0000 C CNN
 F 1 "SW_Push" H 6650 5744 50  0000 C CNN
-F 2 "tact:generic tactile switch" H 6650 5750 50  0001 C CNN
+F 2 "tact:tactile_switch_smd_4x3mm_2p" H 6650 5750 50  0001 C CNN
 F 3 "" H 6650 5750 50  0001 C CNN
 	1    6650 5550
 	1    0    0    -1  
