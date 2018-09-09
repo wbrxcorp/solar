@@ -277,10 +277,6 @@ Wire Wire Line
 Wire Wire Line
 	2900 4400 2900 4450
 Wire Wire Line
-	8100 2750 7900 4200
-Wire Wire Line
-	7900 4200 7900 5050
-Wire Wire Line
 	9200 3850 8550 3550
 Wire Wire Line
 	8550 3550 7250 3550
@@ -372,8 +368,6 @@ Wire Wire Line
 Wire Wire Line
 	7100 4250 7100 4750
 Wire Wire Line
-	7100 4750 7100 5050
-Wire Wire Line
 	6750 3300 6750 3850
 Wire Wire Line
 	7250 3550 7250 4050
@@ -449,8 +443,6 @@ Wire Wire Line
 Wire Wire Line
 	8700 2550 9200 2400
 Wire Wire Line
-	8100 2750 9200 2700
-Wire Wire Line
 	6750 3950 9200 3750
 $Comp
 L Switch:SW_Push SW1
@@ -485,11 +477,6 @@ $EndComp
 Wire Wire Line
 	3050 4450 4800 4450
 Wire Wire Line
-	7900 5050 7100 5050
-Connection ~ 7100 5050
-Wire Wire Line
-	7100 5050 7100 5250
-Wire Wire Line
 	6850 5550 6850 5250
 Wire Wire Line
 	6850 5250 7100 5250
@@ -503,4 +490,6 @@ Wire Wire Line
 Wire Wire Line
 	7300 4050 7250 4050
 Connection ~ 7250 4050
+Wire Wire Line
+	7100 4750 7100 5250
 $EndSCHEMATC
