@@ -1,4 +1,5 @@
 EESchema Schematic File Version 4
+LIBS:rj45-cache
 EELAYER 26 0
 EELAYER END
 $Descr A4 11693 8268
@@ -30,7 +31,7 @@ U 1 1 5B932CE2
 P 5300 5300
 F 0 "J1" H 5380 5292 50  0000 L CNN
 F 1 "Conn_01x04" H 5380 5201 50  0000 L CNN
-F 2 "Pin_Headers:Pin_Header_Straight_1x04_Pitch2.54mm" H 5300 5300 50  0001 C CNN
+F 2 "Connector_PinHeader_2.54mm:PinHeader_1x04_P2.54mm_Vertical" H 5300 5300 50  0001 C CNN
 F 3 "~" H 5300 5300 50  0001 C CNN
 	1    5300 5300
 	1    0    0    -1  

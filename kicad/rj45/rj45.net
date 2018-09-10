@@ -1,7 +1,7 @@
 (export (version D)
   (design
     (source /home/shimarin/projects/solar/kicad/rj45/rj45.sch)
-    (date "2018年09月08日 10時50分49秒")
+    (date "2018年09月10日 19時07分41秒")
     (tool "Eeschema 5.0.0")
     (sheet (number 1) (name /) (tstamps /)
       (title_block
@@ -23,7 +23,7 @@
       (tstamp 5B9329F5))
     (comp (ref J1)
       (value Conn_01x04)
-      (footprint Pin_Headers:Pin_Header_Straight_1x04_Pitch2.54mm)
+      (footprint Connector_PinHeader_2.54mm:PinHeader_1x04_P2.54mm_Vertical)
       (datasheet ~)
       (libsource (lib Connector_Generic) (part Conn_01x04) (description "Generic connector, single row, 01x04, script generated (kicad-library-utils/schlib/autogen/connector/)"))
       (sheetpath (names /) (tstamps /))
