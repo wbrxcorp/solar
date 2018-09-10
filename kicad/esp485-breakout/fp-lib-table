@@ -1,4 +1,7 @@
 (fp_lib_table
   (lib (name ESP8266)(type KiCad)(uri "$(KIPRJMOD)/ESP8266.pretty")(options "")(descr ""))
   (lib (name tact)(type KiCad)(uri ${KIPRJMOD}/tact.pretty)(options "")(descr ""))
+  (lib (name Resistor_SMD)(type KiCad)(uri ${KISYSMOD}/Resistor_SMD.pretty)(options "")(descr ""))
+  (lib (name Connector_PinHeader_2.54mm)(type KiCad)(uri ${KISYSMOD}/Connector_PinHeader_2.54mm.pretty)(options "")(descr ""))
+  (lib (name Package_SO)(type KiCad)(uri ${KISYSMOD}/Package_SO.pretty)(options "")(descr ""))
 )

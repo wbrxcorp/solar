@@ -17,23 +17,23 @@ $EndDescr
 $Comp
 L Connector_Generic:Conn_02x06_Odd_Even J2
 U 1 1 5B9244FA
-P 6500 2500
-F 0 "J2" H 6550 2800 50  0000 C CNN
-F 1 "Conn_02x06_Odd_Even" H 6550 2100 50  0000 C CNN
-F 2 "Pin_Headers:Pin_Header_Straight_2x06_Pitch2.54mm" H 6500 2500 50  0001 C CNN
-F 3 "" H 6500 2500 50  0001 C CNN
-	1    6500 2500
-	1    0    0    -1  
+P 6600 2500
+F 0 "J2" H 6650 2800 50  0000 C CNN
+F 1 "Conn_02x06_Odd_Even" H 6650 2100 50  0000 C CNN
+F 2 "Connector_PinHeader_2.54mm:PinHeader_2x06_P2.54mm_Vertical" H 6600 2500 50  0001 C CNN
+F 3 "" H 6600 2500 50  0001 C CNN
+	1    6600 2500
+	-1   0    0    -1  
 $EndComp
 Text Notes 7950 7500 0    60   ~ 0
-ESP485
+ESP485-base
 $Comp
 L Connector_Generic:Conn_01x04 J1
 U 1 1 5B92459B
 P 2900 2500
 F 0 "J1" H 2900 2700 50  0000 C CNN
 F 1 "Conn_01x04" H 2900 2200 50  0000 C CNN
-F 2 "Pin_Headers:Pin_Header_Straight_1x04_Pitch2.54mm" H 2900 2500 50  0001 C CNN
+F 2 "Connector_PinHeader_2.54mm:PinHeader_1x04_P2.54mm_Vertical" H 2900 2500 50  0001 C CNN
 F 3 "" H 2900 2500 50  0001 C CNN
 	1    2900 2500
 	1    0    0    -1  
@@ -44,7 +44,7 @@ U 1 1 5B966F09
 P 4250 4700
 F 0 "J3" H 4330 4742 50  0000 L CNN
 F 1 "Conn_01x07" H 4330 4651 50  0000 L CNN
-F 2 "Pin_Headers:Pin_Header_Straight_1x07_Pitch2.54mm" H 4250 4700 50  0001 C CNN
+F 2 "Connector_PinSocket_2.54mm:PinSocket_1x07_P2.54mm_Vertical" H 4250 4700 50  0001 C CNN
 F 3 "~" H 4250 4700 50  0001 C CNN
 	1    4250 4700
 	1    0    0    -1  
@@ -55,7 +55,7 @@ U 1 1 5B966F4A
 P 5900 4700
 F 0 "J4" H 5980 4742 50  0000 L CNN
 F 1 "Conn_01x07" H 5980 4651 50  0000 L CNN
-F 2 "Pin_Headers:Pin_Header_Straight_1x07_Pitch2.54mm" H 5900 4700 50  0001 C CNN
+F 2 "Connector_PinSocket_2.54mm:PinSocket_1x07_P2.54mm_Vertical" H 5900 4700 50  0001 C CNN
 F 3 "~" H 5900 4700 50  0001 C CNN
 	1    5900 4700
 	1    0    0    -1  
@@ -104,7 +104,7 @@ U 1 1 5B967834
 P 3700 3100
 F 0 "U1" H 3700 3342 50  0000 C CNN
 F 1 "AMS1117-3.3" H 3700 3251 50  0000 C CNN
-F 2 "TO_SOT_Packages_SMD:SOT-223-3_TabPin2" H 3700 3300 50  0001 C CNN
+F 2 "Package_TO_SOT_SMD:SOT-223-3_TabPin2" H 3700 3300 50  0001 C CNN
 F 3 "http://www.advanced-monolithic.com/pdf/ds1117.pdf" H 3800 2850 50  0001 C CNN
 	1    3700 3100
 	1    0    0    -1  
@@ -292,7 +292,7 @@ U 1 1 5B970490
 P 5900 5600
 F 0 "J5" H 5980 5642 50  0000 L CNN
 F 1 "Conn_01x03" H 5980 5551 50  0000 L CNN
-F 2 "Pin_Headers:Pin_Header_Straight_1x03_Pitch2.54mm" H 5900 5600 50  0001 C CNN
+F 2 "Connector_PinHeader_2.54mm:PinHeader_1x03_P2.54mm_Vertical" H 5900 5600 50  0001 C CNN
 F 3 "~" H 5900 5600 50  0001 C CNN
 	1    5900 5600
 	1    0    0    -1  
