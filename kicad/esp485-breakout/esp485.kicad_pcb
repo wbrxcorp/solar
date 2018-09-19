@@ -11,7 +11,7 @@
 
   (page A4)
   (layers
-    (0 F.Cu signal)
+    (0 F.Cu signal hide)
     (31 B.Cu signal)
     (32 B.Adhes user)
     (33 F.Adhes user)
@@ -964,10 +964,10 @@
     (effects (font (size 0.6 0.6) (thickness 0.08)) (justify mirror))
   )
   (gr_line (start 128.27 95.25) (end 128.27 115.57) (layer Edge.Cuts) (width 0.1))
-  (gr_text RESET (at 146.05 114.681) (layer F.SilkS)
+  (gr_text RESET (at 145.923 114.554) (layer F.SilkS)
     (effects (font (size 0.8 0.8) (thickness 0.15)))
   )
-  (gr_text FLASH (at 139.573 114.935) (layer F.SilkS)
+  (gr_text FLASH (at 135.763 114.554) (layer F.SilkS)
     (effects (font (size 0.8 0.8) (thickness 0.15)))
   )
   (gr_text A (at 131.445 111.76 -90) (layer B.SilkS) (tstamp 5B94CC06)
