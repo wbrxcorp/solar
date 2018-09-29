@@ -17,12 +17,29 @@
 #include "globals.h"
 #include "network.h"
 
-#ifdef ARDUINO_ARCH_ESP8266
-  bool mdns_started = false;
-#endif
-
 WiFiClient tcp_client;
 String receive_buffer;
+
+#ifdef ARDUINO_ARCH_ESP8266
+
+bool mdns_started = false;
+bool start_mdns_if_not_yet()
+{
+  if (mdns_started) {
+    MDNS.update();
+    return true;
+  }
+  // else
+  if (MDNS.begin(wifi_station_get_hostname())) {
+    mdns_started = true;
+    return true;
+  }
+  // else
+  return false;
+}
+
+#endif //ARDUINO_ARCH_ESP8266
+
 
 bool connect(const char* nodename, const char* servername, uint16_t port)
 {
@@ -101,9 +118,7 @@ bool connect(const char* nodename, const char* servername, uint16_t port)
       MDNS.end();
     }
 #elif ARDUINO_ARCH_ESP8266
-    if (mdns_started || MDNS.begin(wifi_station_get_hostname())) {
-      if (mdns_started) MDNS.update();
-      else mdns_started = true;
+    if (start_mdns_if_not_yet()) {
       if (MDNS.queryService((const char*)(servicename + 1), "tcp") > 0) {
         IPAddress addr = MDNS.IP(0);
         uint16_t port = MDNS.port(0);

@@ -55,9 +55,31 @@ bool _exit(const LineParser& lineparser)
     return true;
   }
   // else
-  operation_mode = OPERATION_MODE_NORMAL;
+  operation_mode = config.default_operation_mode;
   Serial.println("Exitting command line mode.");
   return false;
+}
+
+bool defaultmode(const LineParser& lineparser)
+{
+  if (lineparser.get_count() < 2) {
+    Serial.print("Current default operation mode is '");
+    Serial.print(config.default_operation_mode);
+    Serial.println("'.");
+    return true;
+  }
+  // else
+  int default_operation_mode = atoi(lineparser[1]);
+  if (default_operation_mode < 0 || default_operation_mode > OPERATION_MODE_MAX) {
+    Serial.println("Invalid operation mode number.");
+    return true;
+  }
+  // else
+  config.default_operation_mode = (uint8_t)default_operation_mode;
+  Serial.print("Defaul operation mode set to ");
+  Serial.print(default_operation_mode);
+  Serial.println(". save and reboot the system to take effects.");
+  return true;
 }
 
 bool nodename(const LineParser& lineparser)
@@ -412,6 +434,7 @@ bool process_command_line(const char* line) // true = go to next line,  false = 
     bool (*func)(const LineParser&);
   } command_table[] = {
     { "exit", _exit }, { "quit", _exit },
+    { "defaultmode", defaultmode },
     { "nodename", nodename },
     { "ssid", ssid },
     { "key", key },

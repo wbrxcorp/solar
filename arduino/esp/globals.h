@@ -4,11 +4,14 @@
 #include <Arduino.h>
 
 extern uint8_t operation_mode;
-#define OPERATION_MODE_NORMAL 0
+#define OPERATION_MODE_COMMAND_LINE_ONLY 0
 #define OPERATION_MODE_COMMAND_LINE 1
-#define OPERATION_MODE_COMMAND_LINE_ONLY 2
+#define OPERATION_MODE_NORMAL 2
+#define OPERATION_MODE_SERVER 3
+#define OPERATION_MODE_MAX 3
 
 typedef struct strCONFIG {
+  uint8_t default_operation_mode;
   char nodename[32];
   char ssid[34];
   char key[64];

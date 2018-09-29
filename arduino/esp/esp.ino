@@ -67,6 +67,7 @@ const uint16_t DEFAULT_PORT = 29574; // default server port number
 
 #include "network.h"
 #include "command_line.h"
+#include "server.h"
 
 #include "logo.h"
 
@@ -93,7 +94,7 @@ typedef struct strEPSolarValues {
   int pw;
 } EPSolarValues;
 
-void process_message(const char* message)
+static void process_message(const char* message)
 {
   Serial.print("Received: ");
   Serial.println(message);
@@ -251,6 +252,7 @@ void setup() {
     Serial.print("). entering command line only mode.\r\n# ");
     memset(&config, 0, sizeof(config));
 
+    config.default_operation_mode = OPERATION_MODE_NORMAL;
     strcpy(config.nodename, DEFAULT_NODENAME);
     strcpy(config.ssid, "YOUR_ESSID");
     strcpy(config.key, "YOUR_WPA_KEY");
@@ -265,8 +267,13 @@ void setup() {
 
     return;
   }
+  // else
+
+  operation_mode = config.default_operation_mode;
 
   Serial.println("Done.");
+  Serial.print("Operation mode: ");
+  Serial.println(operation_mode);
   Serial.print("Nodename: ");
   Serial.println(config.nodename);
   Serial.print(("WiFi SSID: "));
@@ -276,14 +283,6 @@ void setup() {
   Serial.println(config.servername);
   Serial.print("Server port: ");
   Serial.println(config.port);
-
-#ifdef ARDUINO_ARCH_ESP32
-  RS485.begin(EPSOLAR_COMM_SPEED, SERIAL_8N1, RS485_RX_SOCKET, RS485_TX_SOCKET); // USE 16/17 pins originally assigned to UART2
-#elif ARDUINO_ARCH_ESP8266
-  RS485.begin(EPSOLAR_COMM_SPEED);
-#endif
-  RS485.setTimeout(MODBUS_TIMEOUT);
-  epsolar.begin(&RS485, RS485_RTS_SOCKET);
 
   // wait ESC key to enter command line only mode
   Serial.println("Send ESC to enter command line only mode...");
@@ -309,86 +308,96 @@ void setup() {
   display.println(config.ssid);
   display.display();
 
-  edogawaUnit1.begin(PW1_SW_SOCKET, PW1_LED_SOCKET);
-  edogawaUnit2.begin(PW2_SW_SOCKET, PW2_LED_SOCKET);
+  if (operation_mode == OPERATION_MODE_NORMAL) {
+  #ifdef ARDUINO_ARCH_ESP32
+    RS485.begin(EPSOLAR_COMM_SPEED, SERIAL_8N1, RS485_RX_SOCKET, RS485_TX_SOCKET); // USE 16/17 pins originally assigned to UART2
+  #elif ARDUINO_ARCH_ESP8266
+    RS485.begin(EPSOLAR_COMM_SPEED);
+  #endif
+    RS485.setTimeout(MODBUS_TIMEOUT);
+    epsolar.begin(&RS485, RS485_RTS_SOCKET);
 
-  EPSolarTracerDeviceInfo info;
-  if (epsolar.get_device_info(info)) {
-    Serial.print("Vendor: ");
-    Serial.println(info.get_vendor_name());
-    Serial.print("Product: ");
-    Serial.println(info.get_product_code());
-    Serial.print("Revision: ");
-    Serial.println(info.get_revision());
+    edogawaUnit1.begin(PW1_SW_SOCKET, PW1_LED_SOCKET);
+    edogawaUnit2.begin(PW2_SW_SOCKET, PW2_LED_SOCKET);
 
-    display.print("Vendor: ");
-    display.println(info.get_vendor_name());
-    display.print("Product: ");
-    display.println(info.get_product_code());
-    display.print("Revision: ");
-    display.println(info.get_revision());
-    display.display();
-  } else {
-    Serial.println("Getting charge controller device info failed!");
-  }
+    EPSolarTracerDeviceInfo info;
+    if (epsolar.get_device_info(info)) {
+      Serial.print("Vendor: ");
+      Serial.println(info.get_vendor_name());
+      Serial.print("Product: ");
+      Serial.println(info.get_product_code());
+      Serial.print("Revision: ");
+      Serial.println(info.get_revision());
 
-  EPSolarTracerInputRegister reg;
-  if (epsolar.get_register(0x9013/*Real Time Clock*/, 3, reg, 3)) {
-    uint64_t rtc = reg.getRTCValue(0);
-    char buf[128];
-    sprintf(buf, "RTC: %lu %06lu", (uint32_t)(rtc / 1000000L), (uint32_t)(rtc % 1000000LL));
-    Serial.println(buf);
-    if (epsolar.get_register(0x9000/*battery type, battery capacity*/, 2, reg)) {
-      const char* battery_type_str[] = { "User Defined", "Sealed", "GEL", "Flooded" };
-      int battery_type = reg.getIntValue(0);
-      int battery_capacity = reg.getIntValue(2);
-      sprintf(buf, "Battery type: %d(%s), %dAh", battery_type, battery_type_str[battery_type], battery_capacity);
+      display.print("Vendor: ");
+      display.println(info.get_vendor_name());
+      display.print("Product: ");
+      display.println(info.get_product_code());
+      display.print("Revision: ");
+      display.println(info.get_revision());
+      display.display();
+    } else {
+      Serial.println("Getting charge controller device info failed!");
+    }
+
+    EPSolarTracerInputRegister reg;
+    if (epsolar.get_register(0x9013/*Real Time Clock*/, 3, reg, 3)) {
+      uint64_t rtc = reg.getRTCValue(0);
+      char buf[128];
+      sprintf(buf, "RTC: %lu %06lu", (uint32_t)(rtc / 1000000L), (uint32_t)(rtc % 1000000LL));
       Serial.println(buf);
-      if (epsolar.get_register(0x311d/*Battery real rated voltage*/, 1, reg)) {
-        battery_rated_voltage = (uint8_t)reg.getFloatValue(0);
-        sprintf(buf, "Battery real rated voltage: %dV", (int)battery_rated_voltage);
+      if (epsolar.get_register(0x9000/*battery type, battery capacity*/, 2, reg)) {
+        const char* battery_type_str[] = { "User Defined", "Sealed", "GEL", "Flooded" };
+        int battery_type = reg.getIntValue(0);
+        int battery_capacity = reg.getIntValue(2);
+        sprintf(buf, "Battery type: %d(%s), %dAh", battery_type, battery_type_str[battery_type], battery_capacity);
         Serial.println(buf);
-        if (epsolar.get_register(0x9002/*Temperature compensation coefficient*/, 1, reg)) {
-          temperature_compensation_coefficient = (uint8_t)reg.getFloatValue(0);
-          sprintf(buf, "Temperature compensation coefficient: %dmV/Cecelsius degree/2V", (int)temperature_compensation_coefficient);
+        if (epsolar.get_register(0x311d/*Battery real rated voltage*/, 1, reg)) {
+          battery_rated_voltage = (uint8_t)reg.getFloatValue(0);
+          sprintf(buf, "Battery real rated voltage: %dV", (int)battery_rated_voltage);
           Serial.println(buf);
-          if (epsolar.get_register(0x0006/*Force the load on/off*/, 1, reg)) {
-            sprintf(buf, "Force the load on/off: %s", reg.getBoolValue(0)? "on" : "off(used for test)");
+          if (epsolar.get_register(0x9002/*Temperature compensation coefficient*/, 1, reg)) {
+            temperature_compensation_coefficient = (uint8_t)reg.getFloatValue(0);
+            sprintf(buf, "Temperature compensation coefficient: %dmV/Cecelsius degree/2V", (int)temperature_compensation_coefficient);
             Serial.println(buf);
+            if (epsolar.get_register(0x0006/*Force the load on/off*/, 1, reg)) {
+              sprintf(buf, "Force the load on/off: %s", reg.getBoolValue(0)? "on" : "off(used for test)");
+              Serial.println(buf);
+            }
           }
         }
       }
-    }
 
-    // lifpo4:
-    //  9000=0(User)
-    //  9002=0
-    //  9003=15.68
-    //  9004=14.6
-    //  9005=14.6
-    //  9006=14.4
-    //  9007=14.4
-    //  9008=13.6
-    //  9009=13.2
-    //  900a=12.4
-    //  900b=12.2
-    //  900c=12.0
-    //  900d=11.0
-    //  900e=10.8
-    //  9067=1(12V) or 2(24V)
+      // lifpo4:
+      //  9000=0(User)
+      //  9002=0
+      //  9003=15.68
+      //  9004=14.6
+      //  9005=14.6
+      //  9006=14.4
+      //  9007=14.4
+      //  9008=13.6
+      //  9009=13.2
+      //  900a=12.4
+      //  900b=12.2
+      //  900c=12.0
+      //  900d=11.0
+      //  900e=10.8
+      //  9067=1(12V) or 2(24V)
 
-    if (epsolar.put_register(0x903d/*Load controlling mode*/, (uint16_t)0)) {
-      Serial.println("Load controlling mode set to 0(Manual)");
+      if (epsolar.put_register(0x903d/*Load controlling mode*/, (uint16_t)0)) {
+        Serial.println("Load controlling mode set to 0(Manual)");
+      }
+      if (epsolar.put_register(0x906a/*Default load on/off in manual mode*/, (uint16_t)1)) {
+        Serial.println("Default load on/off in manual mode set to 1(on)");
+      }
+      if (epsolar.put_register(0x0006/*Force the load on/off*/, (uint16_t)0xff00)) {
+        Serial.println("Force the load on/off set to 'on'");
+      }
+    } else {
+      Serial.println("Getting charge controller settings failed!");
     }
-    if (epsolar.put_register(0x906a/*Default load on/off in manual mode*/, (uint16_t)1)) {
-      Serial.println("Default load on/off in manual mode set to 1(on)");
-    }
-    if (epsolar.put_register(0x0006/*Force the load on/off*/, (uint16_t)0xff00)) {
-      Serial.println("Force the load on/off set to 'on'");
-    }
-  } else {
-    Serial.println("Getting charge controller settings failed!");
-  }
+  } // operation_mode == OPERATION_MODE_NORMAL
 
 #ifdef HAVE_WIFI
   Serial.print("Connecting to WiFi AP");
@@ -424,20 +433,24 @@ void setup() {
   display.println(WiFi.localIP());
   display.display();
 
-  display.println("Connecting to server...");
-  display.display();
-  connect("boot:1");
-  Serial.println(" Connected.");
-  display.println("Connected.");
-  display.display();
-
+  if (operation_mode == OPERATION_MODE_NORMAL) {
+    display.println("Connecting to server...");
+    display.display();
+    connect("boot:1");
+    Serial.println(" Connected.");
+    display.println("Connected.");
+    display.display();
 #ifdef ARDUINO_ARCH_ESP32
-  Serial.println("Entering modem sleep(WIFI_PS_MAX_MODEM)...");
-  esp_wifi_set_ps(WIFI_PS_MAX_MODEM) == ESP_OK;
+      Serial.println("Entering modem sleep(WIFI_PS_MAX_MODEM)...");
+      esp_wifi_set_ps(WIFI_PS_MAX_MODEM) == ESP_OK;
 #elif ARDUINO_ARCH_ESP8266
-  Serial.println("Entering modem sleep(MODEM_SLEEP_T)...");
-  wifi_set_sleep_type(MODEM_SLEEP_T);
+      Serial.println("Entering modem sleep(MODEM_SLEEP_T)...");
+      wifi_set_sleep_type(MODEM_SLEEP_T);
 #endif
+  } else if (operation_mode == OPERATION_MODE_SERVER) {
+    setup_server();
+  }
+
 #endif // HAVE_WIFI
 }
 
@@ -626,6 +639,9 @@ void loop()
     case OPERATION_MODE_COMMAND_LINE:
     case OPERATION_MODE_COMMAND_LINE_ONLY:
       loop_command_line();
+      break;
+    case OPERATION_MODE_SERVER:
+      loop_server();
       break;
     default:
       break;

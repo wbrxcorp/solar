@@ -7,4 +7,9 @@ bool connected();
 bool send_message(const char* message);
 int receive_message(void (*process_message)(const char*));
 
+#ifdef ARDUINO_ARCH_ESP8266
+  bool start_mdns_if_not_yet();
+#endif
+
+
 #endif // __NETWORK_H__
