@@ -1,0 +1,8 @@
+(sym_lib_table
+  (lib (name power)(type Legacy)(uri ${KICAD_SYMBOL_DIR}/power.lib)(options "")(descr ""))
+  (lib (name Device)(type Legacy)(uri ${KICAD_SYMBOL_DIR}/Device.lib)(options "")(descr ""))
+  (lib (name LED)(type Legacy)(uri ${KICAD_SYMBOL_DIR}/LED.lib)(options "")(descr ""))
+  (lib (name Relay_SolidState)(type Legacy)(uri ${KICAD_SYMBOL_DIR}/Relay_SolidState.lib)(options "")(descr ""))
+  (lib (name Connector_Generic)(type Legacy)(uri ${KICAD_SYMBOL_DIR}/Connector_Generic.lib)(options "")(descr ""))
+  (lib (name Switch)(type Legacy)(uri ${KICAD_SYMBOL_DIR}/Switch.lib)(options "")(descr ""))
+)
