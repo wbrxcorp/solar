@@ -1,4 +1,5 @@
 EESchema Schematic File Version 4
+LIBS:esp485-cache
 EELAYER 26 0
 EELAYER END
 $Descr A4 11693 8268
@@ -158,25 +159,12 @@ F 3 "" H 7100 5250 50  0001 C CNN
 	1    7100 5250
 	1    0    0    -1  
 $EndComp
-$Comp
-L Device:R R8
-U 1 1 5B92AAFC
-P 6750 2050
-F 0 "R8" V 6830 2050 50  0000 C CNN
-F 1 "10K" V 6750 2050 50  0000 C CNN
-F 2 "Resistor_SMD:R_0603_1608Metric_Pad1.05x0.95mm_HandSolder" V 6680 2050 50  0001 C CNN
-F 3 "" H 6750 2050 50  0001 C CNN
-	1    6750 2050
-	1    0    0    -1  
-$EndComp
 Wire Wire Line
 	4400 2200 4750 2200
 Wire Wire Line
 	4400 2500 5400 2500
 Wire Wire Line
 	4900 1900 4900 2200
-Wire Wire Line
-	4800 4350 2900 4250
 Wire Wire Line
 	3350 2500 3350 2600
 Wire Wire Line
@@ -188,11 +176,9 @@ Wire Wire Line
 	4800 3750 2600 3750
 Connection ~ 2600 3750
 Wire Wire Line
-	3350 2400 2900 2450
+	3350 2700 3150 2700
 Wire Wire Line
-	3350 2700 3150 2750
-Wire Wire Line
-	3150 2750 3150 4100
+	3150 2700 3150 4100
 Wire Wire Line
 	3150 4100 2900 4400
 Wire Wire Line
@@ -228,7 +214,7 @@ Connection ~ 4150 4200
 Wire Wire Line
 	4450 4200 4800 4250
 Wire Wire Line
-	7250 4050 6750 4050
+	7250 4050 6900 4050
 Wire Wire Line
 	7100 3750 7100 4250
 Wire Wire Line
@@ -239,16 +225,6 @@ Wire Wire Line
 Wire Wire Line
 	8050 4750 7100 4750
 Connection ~ 7100 4750
-Connection ~ 6750 1900
-Wire Wire Line
-	6750 2200 6750 3300
-Wire Wire Line
-	3350 2600 3300 2650
-Wire Wire Line
-	3300 2650 3300 3300
-Wire Wire Line
-	3300 3300 6750 3300
-Connection ~ 6750 3300
 Wire Wire Line
 	6750 4150 7650 4150
 Wire Wire Line
@@ -325,11 +301,7 @@ Wire Wire Line
 Wire Wire Line
 	7100 4250 7100 4750
 Wire Wire Line
-	6750 3300 6750 3850
-Wire Wire Line
 	4150 4800 4150 4850
-Connection ~ 3350 2600
-Connection ~ 2900 4250
 Wire Wire Line
 	4400 2200 4400 2000
 Wire Wire Line
@@ -358,11 +330,7 @@ Wire Wire Line
 Wire Wire Line
 	4300 2400 4450 2400
 Wire Wire Line
-	2900 2450 2900 3850
-Wire Wire Line
 	6750 3750 7100 3750
-Wire Wire Line
-	6750 1900 7250 1900
 $Comp
 L Connector_Generic:Conn_01x08 J1
 U 1 1 5B94B3AE
@@ -611,8 +579,6 @@ Wire Wire Line
 	8200 1600 8800 1600
 Connection ~ 8200 1600
 Connection ~ 8800 1600
-Wire Wire Line
-	4900 1900 6750 1900
 Connection ~ 8500 1050
 Wire Wire Line
 	9450 1050 9100 1050
@@ -632,8 +598,6 @@ Wire Wire Line
 	2600 3750 2600 4250
 Wire Wire Line
 	1800 3850 1800 4100
-Wire Wire Line
-	2900 3850 2900 4250
 $Comp
 L power:GND #PWR0102
 U 1 1 5BA33C46
@@ -670,4 +634,54 @@ $EndComp
 Connection ~ 7750 1050
 Wire Wire Line
 	7750 1050 8500 1050
+Wire Wire Line
+	6750 3850 6900 3850
+Wire Wire Line
+	6900 3850 6900 4050
+Connection ~ 6900 4050
+Wire Wire Line
+	6900 4050 6750 4050
+Wire Wire Line
+	4900 1900 7250 1900
+Wire Wire Line
+	4800 4350 2900 4350
+Wire Wire Line
+	2900 4350 2900 4250
+Wire Wire Line
+	2900 4250 2900 2600
+Wire Wire Line
+	2900 2600 3350 2600
+Connection ~ 2900 4250
+Connection ~ 3350 2600
+Wire Wire Line
+	3150 2700 3150 2400
+Wire Wire Line
+	3150 2400 3350 2400
+Connection ~ 3150 2700
+Text Label 9000 4050 0    50   ~ 0
+TOUT
+Text Label 9000 4150 0    50   ~ 0
+RST
+Text Label 9000 4250 0    50   ~ 0
+IO5
+Text Label 9000 4350 0    50   ~ 0
+TXD
+Text Label 9000 4450 0    50   ~ 0
+RXD
+Text Label 9000 4550 0    50   ~ 0
+IO4
+Text Label 9050 2100 0    50   ~ 0
+IO14
+Text Label 9050 2200 0    50   ~ 0
+IO12
+Text Label 9050 2300 0    50   ~ 0
+IO13
+Text Label 9050 2400 0    50   ~ 0
+IO15
+Text Label 9050 2500 0    50   ~ 0
+IO0
+Text Label 9050 2600 0    50   ~ 0
+A
+Text Label 9050 2700 0    50   ~ 0
+B
 $EndSCHEMATC

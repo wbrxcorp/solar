@@ -1,5 +1,5 @@
 // arduino --upload --board espressif:esp32:mhetesp32minikit:FlashFreq=80,UploadSpeed=921600 --port /dev/ttyUSB0 .
-// arduino --upload --board esp8266com:esp8266:d1_mini:CpuFrequency=80,FlashSize=4M1M,UploadSpeed=921600 --port /dev/ttyUSB0 .
+// arduino --upload --board esp8266com:esp8266:d1_mini:xtal=80,eesz=4M1M,baud=460800 --port /dev/ttyUSB0 .
 // arduino --upload --board arduino:avr:mega:cpu=atmega2560 --port /dev/ttyACM0 .
 #include <EEPROM.h>
 #ifdef ARDUINO_ARCH_ESP32
@@ -11,37 +11,40 @@
 #include <SoftwareSerial.h>
 #endif
 
-#ifdef ARDUINO_ARCH_ESP32
-  // map MH-ET ESP32 Mini Kit's pins to D1 mini's ones
-  #define D0 26
-  #define D3 17
-  #define D4 16
-  #define D5 18
-  #define D6 19
-  #define D7 23
-  #define D8 5
-  #define LED_BUILTIN 2
-#elif ARDUINO_AVR_MEGA2560
-  #define D0 2
-  #define D3 18
-  #define D4 19
-  #define D5 3
-  #define D6 4
-  #define D7 5
-  #define D8 6
-#endif
+#define ESP8266_ONE_WIRE_HALF_DUPLEX
 
 #ifdef ARDUINO_ARCH_ESP8266
-  #undef LED_BUILTIN
+  #ifdef ESP8266_ONE_WIRE_HALF_DUPLEX
+    #define RS485_TX_SOCKET 0  // ESP8266 IO0(10k pull up) D1 mini D3
+    #define RS485_RX_SOCKET 0  // ESP8266 IO0(10k pull up) D1 mini D3
+    #define RS485_RTS_SOCKET 2 // ESP8266 IO2(10k pull up) D1 mini D4
+  #else
+    #define RS485_TX_SOCKET 0  // ESP8266 IO0(10k pull up) D1 mini D3
+    #define RS485_RX_SOCKET 2  // ESP8266 IO2(10k pull up) D1 mini D4
+    #define RS485_RTS_SOCKET 16 // ESP8266 IO16 D1 mini D0
+  #endif
+  #define PW1_SW_SOCKET 14    // ESP8266 IO14 D1 mini D5
+  #define PW1_LED_SOCKET 12   // ESP8266 IO12 D1 mini D6
+  #define PW2_SW_SOCKET 15    // ESP8266 IO15(10k pull down) D1 mini D8
+  #define PW2_LED_SOCKET 13   // ESP8266 IO13 D1 mini D7
+#elif ARDUINO_ARCH_ESP32
+  #define RS485_TX_SOCKET 17
+  #define RS485_RX_SOCKET 16
+  #define RS485_RTS_SOCKET 26
+  #define PW1_SW_SOCKET 18
+  #define PW1_LED_SOCKET 19
+  #define PW2_SW_SOCKET 5
+  #define PW2_LED_SOCKET 23
+  #define LED_BUILTIN 2
+#elif ARDUINO_AVR_MEGA2560
+  #define RS485_TX_SOCKET 18
+  #define RS485_RX_SOCKET 19
+  #define RS485_RTS_SOCKET 2
+  #define PW1_SW_SOCKET 3
+  #define PW1_LED_SOCKET 4
+  #define PW2_SW_SOCKET 6
+  #define PW2_LED_SOCKET 5
 #endif
-
-#define RS485_TX_SOCKET D3  // ESP8266 IO0(10k pull up)
-#define RS485_RX_SOCKET D4  // ESP8266 IO2(10k pull up)
-#define RS485_RTS_SOCKET D0 // ESP8266 IO16
-#define PW1_SW_SOCKET D5    // ESP8266 IO14
-#define PW1_LED_SOCKET D6   // ESP8266 IO12
-#define PW2_SW_SOCKET D8    // ESP8266 IO15(10k pull down)
-#define PW2_LED_SOCKET D7   // ESP8266 IO13
 
 #define CHECK_INTERVAL 1000
 #define REPORT_INTERVAL 5000

@@ -118,10 +118,10 @@ static bool receive_modbus_input_response(EPSOLAR_SERIAL_TYPE& RS485, uint8_t sl
   if (hdr[1] != function_code) {
     char buf[3];
     Serial.print("modbus: response function code mismatch. expected=0x");
-    sprintf(buf, "%02f", (int)function_code);
+    sprintf(buf, "%02x", (int)function_code);
     Serial.print(buf);
     Serial.print(",actual=0x");
-    sprintf(buf, "%02f", (int)hdr[1]);
+    sprintf(buf, "%02x", (int)hdr[1]);
     Serial.println(buf);
     return false;
   }
@@ -154,20 +154,22 @@ static bool receive_modbus_input_response(EPSOLAR_SERIAL_TYPE& RS485, uint8_t sl
 
 void EPSolar::send_modbus_message(const uint8_t* message, size_t size)
 {
-  unsigned long current_time = millis();
-  if (current_time - last_message < MIN_MESSAGE_INTERVAL) {
-    delay(MIN_MESSAGE_INTERVAL - (current_time - last_message));
+  unsigned long time_past = millis() - last_message;
+  if (time_past < MIN_MESSAGE_INTERVAL) {
+    delay(MIN_MESSAGE_INTERVAL - time_past);
   }
 
   EPSOLAR_SERIAL_TYPE& RS485 = *(this->RS485);
   while(RS485.available()) RS485.read();
-  digitalWrite(rtsPin,HIGH);
-  delayMicroseconds(304);// 35bit = 304us in 115200bps
+
+  last_message = millis();
+
+  enableTx(true); // for one-wire half duplex communication(just ignored when 2-wire connection is used)
+  //delayMicroseconds(304);// 35bit = 304us in 115200bps
   RS485.write(message, size);
   RS485.flush();
-  delayMicroseconds(304);// 35bit = 304us in 115200bps
-  digitalWrite(rtsPin,LOW);
-  last_message = current_time;
+  //delayMicroseconds(304);// 35bit = 304us in 115200bps
+  enableTx(false);
 }
 
 bool EPSolar::get_register(uint16_t addr, uint8_t num, EPSolarTracerInputRegister& reg, int max_retry/* = 10*/)

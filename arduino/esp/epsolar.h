@@ -8,7 +8,7 @@
 #include "crc.h"
 
 #define EPSOLAR_COMM_SPEED 115200
-#define MIN_MESSAGE_INTERVAL 10
+#define MIN_MESSAGE_INTERVAL 100
 
 class EPSolarTracerDeviceInfo {
   String vendor_name;
@@ -122,12 +122,23 @@ public:
 typedef HardwareSerial EPSOLAR_SERIAL_TYPE;
 #elif ARDUINO_ARCH_ESP8266
 typedef SoftwareSerial EPSOLAR_SERIAL_TYPE;
+#define SERIAL_TYPE_HAS_ENABLE_TX // used for one-wire half duplex communication
+#define SERIAL_TYPE_HAS_SET_TRANSMIT_ENABLE_PIN // espsoftwareserial has this functionality
 #endif
 
 class EPSolar {
   EPSOLAR_SERIAL_TYPE* RS485;
   int rtsPin;
   unsigned long last_message;
+protected:
+  void enableTx(bool on)
+  {
+#ifdef SERIAL_TYPE_HAS_ENABLE_TX
+    if (RS485) RS485->enableTx(on);
+#else
+    digitalWrite(rtsPin,on? HIGH : LOW); // to enable RS485 driver
+#endif
+  }
 public:
   EPSolar() : RS485(NULL), last_message(0L) {;}
 
@@ -135,6 +146,9 @@ public:
   {
     RS485 = _RS485;
     rtsPin = _rtsPin;
+#ifdef SERIAL_TYPE_HAS_SET_TRANSMIT_ENABLE_PIN
+    RS485->setTransmitEnablePin(rtsPin);
+#endif
     last_message = 0L;
     pinMode(rtsPin, OUTPUT);
   }

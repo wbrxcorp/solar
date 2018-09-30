@@ -159,17 +159,6 @@ F 3 "" H 7100 5250 50  0001 C CNN
 	1    7100 5250
 	1    0    0    -1  
 $EndComp
-$Comp
-L Device:R R8
-U 1 1 5B92AAFC
-P 6750 2050
-F 0 "R8" V 6830 2050 50  0000 C CNN
-F 1 "10K" V 6750 2050 50  0000 C CNN
-F 2 "Resistor_SMD:R_0805_2012Metric_Pad1.15x1.40mm_HandSolder" V 6680 2050 50  0001 C CNN
-F 3 "" H 6750 2050 50  0001 C CNN
-	1    6750 2050
-	1    0    0    -1  
-$EndComp
 Wire Wire Line
 	4400 2200 4750 2200
 Wire Wire Line
@@ -180,8 +169,6 @@ Wire Wire Line
 	4000 4250 2900 4250
 Wire Wire Line
 	3350 2500 3350 2600
-Wire Wire Line
-	3350 2400 2900 2450
 Wire Wire Line
 	4400 2500 4400 2650
 Wire Wire Line
@@ -204,15 +191,6 @@ Wire Wire Line
 	4450 4200 4450 5150
 Wire Wire Line
 	7250 4150 6900 4150
-Connection ~ 6750 1900
-Wire Wire Line
-	6750 2200 6750 3300
-Wire Wire Line
-	3350 2600 3300 2650
-Wire Wire Line
-	3300 2650 3300 3300
-Wire Wire Line
-	3300 3300 4700 3300
 Wire Wire Line
 	2900 4450 3050 4450
 Wire Wire Line
@@ -254,8 +232,6 @@ Wire Wire Line
 	4450 2400 4900 2400
 Wire Wire Line
 	4150 4800 4150 4850
-Connection ~ 3350 2600
-Connection ~ 2900 4250
 Wire Wire Line
 	4400 2200 4400 2000
 Wire Wire Line
@@ -283,8 +259,6 @@ Wire Wire Line
 	4300 2700 4150 2700
 Wire Wire Line
 	4300 2400 4450 2400
-Wire Wire Line
-	6750 1900 7250 1900
 $Comp
 L Switch:SW_Push SW1
 U 1 1 5B9460EF
@@ -430,8 +404,6 @@ Wire Wire Line
 	8200 1600 8800 1600
 Connection ~ 8200 1600
 Connection ~ 8800 1600
-Wire Wire Line
-	4900 1900 6750 1900
 Connection ~ 8500 1050
 Wire Wire Line
 	9450 1050 9100 1050
@@ -478,8 +450,6 @@ Wire Wire Line
 	7250 1900 9100 1900
 Wire Wire Line
 	3050 4450 4600 4450
-Wire Wire Line
-	2900 2450 2900 4250
 Wire Wire Line
 	4150 4200 4150 4800
 Wire Wire Line
@@ -546,13 +516,6 @@ Wire Wire Line
 	6900 4700 6900 4250
 Wire Wire Line
 	6900 4250 6700 4250
-Wire Wire Line
-	4900 4050 4700 4050
-Wire Wire Line
-	4700 4050 4700 3300
-Connection ~ 4700 3300
-Wire Wire Line
-	4700 3300 6750 3300
 NoConn ~ 4900 4150
 NoConn ~ 4900 4350
 NoConn ~ 4900 4250
@@ -613,8 +576,6 @@ Text Label 6800 4250 0    50   ~ 0
 IO2
 Text Label 6750 4350 0    50   ~ 0
 IO15
-Text Label 4800 4050 0    50   ~ 0
-IO16
 Text Label 4800 3750 0    50   ~ 0
 RESET
 Text Label 4200 2400 0    50   ~ 0
@@ -654,4 +615,11 @@ Wire Wire Line
 Connection ~ 5400 2600
 Wire Wire Line
 	5400 2600 5400 3100
+Wire Wire Line
+	3350 2400 3200 2400
+Wire Wire Line
+	3200 2400 3200 2700
+Connection ~ 3200 2700
+Wire Wire Line
+	4900 1900 7250 1900
 $EndSCHEMATC

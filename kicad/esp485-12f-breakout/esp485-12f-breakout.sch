@@ -148,31 +148,16 @@ F 3 "" H 7100 5250 50  0001 C CNN
 	1    7100 5250
 	1    0    0    -1  
 $EndComp
-$Comp
-L Device:R R8
-U 1 1 5B92AAFC
-P 6750 2050
-F 0 "R8" V 6830 2050 50  0000 C CNN
-F 1 "10K" V 6750 2050 50  0000 C CNN
-F 2 "Resistor_SMD:R_0603_1608Metric_Pad1.05x0.95mm_HandSolder" V 6680 2050 50  0001 C CNN
-F 3 "" H 6750 2050 50  0001 C CNN
-	1    6750 2050
-	1    0    0    -1  
-$EndComp
 Wire Wire Line
 	4400 2200 4750 2200
 Wire Wire Line
 	4900 1900 4900 2200
-Wire Wire Line
-	6850 5350 2900 5350
 Wire Wire Line
 	3350 2500 3350 2600
 Wire Wire Line
 	2600 1900 4900 1900
 Wire Wire Line
 	4900 4450 2600 4450
-Wire Wire Line
-	3350 2400 2900 2400
 Wire Wire Line
 	3350 2700 3150 2700
 Wire Wire Line
@@ -197,15 +182,6 @@ Wire Wire Line
 	8050 3850 8050 4750
 Wire Wire Line
 	8050 4750 7100 4750
-Connection ~ 6750 1900
-Wire Wire Line
-	6750 2200 6750 3300
-Wire Wire Line
-	3350 2600 3300 2600
-Wire Wire Line
-	3300 2600 3300 3300
-Wire Wire Line
-	3300 3300 4800 3300
 Wire Wire Line
 	7450 4250 9200 4250
 Wire Wire Line
@@ -261,7 +237,6 @@ Wire Wire Line
 	4450 2400 4900 2400
 Wire Wire Line
 	5200 2300 8100 2300
-Connection ~ 3350 2600
 Wire Wire Line
 	4400 2200 4400 2000
 Wire Wire Line
@@ -527,35 +502,17 @@ Wire Wire Line
 Wire Wire Line
 	4900 4050 4800 4050
 Wire Wire Line
-	4800 4050 4800 3300
-Connection ~ 4800 3300
-Wire Wire Line
-	4800 3300 6750 3300
-Wire Wire Line
 	6700 4350 6750 4350
 Wire Wire Line
 	6750 4350 6750 5100
 Wire Wire Line
 	4150 4800 4150 4950
-Wire Wire Line
-	6750 1900 7000 1900
 Connection ~ 7000 1900
 Wire Wire Line
 	7000 1900 7250 1900
 Wire Wire Line
-	6850 5350 6850 4250
-Wire Wire Line
-	6850 4250 6700 4250
-Wire Wire Line
-	2900 2400 2900 5350
-Wire Wire Line
 	7000 2200 7000 4250
-Wire Wire Line
-	7000 4250 6850 4250
-Connection ~ 6850 4250
 Connection ~ 6500 1900
-Wire Wire Line
-	6500 1900 6750 1900
 Wire Wire Line
 	3150 2700 3150 3150
 Wire Wire Line
@@ -648,10 +605,32 @@ Wire Wire Line
 	7400 5100 6750 5100
 Wire Wire Line
 	4900 3850 4450 3850
-Text Label 4800 4050 0    50   ~ 0
-IO16
 Text Label 4850 3950 0    50   ~ 0
 EN
 Text Label 6750 4250 0    50   ~ 0
 IO2
+Wire Wire Line
+	6700 4250 7000 4250
+Wire Wire Line
+	6500 1900 7000 1900
+Wire Wire Line
+	4800 4050 4800 3750
+Wire Wire Line
+	4800 3750 4900 3750
+Connection ~ 4900 3750
+Wire Wire Line
+	7000 4250 7000 5300
+Wire Wire Line
+	7000 5300 3000 5300
+Wire Wire Line
+	3000 5300 3000 2600
+Wire Wire Line
+	3000 2600 3350 2600
+Connection ~ 7000 4250
+Connection ~ 3350 2600
+Wire Wire Line
+	3350 2400 3150 2400
+Wire Wire Line
+	3150 2400 3150 2700
+Connection ~ 3150 2700
 $EndSCHEMATC
