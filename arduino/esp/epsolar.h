@@ -135,7 +135,8 @@ protected:
   {
 #ifdef SERIAL_TYPE_HAS_ENABLE_TX
     if (RS485) RS485->enableTx(on);
-#else
+#endif
+#ifndef SERIAL_TYPE_HAS_SET_TRANSMIT_ENABLE_PIN
     digitalWrite(rtsPin,on? HIGH : LOW); // to enable RS485 driver
 #endif
   }
@@ -148,9 +149,10 @@ public:
     rtsPin = _rtsPin;
 #ifdef SERIAL_TYPE_HAS_SET_TRANSMIT_ENABLE_PIN
     RS485->setTransmitEnablePin(rtsPin);
+#else
+    pinMode(rtsPin, OUTPUT);
 #endif
     last_message = 0L;
-    pinMode(rtsPin, OUTPUT);
   }
 
   void send_modbus_message(const uint8_t* message, size_t size);

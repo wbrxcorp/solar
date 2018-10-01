@@ -74,20 +74,18 @@ bool EPSolar::get_device_info(EPSolarTracerDeviceInfo& info, int max_retry/* = 5
 static bool read_response_bytes(EPSOLAR_SERIAL_TYPE& RS485, uint8_t* buf, size_t expected_size)
 {
   int nread = RS485.readBytes(buf, expected_size);
-  if (nread != expected_size) {
-    if (nread == 0) {
-      Serial.println("modbus: response timeout");
-    } else {
-      Serial.print("modbus: received data too short(expected=");
-      Serial.print(expected_size);
-      Serial.print(" octets,actual=");
-      Serial.print(nread);
-      Serial.println(" octets)");
-    }
-    return false;
-  }
+  if (nread == expected_size) return true;
   // else
-  return true;
+  if (nread == 0) {
+    Serial.println("modbus: response timeout");
+  } else {
+    Serial.print("modbus: received data too short(expected=");
+    Serial.print(expected_size);
+    Serial.print(" octets,actual=");
+    Serial.print(nread);
+    Serial.println(" octets)");
+  }
+  return false;
 }
 
 static bool receive_modbus_input_response(EPSOLAR_SERIAL_TYPE& RS485, uint8_t slave_id, uint8_t function_code, EPSolarTracerInputRegister& reg)
@@ -127,6 +125,7 @@ static bool receive_modbus_input_response(EPSOLAR_SERIAL_TYPE& RS485, uint8_t sl
   }
   // else
   size_t data_size = (size_t)hdr[2];
+  //Serial.print("data_size:");  Serial.println((int)data_size);
   uint8_t buf[data_size];
   if (RS485.readBytes(buf, sizeof(buf)) != sizeof(buf)) {
     Serial.print("modbus: received response payload too short(expected=");
@@ -165,10 +164,10 @@ void EPSolar::send_modbus_message(const uint8_t* message, size_t size)
   last_message = millis();
 
   enableTx(true); // for one-wire half duplex communication(just ignored when 2-wire connection is used)
-  //delayMicroseconds(304);// 35bit = 304us in 115200bps
+  delayMicroseconds(304);// 35bit = 304us in 115200bps
   RS485.write(message, size);
   RS485.flush();
-  //delayMicroseconds(304);// 35bit = 304us in 115200bps
+  delayMicroseconds(304);// 35bit = 304us in 115200bps
   enableTx(false);
 }
 
