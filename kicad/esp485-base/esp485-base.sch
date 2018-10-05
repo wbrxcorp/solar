@@ -1,4 +1,5 @@
 EESchema Schematic File Version 4
+LIBS:esp485-base-cache
 EELAYER 26 0
 EELAYER END
 $Descr A4 11693 8268
@@ -98,14 +99,14 @@ Wire Wire Line
 	7550 4100 7550 4650
 Connection ~ 5500 4100
 $Comp
-L Connector_Generic:Conn_01x08 J1
+L Connector_Generic:Conn_01x05 J1
 U 1 1 5BD25DBE
-P 4900 5750
-F 0 "J1" V 5024 5696 50  0000 C CNN
-F 1 "Conn_01x08" V 5115 5696 50  0000 C CNN
-F 2 "Connector_PinHeader_2.54mm:PinHeader_1x08_P2.54mm_Vertical" H 4900 5750 50  0001 C CNN
-F 3 "~" H 4900 5750 50  0001 C CNN
-	1    4900 5750
+P 5100 5750
+F 0 "J1" V 5224 5696 50  0000 C CNN
+F 1 "Conn_01x08" V 5315 5696 50  0000 C CNN
+F 2 "Connector_PinHeader_2.54mm:PinHeader_1x05_P2.54mm_Vertical" H 5100 5750 50  0001 C CNN
+F 3 "~" H 5100 5750 50  0001 C CNN
+	1    5100 5750
 	0    -1   1    0   
 $EndComp
 $Comp
@@ -122,13 +123,9 @@ $EndComp
 Wire Wire Line
 	5700 4500 5300 4500
 Wire Wire Line
-	5300 4500 5300 2450
+	5300 4500 5300 2550
 Wire Wire Line
-	5300 2450 6200 2450
-Wire Wire Line
-	5500 4100 5500 2550
-Wire Wire Line
-	5500 2550 6200 2550
+	5500 2450 6200 2450
 Wire Wire Line
 	5100 4800 5100 2650
 Wire Wire Line
@@ -143,20 +140,12 @@ Wire Wire Line
 	4950 2750 6200 2750
 Wire Wire Line
 	5300 4500 4800 4500
-Wire Wire Line
-	4600 4500 4600 5550
 Connection ~ 5300 4500
 Wire Wire Line
 	5500 4400 5500 5550
 Wire Wire Line
 	5500 5550 5300 5550
 Connection ~ 5500 4400
-Wire Wire Line
-	5100 4800 4800 4800
-Connection ~ 5100 4800
-Wire Wire Line
-	4950 5100 4700 5100
-Connection ~ 4950 5100
 Wire Wire Line
 	4050 4600 3950 4600
 Wire Wire Line
@@ -288,18 +277,11 @@ Text Label 3050 4950 0    50   ~ 0
 B
 Text Label 3000 4750 0    50   ~ 0
 A
-Connection ~ 4650 4500
-Wire Wire Line
-	4650 4500 4600 4500
 Connection ~ 4800 4500
 Wire Wire Line
 	4800 4500 4650 4500
 Wire Wire Line
 	3700 4500 4050 4500
-Wire Wire Line
-	4800 4800 4800 5550
-Wire Wire Line
-	4700 5100 4700 5550
 $Comp
 L Connector_Generic:Conn_01x04 J5
 U 1 1 5BD67C7F
@@ -337,4 +319,18 @@ Wire Wire Line
 Connection ~ 3300 4100
 Wire Wire Line
 	3300 4100 5500 4100
+Wire Wire Line
+	5300 2550 5500 2550
+Wire Wire Line
+	5500 2550 6200 2550
+Wire Wire Line
+	5500 2450 5500 4100
+Text Label 3850 4500 0    50   ~ 0
+IO14
+Text Label 4000 4600 0    50   ~ 0
+IO12
+Text Label 4000 4700 0    50   ~ 0
+IO13
+Text Label 4000 4800 0    50   ~ 0
+IO15
 $EndSCHEMATC
