@@ -684,4 +684,8 @@ Text Label 9050 2600 0    50   ~ 0
 A
 Text Label 9050 2700 0    50   ~ 0
 B
+Text Label 4400 3850 0    50   ~ 0
+EN
+Text Label 4650 4350 0    50   ~ 0
+IO2
 $EndSCHEMATC

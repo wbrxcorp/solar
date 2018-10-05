@@ -3,6 +3,8 @@
 *-cache.lib
 *.kicad_pcb-bak
 *.gtl
+*.g2
+*.g3
 *.gbl
 *.gto
 *.gbo

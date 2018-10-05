@@ -5,6 +5,8 @@ PROJ_NAME=`basename $ABS_DIR`
 rm -rf elecrow
 mkdir elecrow
 cp *.gtl elecrow/$PROJ_NAME.gtl
+cp *.g2 elecrow/$PROJ_NAME.gl2
+cp *.g3 elecrow/$PROJ_NAME.gl3
 cp *.gbl elecrow/$PROJ_NAME.gbl
 cp *.gto elecrow/$PROJ_NAME.gto
 cp *.gbo elecrow/$PROJ_NAME.gbo
