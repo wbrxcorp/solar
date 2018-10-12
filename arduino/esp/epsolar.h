@@ -123,7 +123,6 @@ typedef HardwareSerial EPSOLAR_SERIAL_TYPE;
 #elif ARDUINO_ARCH_ESP8266
 typedef SoftwareSerial EPSOLAR_SERIAL_TYPE;
 #define SERIAL_TYPE_HAS_ENABLE_TX // used for one-wire half duplex communication
-#define SERIAL_TYPE_HAS_SET_TRANSMIT_ENABLE_PIN // espsoftwareserial has this functionality
 #endif
 
 class EPSolar {
@@ -136,9 +135,7 @@ protected:
 #ifdef SERIAL_TYPE_HAS_ENABLE_TX
     if (RS485) RS485->enableTx(on);
 #endif
-#ifndef SERIAL_TYPE_HAS_SET_TRANSMIT_ENABLE_PIN
     digitalWrite(rtsPin,on? HIGH : LOW); // to enable RS485 driver
-#endif
   }
 public:
   EPSolar() : RS485(NULL), last_message(0L) {;}
@@ -147,11 +144,7 @@ public:
   {
     RS485 = _RS485;
     rtsPin = _rtsPin;
-#ifdef SERIAL_TYPE_HAS_SET_TRANSMIT_ENABLE_PIN
-    RS485->setTransmitEnablePin(rtsPin);
-#else
     pinMode(rtsPin, OUTPUT);
-#endif
     last_message = 0L;
   }
 

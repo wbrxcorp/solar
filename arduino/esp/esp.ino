@@ -11,7 +11,7 @@
 #include <SoftwareSerial.h>
 #endif
 
-#define ESP8266_ONE_WIRE_HALF_DUPLEX
+//#define ESP8266_ONE_WIRE_HALF_DUPLEX
 
 #ifdef ARDUINO_ARCH_ESP8266
   #ifdef ESP8266_ONE_WIRE_HALF_DUPLEX
@@ -27,6 +27,7 @@
   #define PW1_LED_SOCKET 12   // ESP8266 IO12 D1 mini D6
   #define PW2_SW_SOCKET 15    // ESP8266 IO15(10k pull down) D1 mini D8
   #define PW2_LED_SOCKET 13   // ESP8266 IO13 D1 mini D7
+  #undef LED_BUILTIN
 #elif ARDUINO_ARCH_ESP32
   #define RS485_TX_SOCKET 17
   #define RS485_RX_SOCKET 16
@@ -232,6 +233,9 @@ void setup() {
   Serial.println();
   Serial.print("Build date: ");
   Serial.println(__DATE__ " " __TIME__);
+
+  Serial.print("Half duplex communication mode: ");
+  Serial.println(RS485_TX_SOCKET == RS485_RX_SOCKET? "Single wire" : "Double wire");
 
   // read config from EEPROM
   Serial.write("Loading config from EEPROM...");
