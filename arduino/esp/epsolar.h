@@ -2,7 +2,7 @@
 #define __EPSOLAR_H_
 
 #ifdef ARDUINO_ARCH_ESP8266
-#include <SoftwareSerial.h>
+#include "OneWireHalfDuplexSoftwareSerial.h"
 #endif
 
 #include "crc.h"
@@ -121,7 +121,7 @@ public:
 #if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_AVR_MEGA2560)
 typedef HardwareSerial EPSOLAR_SERIAL_TYPE;
 #elif ARDUINO_ARCH_ESP8266
-typedef SoftwareSerial EPSOLAR_SERIAL_TYPE;
+typedef OneWireHalfDuplexSoftwareSerial EPSOLAR_SERIAL_TYPE;
 #define SERIAL_TYPE_HAS_ENABLE_TX // used for one-wire half duplex communication
 #endif
 
@@ -132,10 +132,10 @@ class EPSolar {
 protected:
   void enableTx(bool on)
   {
+    digitalWrite(rtsPin,on? HIGH : LOW); // enable/disable RS485 driver
 #ifdef SERIAL_TYPE_HAS_ENABLE_TX
     if (RS485) RS485->enableTx(on);
 #endif
-    digitalWrite(rtsPin,on? HIGH : LOW); // to enable RS485 driver
   }
 public:
   EPSolar() : RS485(NULL), last_message(0L) {;}

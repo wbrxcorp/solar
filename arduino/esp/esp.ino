@@ -8,21 +8,11 @@
 #elif ARDUINO_ARCH_ESP8266
 #include <ESP8266WiFi.h>
 #include <user_interface.h>
-#include <SoftwareSerial.h>
+#include "OneWireHalfDuplexSoftwareSerial.h"
 #endif
 
-//#define ESP8266_ONE_WIRE_HALF_DUPLEX
-
 #ifdef ARDUINO_ARCH_ESP8266
-  #ifdef ESP8266_ONE_WIRE_HALF_DUPLEX
-    #define RS485_TX_SOCKET 0  // ESP8266 IO0(10k pull up) D1 mini D3
-    #define RS485_RX_SOCKET 0  // ESP8266 IO0(10k pull up) D1 mini D3
-    #define RS485_RTS_SOCKET 2 // ESP8266 IO2(10k pull up) D1 mini D4
-  #else
-    #define RS485_TX_SOCKET 0  // ESP8266 IO0(10k pull up) D1 mini D3
-    #define RS485_RX_SOCKET 2  // ESP8266 IO2(10k pull up) D1 mini D4
-    #define RS485_RTS_SOCKET 16 // ESP8266 IO16 D1 mini D0
-  #endif
+  #define RS485_RTS_SOCKET 2
   #define PW1_SW_SOCKET 14    // ESP8266 IO14 D1 mini D5
   #define PW1_LED_SOCKET 12   // ESP8266 IO12 D1 mini D6
   #define PW2_SW_SOCKET 15    // ESP8266 IO15(10k pull down) D1 mini D8
@@ -60,7 +50,7 @@ const uint16_t DEFAULT_PORT = 29574; // default server port number
 #ifdef ARDUINO_ARCH_ESP32
   HardwareSerial RS485(1);  // Use UART1 (need to change TX/RX pins)
 #elif ARDUINO_ARCH_ESP8266
-  SoftwareSerial RS485(RS485_RX_SOCKET, RS485_TX_SOCKET, false, 256);
+  OneWireHalfDuplexSoftwareSerial& RS485 = *OneWireHalfDuplexSoftwareSerial::getInstance(256);
 #elif ARDUINO_AVR_MEGA2560
   HardwareSerial& RS485 = Serial1;
 #endif
@@ -234,8 +224,7 @@ void setup() {
   Serial.print("Build date: ");
   Serial.println(__DATE__ " " __TIME__);
 
-  Serial.print("Half duplex communication mode: ");
-  Serial.println(RS485_TX_SOCKET == RS485_RX_SOCKET? "Single wire" : "Double wire");
+  Serial.println("Half duplex communication mode: Single wire");
 
   // read config from EEPROM
   Serial.write("Loading config from EEPROM...");
@@ -316,7 +305,7 @@ void setup() {
   display.display();
 
   if (operation_mode == OPERATION_MODE_NORMAL) {
-  #ifdef ARDUINO_ARCH_ESP32
+  #ifdef ARDUINO_ARCH_ESP3esp2
     RS485.begin(EPSOLAR_COMM_SPEED, SERIAL_8N1, RS485_RX_SOCKET, RS485_TX_SOCKET); // USE 16/17 pins originally assigned to UART2
   #elif ARDUINO_ARCH_ESP8266
     RS485.begin(EPSOLAR_COMM_SPEED);
