@@ -35,8 +35,6 @@ public:
 
   void begin(long speed);
   long baudRate();
-  // Enable or disable interrupts during tx
-  void enableIntTx(bool on);
 
   bool overflow();
   int peek();
@@ -73,7 +71,6 @@ private:
   bool m_rxEnabled;
   bool m_overflow;
   unsigned long m_bitTime;
-  bool m_intTxEnabled;
   unsigned int m_inPos, m_outPos;
   int m_buffSize;
   uint8_t *m_buffer;

@@ -64,17 +64,12 @@ void OneWireHalfDuplexSoftwareSerial::begin(long speed) {
   // Use getCycleCount() loop to get as exact timing as possible
   m_bitTime = F_CPU/speed;
   // By default enable interrupt during tx only for low speed
-  m_intTxEnabled = speed < 9600;
 
   if (!m_rxEnabled) enableRx(true);
 }
 
 long OneWireHalfDuplexSoftwareSerial::baudRate() {
   return F_CPU / m_bitTime;
-}
-
-void OneWireHalfDuplexSoftwareSerial::enableIntTx(bool on) {
-  m_intTxEnabled = on;
 }
 
 void OneWireHalfDuplexSoftwareSerial::enableTx(bool on) {
@@ -115,12 +110,10 @@ int OneWireHalfDuplexSoftwareSerial::available() {
   return avail;
 }
 
-#define WAIT { while (ESP.getCycleCount()-start < wait) if (m_intTxEnabled) optimistic_yield(1); wait += m_bitTime; }
+#define WAIT { while (ESP.getCycleCount()-start < wait) { ; }; wait += m_bitTime; }
 
 size_t OneWireHalfDuplexSoftwareSerial::write(uint8_t b) {
-  if (!m_intTxEnabled)
-    // Disable interrupts in order to get a clean transmit
-    cli();
+  cli(); // Disable interrupts in order to get a clean transmit
   unsigned long wait = m_bitTime;
   digitalWrite(communicationPin, HIGH);
   unsigned long start = ESP.getCycleCount();
@@ -135,8 +128,7 @@ size_t OneWireHalfDuplexSoftwareSerial::write(uint8_t b) {
   // Stop bit
   digitalWrite(communicationPin, HIGH);
   WAIT;
-  if (!m_intTxEnabled)
-    sei();
+  sei();
   return 1;
 }
 
