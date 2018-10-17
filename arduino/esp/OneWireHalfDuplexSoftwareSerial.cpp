@@ -3,8 +3,6 @@ OneWireHalfDuplexSoftwareSerial.cpp - espsoftwareserial modified for limited pur
 
 -- The original license terms below
 
-SoftwareSerial.h
-
 SoftwareSerial.cpp - Implementation of the Arduino software serial for ESP8266.
 Copyright (c) 2015-2016 Peter Lerup. All rights reserved.
 

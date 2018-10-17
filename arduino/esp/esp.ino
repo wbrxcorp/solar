@@ -305,7 +305,7 @@ void setup() {
   display.display();
 
   if (operation_mode == OPERATION_MODE_NORMAL) {
-  #ifdef ARDUINO_ARCH_ESP3esp2
+  #ifdef ARDUINO_ARCH_ESP32
     RS485.begin(EPSOLAR_COMM_SPEED, SERIAL_8N1, RS485_RX_SOCKET, RS485_TX_SOCKET); // USE 16/17 pins originally assigned to UART2
   #elif ARDUINO_ARCH_ESP8266
     RS485.begin(EPSOLAR_COMM_SPEED);
