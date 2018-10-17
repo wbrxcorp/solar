@@ -284,7 +284,7 @@ Wire Wire Line
 Wire Wire Line
 	6700 5000 6700 5350
 Wire Wire Line
-	6700 5350 6850 5350
+	6700 5350 6800 5350
 Wire Wire Line
 	7050 3400 7200 3400
 Wire Wire Line
@@ -292,7 +292,7 @@ Wire Wire Line
 Wire Wire Line
 	7200 4900 6600 4900
 Wire Wire Line
-	6600 4900 6600 5800
+	6600 4900 6600 5550
 Wire Wire Line
 	6600 5800 6850 5800
 Text Label 7100 3200 0    50   ~ 0
@@ -308,21 +308,13 @@ Wire Wire Line
 Wire Wire Line
 	7850 3500 7950 3500
 Wire Wire Line
-	7650 5550 7150 5550
-Wire Wire Line
-	7150 5550 7150 5800
+	7650 5550 6600 5550
 Wire Wire Line
 	7150 5800 7350 5800
-Connection ~ 7150 5800
 Wire Wire Line
-	7650 6000 7300 6000
+	7650 6000 6800 6000
 Wire Wire Line
-	7300 6000 7300 5350
-Wire Wire Line
-	7300 5350 7350 5350
-Wire Wire Line
-	7150 5350 7300 5350
-Connection ~ 7300 5350
+	6800 6000 6800 5350
 Text Label 7650 3750 0    50   ~ 0
 IO0
 Text Label 7850 3700 0    50   ~ 0
@@ -333,4 +325,12 @@ Text Label 4350 3300 0    50   ~ 0
 USBDP
 Text Label 4400 3400 0    50   ~ 0
 USBDM
+Wire Wire Line
+	7150 5350 7350 5350
+Connection ~ 6800 5350
+Wire Wire Line
+	6800 5350 6850 5350
+Connection ~ 6600 5550
+Wire Wire Line
+	6600 5550 6600 5800
 $EndSCHEMATC
