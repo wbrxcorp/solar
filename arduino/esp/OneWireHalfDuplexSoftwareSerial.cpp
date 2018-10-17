@@ -47,7 +47,7 @@ OneWireHalfDuplexSoftwareSerial::OneWireHalfDuplexSoftwareSerial(unsigned int bu
   m_buffer = (uint8_t*)malloc(buffSize);
   if (m_buffer != NULL) {
     m_inPos = m_outPos = 0;
-    pinMode(communicationPin, INPUT);
+    pinMode(COMM_PIN, INPUT);
   }
 
   // Default speed
@@ -75,11 +75,11 @@ long OneWireHalfDuplexSoftwareSerial::baudRate() {
 void OneWireHalfDuplexSoftwareSerial::enableTx(bool on) {
   if (on) {
     enableRx(false);
-    digitalWrite(communicationPin, HIGH);
-    pinMode(communicationPin, OUTPUT);
+    digitalWrite(COMM_PIN, HIGH);
+    pinMode(COMM_PIN, OUTPUT);
   } else {
-    digitalWrite(communicationPin, HIGH);
-    pinMode(communicationPin, INPUT);
+    digitalWrite(COMM_PIN, HIGH);
+    pinMode(COMM_PIN, INPUT);
     enableRx(true);
   }
 }
@@ -88,9 +88,9 @@ void OneWireHalfDuplexSoftwareSerial::enableRx(bool on) {
   if (!isRxValid()) return;
   // else
   if (on)
-    attachInterrupt(communicationPin, OneWireHalfDuplexSoftwareSerial::rxRead, FALLING);
+    attachInterrupt(COMM_PIN, OneWireHalfDuplexSoftwareSerial::rxRead, FALLING);
   else
-    detachInterrupt(communicationPin);
+    detachInterrupt(COMM_PIN);
   m_rxEnabled = on;
 }
 
@@ -115,18 +115,18 @@ int OneWireHalfDuplexSoftwareSerial::available() {
 size_t OneWireHalfDuplexSoftwareSerial::write(uint8_t b) {
   cli(); // Disable interrupts in order to get a clean transmit
   unsigned long wait = m_bitTime;
-  digitalWrite(communicationPin, HIGH);
+  digitalWrite(COMM_PIN, HIGH);
   unsigned long start = ESP.getCycleCount();
   // Start bit;
-  digitalWrite(communicationPin, LOW);
+  digitalWrite(COMM_PIN, LOW);
   WAIT;
   for (int i = 0; i < 8; i++) {
-    digitalWrite(communicationPin, (b & 1) ? HIGH : LOW);
+    digitalWrite(COMM_PIN, (b & 1) ? HIGH : LOW);
     WAIT;
     b >>= 1;
   }
   // Stop bit
-  digitalWrite(communicationPin, HIGH);
+  digitalWrite(COMM_PIN, HIGH);
   WAIT;
   sei();
   return 1;
@@ -157,7 +157,7 @@ void ICACHE_RAM_ATTR OneWireHalfDuplexSoftwareSerial::_rxRead() {
   for (int i = 0; i < 8; i++) {
     WAIT;
     rec >>= 1;
-    if (digitalRead(communicationPin))
+    if (digitalRead(COMM_PIN))
       rec |= 0x80;
   }
   // Stop bit
@@ -172,7 +172,7 @@ void ICACHE_RAM_ATTR OneWireHalfDuplexSoftwareSerial::_rxRead() {
   }
   // Must clear this bit in the interrupt register,
   // it gets set even when interrupts are disabled
-  GPIO_REG_WRITE(GPIO_STATUS_W1TC_ADDRESS, 1 << communicationPin);
+  GPIO_REG_WRITE(GPIO_STATUS_W1TC_ADDRESS, 1 << COMM_PIN);
 }
 
 void ICACHE_RAM_ATTR OneWireHalfDuplexSoftwareSerial::rxRead() {

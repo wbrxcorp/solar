@@ -62,12 +62,10 @@ protected:
   void _rxRead();
 
 private:
-  bool isValidGPIOpin(int pin);
-
   static OneWireHalfDuplexSoftwareSerial* theInstance; // singleton instance
 
   // Member variables
-  const int communicationPin = 0;
+  const int COMM_PIN = 0;
   bool m_rxEnabled;
   bool m_overflow;
   unsigned long m_bitTime;
