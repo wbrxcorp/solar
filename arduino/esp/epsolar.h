@@ -136,6 +136,7 @@ protected:
 #ifdef SERIAL_TYPE_HAS_ENABLE_TX
     if (RS485) RS485->enableTx(on);
 #endif
+    delay(1);
   }
 public:
   EPSolar() : RS485(NULL), last_message(0L) {;}

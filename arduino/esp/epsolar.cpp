@@ -167,7 +167,6 @@ void EPSolar::send_modbus_message(const uint8_t* message, size_t size)
   delayMicroseconds(304);// 35bit = 304us in 115200bps
   RS485.write(message, size);
   RS485.flush();
-  delayMicroseconds(304);// 35bit = 304us in 115200bps
   enableTx(false);
 }
 
