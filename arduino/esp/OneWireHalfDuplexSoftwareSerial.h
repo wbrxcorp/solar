@@ -69,7 +69,7 @@ private:
   bool m_rxEnabled;
   bool m_overflow;
   unsigned long m_bitTime;
-  unsigned int m_inPos, m_outPos;
+  volatile unsigned int m_inPos, m_outPos;
   int m_buffSize;
   uint8_t *m_buffer;
 };
