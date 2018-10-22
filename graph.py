@@ -22,7 +22,7 @@ def load_data(hostname, date_str = None):
         cur.execute("insert into data2(t,piv,pia,piw,pov,poa,loadw,temp,kwh,lkwh) select t,piv,pia,piw,pov,poa,loadw,temp,kwh,lkwh from data where hostname = %s and data.t >= %s - interval 5 minute and data.t < %s", (hostname, starttime, endtime))
         cur.execute("create index idx_t on data2(t) using btree")
 
-        cur.execute("select data1.t,data1.piv,avg(data2.piv),data1.pia,avg(data2.pia),data1.piw,avg(data2.piw),data1.pov,avg(data2.pov),data1.poa,avg(data2.poa),data1.loadw,avg(data2.loadw),data1.temp,avg(data2.temp),data1.kwh,data1.lkwh from data1,data2 where data2.t between data1.t - interval 5 minute and data1.t group by data1.t order by data1.t")
+        cur.execute("select data1.t,data1.piv,avg(data2.piv),data1.pia,avg(data2.pia),data1.piw,avg(data2.piw),data1.pov,avg(data2.pov),data1.poa,avg(data2.poa),data1.loadw,avg(data2.loadw),data1.temp,avg(data2.temp),data1.kwh,data1.lkwh from data1,data2 where data2.t between data1.t - interval 5 minute and data1.t group by data1.t,data1.piv,data1.pia,data1.piw,data1.pov,data1.poa,data1.loadw,data1.temp,data1.kwh,data1.lkwh order by data1.t")
 
         return (starttime, endtime, [(row[0],row[1:]) for row in cur])
     finally:
