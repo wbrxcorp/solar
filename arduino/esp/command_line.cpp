@@ -314,12 +314,7 @@ bool reboot(const LineParser& lineparser)
 #if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266)
   Serial.println("Rebooting...");
   display.ssd1306_command(0xae); // Display OFF
-  #ifdef ARDUINO_ARCH_ESP8266
-    ESP.deepSleep(100 * 1000 , WAKE_RF_DEFAULT);
-    delay(1000);
-  #else
-    ESP.restart();
-  #endif
+  ESP.restart();
 #else
   Serial.println("Reboot not implemented...");
 #endif

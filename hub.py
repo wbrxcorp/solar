@@ -23,9 +23,13 @@ def process_data(nodename, data):
         last_data_time,last_piv,last_pov = cur.fetchone() or (None, None, None)
         piv = float(data["piv"])
         pov = float(data["bv"])
+        piw = float(data["piw"])
         if last_data_time is None or datetime.datetime.now() - last_data_time >= datetime.timedelta(minutes=1) or last_piv > 0.0 or piv > 0.0 or pov != last_pov:
-            cur.execute("replace into data(hostname,t,piv,pia,piw,pov,poa,loadw,temp,kwh,lkwh) values(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)", (nodename,now_str, piv,float(data["pia"]),float(data["piw"]),pov,float(data["poa"]),float(data["load"]),float(data["temp"]),float(data["kwh"]),float(data["lkwh"])))
+            cur.execute("replace into data(hostname,t,piv,pia,piw,pov,poa,loadw,temp,kwh,lkwh) values(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)", (nodename,now_str, piv,float(data["pia"]),piw,pov,float(data["poa"]),float(data["load"]),float(data["temp"]),float(data["kwh"]),float(data["lkwh"])))
             saved = True
+
+        if piw < 0.3 and ("pw1" not in data or int(data["pw1"]) == 0):
+            response_data["sleep"] = 60
 
         bv_compensation = float(data["btcv"]) if "btcv" in data else 0.0
 

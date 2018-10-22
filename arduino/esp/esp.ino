@@ -157,6 +157,11 @@ static void process_message(const char* message)
         epsolar.load_on(true); // main power on first
         edogawaUnit.power_on();
       }
+    } else if (strcmp(key, "sleep") == 0 && isdigit(value[0])) {
+      int seconds = atoi(value);
+      display.ssd1306_command(0xae); // Display OFF
+      ESP.deepSleep(seconds * 1000L * 1000L , WAKE_RF_DEFAULT);
+      delay(1000);
     }
   }
 
@@ -558,7 +563,10 @@ void loop_normal()
   }
 #endif
 
-  if (current_time - last_checked <= CHECK_INTERVAL) return;
+  if (current_time - last_checked <= CHECK_INTERVAL) {
+    delay(100);
+    return;
+  }
 
   // else
   display.clearDisplay();
