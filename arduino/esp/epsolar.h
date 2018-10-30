@@ -4,7 +4,6 @@
 #include "crc.h"
 
 #define EPSOLAR_COMM_SPEED 115200
-#define MIN_MESSAGE_INTERVAL 100
 #define MAX_MODBUS_MESSAGE_LENGTH 255
 #define MODBUS_TIMEOUT_MS 100
 
@@ -122,11 +121,6 @@ class EPSolar {
   unsigned long modbusTimeout;
   int rtsPin;
   unsigned long last_message;
-protected:
-  void enableTx(bool on)
-  {
-    digitalWrite(rtsPin, on? HIGH : LOW); // enable/disable RS485 driver
-  }
 public:
   EPSolar() : commPin(-1), last_message(0L) {;}
 

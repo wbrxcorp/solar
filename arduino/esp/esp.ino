@@ -48,6 +48,28 @@ typedef struct strEPSolarValues {
   int pw;
 } EPSolarValues;
 
+struct {
+  uint16_t crc;
+  uint8_t channel;
+  uint8_t bssid[6];
+  uint8_t padding[3]; // to make the size multiple of 4
+} rtcData;
+
+static bool isRtcDataValid()
+{
+  uint16_t crc = 0xffff;
+  for (size_t i = sizeof(rtcData.crc); i < sizeof(rtcData); i++) {
+    crc = update_crc(crc, ((uint8_t*)&rtcData)[i]);
+  }
+  return (crc == rtcData.crc);
+}
+
+static void invalidateRtcData()
+{
+  memset(&rtcData, sizeof(rtcData), 0);
+  ESP.rtcUserMemoryWrite(0, (uint32_t*)&rtcData, sizeof(rtcData));
+}
+
 static void process_message(const char* message)
 {
   Serial.print("Received: ");
@@ -120,6 +142,14 @@ static void process_message(const char* message)
     } else if (strcmp(key, "sleep") == 0 && isdigit(value[0])) {
       int seconds = atoi(value);
       display.ssd1306_command(0xae); // Display OFF
+      // save WiFi AP info to rtc data
+      rtcData.channel = WiFi.channel();
+      memcpy(rtcData.bssid, WiFi.BSSID(), sizeof(rtcData.bssid));
+      rtcData.crc = 0xffff;
+      for (size_t i = sizeof(rtcData.crc); i < sizeof(rtcData); i++) {
+        rtcData.crc = update_crc(rtcData.crc, ((uint8_t*)&rtcData)[i]);
+      }
+      ESP.rtcUserMemoryWrite(0, (uint32_t*)&rtcData, sizeof(rtcData));
       ESP.deepSleep(seconds * 1000L * 1000L , WAKE_RF_DEFAULT);
       delay(1000);
     }
@@ -166,8 +196,6 @@ void connect(const char* additional_init_params = NULL)
     retry_delay *= 2;
     if (retry_delay > 60) retry_delay = 60;
   }
-
-  last_message_sent = millis();
 }
 
 void setup() {
@@ -187,6 +215,9 @@ void setup() {
   Serial.println(__DATE__ " " __TIME__);
 
   Serial.println("Half duplex communication mode: Single wire");
+
+  // read rtc memory
+  ESP.rtcUserMemoryRead(0, (uint32_t*)&rtcData, sizeof(rtcData));
 
   // read config from EEPROM
   Serial.write("Loading config from EEPROM...");
@@ -238,21 +269,25 @@ void setup() {
   Serial.print("Server port: ");
   Serial.println(config.port);
 
-  // wait ESC key to enter command line only mode
-  Serial.println("Send ESC to enter command line only mode...");
+  if (isRtcDataValid()) { // Not resuming from deep sleep
+    Serial.println("Resuming from deep sleep.");
+  } else {
+    // wait ESC key to enter command line only mode
+    Serial.println("Send ESC to enter command line only mode...");
 
-  unsigned long startTime = millis();
-  while ((millis() - startTime) / 1000 < COMMAND_LINE_ONLY_MODE_WAIT_SECONDS) {
-    if (!Serial.available()) continue;
-    if (Serial.read() == 0x1b) {
-      Serial.print("Entering command line only mode...\r\n# ");
-      operation_mode = OPERATION_MODE_COMMAND_LINE_ONLY;
+    unsigned long startTime = millis();
+    while ((millis() - startTime) / 1000 < COMMAND_LINE_ONLY_MODE_WAIT_SECONDS) {
+      if (!Serial.available()) continue;
+      if (Serial.read() == 0x1b) {
+        Serial.print("Entering command line only mode...\r\n# ");
+        operation_mode = OPERATION_MODE_COMMAND_LINE_ONLY;
 
-      display.clearDisplay();
-      display.println("-Command line only mode-");
-      display.display();
+        display.clearDisplay();
+        display.println("-Command line only mode-");
+        display.display();
 
-      return;
+        return;
+      }
     }
   }
 
@@ -351,24 +386,50 @@ void setup() {
   WiFi.disconnect();
   WiFi.mode(WIFI_STA);
   WiFi.setAutoReconnect(true);
-  WiFi.begin(config.ssid, config.key);
-  char rot[] = {'|','/','-','\\', '\0'};
-  char minus[] = {'-', '\0'};
-  int irot = 0;
-  while (WiFi.status() != WL_CONNECTED) {
-    display.setCursor(0, display.getCursorY());
-    display.print("Connecting WiFi...");
-    int16_t x, y;
-    uint16_t w, h;
-    display.getTextBounds(minus, display.getCursorX(), display.getCursorY(), &x, &y, &w, &h);
-    display.fillRect(x, y, w, h, 0);
-    display.print(rot[irot++]);
-    if (!rot[irot]) irot = 0;
-    display.display();
-    delay(500);
-    Serial.print(".");
-    //Serial.println(WiFi.status());
+
+  for (int i = 0; i < 2; i++) {
+    if (i == 0) {
+      if (isRtcDataValid()) {
+        Serial.println("Attempting connect to previously connected ap...");
+        WiFi.begin(config.ssid, config.key, rtcData.channel, rtcData.bssid, true);
+        invalidateRtcData();
+      } else continue;
+    } else {
+      // attempt to connect with ssid/key
+      WiFi.begin(config.ssid, config.key);
+    }
+    char rot[] = {'|','/','-','\\', '\0'};
+    char minus[] = {'-', '\0'};
+    int irot = 0;
+    unsigned long startTime = millis();
+    while (WiFi.status() != WL_CONNECTED) {
+      if (i == 0/*connect with stored bssid*/ && millis() - startTime > 5000/*5 seconds*/) {
+        Serial.println("Abandon connecting previously connected ap.");
+        WiFi.disconnect();
+        delay(10);
+        WiFi.forceSleepBegin();
+        delay(10);
+        WiFi.forceSleepWake();
+        delay(10);
+        break;
+      }
+      display.setCursor(0, display.getCursorY());
+      display.print("Connecting WiFi...");
+      int16_t x, y;
+      uint16_t w, h;
+      display.getTextBounds(minus, display.getCursorX(), display.getCursorY(), &x, &y, &w, &h);
+      display.fillRect(x, y, w, h, 0);
+      display.print(rot[irot++]);
+      if (!rot[irot]) irot = 0;
+      display.display();
+      delay(500);
+      Serial.print(".");
+      //Serial.println(WiFi.status());
+    }
+
+    if (WiFi.status() == WL_CONNECTED) break;
   }
+
   Serial.println(" Connected.");
   Serial.print("IP address: ");
   Serial.println(WiFi.localIP());

@@ -139,17 +139,14 @@ bool EPSolar::receive_modbus_input_response(uint8_t slave_id, uint8_t function_c
 
 void EPSolar::send_modbus_message(const uint8_t* message, size_t size)
 {
-  unsigned long time_past = millis() - last_message;
-  if (time_past < MIN_MESSAGE_INTERVAL) {
-    delay(MIN_MESSAGE_INTERVAL - time_past);
-  }
+  unsigned long startTime = ESP.getCycleCount();
+  while (ESP.getCycleCount() - startTime < m_bitTime * 10 * 7 / 2/*3.5 chars silent interval*/) { ; }
 
-  last_message = millis();
-
-  enableTx(true); // for one-wire half duplex communication(just ignored when 2-wire connection is used)
-#ifdef ARDUINO_ARCH_ESP8266
+  // set commPin to output mode
   digitalWrite(commPin, HIGH);
   pinMode(commPin, OUTPUT);
+
+  digitalWrite(rtsPin, HIGH); // enableRS485 driver
 
   for (int i = 0; i < size; i++) {
     uint8_t b = message[i];
@@ -171,14 +168,14 @@ void EPSolar::send_modbus_message(const uint8_t* message, size_t size)
     sei();
   }
 
+  digitalWrite(rtsPin, LOW); // disable RS485 driver
+
+  // turn commPin back to input
   digitalWrite(commPin, HIGH);
   pinMode(commPin, INPUT);
-#else
-  RS485->write(message, size);
-  RS485->flush();
-  delay(1);
-#endif
-  enableTx(false);
+
+  startTime = ESP.getCycleCount();
+  while (ESP.getCycleCount() - startTime < m_bitTime * 10 * 7 / 2/*3.5 chars silent interval*/) { ; }
 }
 
 bool EPSolar::get_register(uint16_t addr, uint8_t num, EPSolarTracerInputRegister& reg, int max_retry/* = 10*/)
