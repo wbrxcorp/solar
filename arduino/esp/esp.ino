@@ -1,63 +1,23 @@
-// arduino --upload --board espressif:esp32:mhetesp32minikit:FlashFreq=80,UploadSpeed=921600 --port /dev/ttyUSB0 .
 // arduino --upload --board esp8266com:esp8266:d1_mini:xtal=80,eesz=4M1M,baud=460800 --port /dev/ttyUSB0 .
-// arduino --upload --board arduino:avr:mega:cpu=atmega2560 --port /dev/ttyACM0 .
 #include <EEPROM.h>
-#ifdef ARDUINO_ARCH_ESP32
-#include <WiFi.h>
-#include <esp_wifi.h>
-#elif ARDUINO_ARCH_ESP8266
 #include <ESP8266WiFi.h>
 #include <user_interface.h>
-#include "OneWireHalfDuplexSoftwareSerial.h"
-#endif
 
-#ifdef ARDUINO_ARCH_ESP8266
-  #define RS485_RTS_SOCKET 2
-  #define PW1_SW_SOCKET 14    // ESP8266 IO14 D1 mini D5
-  #define PW1_LED_SOCKET 12   // ESP8266 IO12 D1 mini D6
-  #define PW2_SW_SOCKET 15    // ESP8266 IO15(10k pull down) D1 mini D8
-  #define PW2_LED_SOCKET 13   // ESP8266 IO13 D1 mini D7
-  #undef LED_BUILTIN
-#elif ARDUINO_ARCH_ESP32
-  #define RS485_TX_SOCKET 17
-  #define RS485_RX_SOCKET 16
-  #define RS485_RTS_SOCKET 26
-  #define PW1_SW_SOCKET 18
-  #define PW1_LED_SOCKET 19
-  #define PW2_SW_SOCKET 5
-  #define PW2_LED_SOCKET 23
-  #define LED_BUILTIN 2
-#elif ARDUINO_AVR_MEGA2560
-  #define RS485_TX_SOCKET 18
-  #define RS485_RX_SOCKET 19
-  #define RS485_RTS_SOCKET 2
-  #define PW1_SW_SOCKET 3
-  #define PW1_LED_SOCKET 4
-  #define PW2_SW_SOCKET 6
-  #define PW2_LED_SOCKET 5
-#endif
+#define RS485_COMM_SOCKET 0
+#define RS485_RTS_SOCKET 2
+#define PW1_SW_SOCKET 14    // ESP8266 IO14 D1 mini D5
+#define PW1_LED_SOCKET 12   // ESP8266 IO12 D1 mini D6
+#define PW2_SW_SOCKET 15    // ESP8266 IO15(10k pull down) D1 mini D8
+#define PW2_LED_SOCKET 13   // ESP8266 IO13 D1 mini D7
 
 #define CHECK_INTERVAL 5000
 #define REPORT_INTERVAL 5000
 #define MESSAGE_TIMEOUT 10000
-#define MODBUS_TIMEOUT 100
 #define COMMAND_LINE_ONLY_MODE_WAIT_SECONDS 3
 
 const char* DEFAULT_NODENAME = "kennel01";
 const char* DEFAULT_SERVERNAME = "_solar._tcp";
 const uint16_t DEFAULT_PORT = 29574; // default server port number
-
-#ifdef ARDUINO_ARCH_ESP32
-  HardwareSerial RS485(1);  // Use UART1 (need to change TX/RX pins)
-#elif ARDUINO_ARCH_ESP8266
-  OneWireHalfDuplexSoftwareSerial& RS485 = *OneWireHalfDuplexSoftwareSerial::getInstance(256);
-#elif ARDUINO_AVR_MEGA2560
-  HardwareSerial& RS485 = Serial1;
-#endif
-
-#if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266)
-  #define HAVE_WIFI
-#endif
 
 #include "network.h"
 #include "command_line.h"
@@ -212,9 +172,6 @@ void connect(const char* additional_init_params = NULL)
 
 void setup() {
   Serial.begin(115200);
-#ifdef LED_BUILTIN
-  pinMode(LED_BUILTIN, OUTPUT);
-#endif
 
   display.begin(SSD1306_SWITCHCAPVCC, SSD1306_I2C_ADDRESS);
 
@@ -233,13 +190,9 @@ void setup() {
 
   // read config from EEPROM
   Serial.write("Loading config from EEPROM...");
-#if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266)
   EEPROM.begin(sizeof(config));
-#endif
   EEPROM.get(0, config);
-#if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266)
   EEPROM.end();
-#endif
   uint8_t* p = (uint8_t*)&config;
   uint16_t crc = 0xffff;
   for (size_t i = 0; i < sizeof(config) - sizeof(config.crc); i++) {
@@ -310,13 +263,7 @@ void setup() {
   display.display();
 
   if (operation_mode == OPERATION_MODE_NORMAL) {
-  #ifdef ARDUINO_ARCH_ESP32
-    RS485.begin(EPSOLAR_COMM_SPEED, SERIAL_8N1, RS485_RX_SOCKET, RS485_TX_SOCKET); // USE 16/17 pins originally assigned to UART2
-  #elif ARDUINO_ARCH_ESP8266
-    RS485.begin(EPSOLAR_COMM_SPEED);
-  #endif
-    RS485.setTimeout(MODBUS_TIMEOUT);
-    epsolar.begin(&RS485, RS485_RTS_SOCKET);
+    epsolar.begin(RS485_COMM_SOCKET, RS485_RTS_SOCKET);
 
     edogawaUnit1.begin(PW1_SW_SOCKET, PW1_LED_SOCKET);
     edogawaUnit2.begin(PW2_SW_SOCKET, PW2_LED_SOCKET);
@@ -400,7 +347,6 @@ void setup() {
     }
   } // operation_mode == OPERATION_MODE_NORMAL
 
-#ifdef HAVE_WIFI
   Serial.print("Connecting to WiFi AP");
   WiFi.disconnect();
   WiFi.mode(WIFI_STA);
@@ -441,18 +387,11 @@ void setup() {
     Serial.println(" Connected.");
     display.println("Connected.");
     display.display();
-#ifdef ARDUINO_ARCH_ESP32
-      Serial.println("Entering modem sleep(WIFI_PS_MAX_MODEM)...");
-      esp_wifi_set_ps(WIFI_PS_MAX_MODEM) == ESP_OK;
-#elif ARDUINO_ARCH_ESP8266
       Serial.println("Entering modem sleep(MODEM_SLEEP_T)...");
       wifi_set_sleep_type(MODEM_SLEEP_T);
-#endif
   } else if (operation_mode == OPERATION_MODE_SERVER) {
     setup_server();
   }
-
-#endif // HAVE_WIFI
 }
 
 void loop_command_line()
@@ -544,11 +483,7 @@ void loop_normal()
   }
 
   unsigned long current_time = millis();
-#ifdef LED_BUILTIN
-  digitalWrite(LED_BUILTIN, current_time / 1000 % 2 == 0);
-#endif
 
-#ifdef HAVE_WIFI
   if (receive_message(process_message) > 0) last_message_received = current_time;
 
   if (last_message_sent > last_message_received && current_time - last_message_sent >= MESSAGE_TIMEOUT) {
@@ -561,7 +496,6 @@ void loop_normal()
     connect();
     return;
   }
-#endif
 
   if (current_time - last_checked <= CHECK_INTERVAL) {
     delay(100);
@@ -626,11 +560,7 @@ void loop_normal()
 
   message += "\tnodename:";
   message += config.nodename;
-#ifdef HAVE_WIFI
   send_message(message.c_str());
-#else
-  Serial.println(message);
-#endif
   last_message_sent = last_reported = current_time;
 }
 

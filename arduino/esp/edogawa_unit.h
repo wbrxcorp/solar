@@ -18,19 +18,20 @@ public:
     pinMode(ledPin, INPUT_PULLUP);
   }
   bool is_power_on() { return digitalRead(ledPin) == LOW; }
-  void power_on()
+  bool power_on()
   {
-    if (is_power_on()) return;
+    if (is_power_on()) return true;
     digitalWrite(swPin, LOW);
     delay(500);
     digitalWrite(swPin, HIGH);
     delay(200);
     digitalWrite(swPin, LOW);
+    return is_power_on();
   }
 
-  void power_off()
+  bool power_off()
   {
-    if (!is_power_on()) return;
+    if (!is_power_on()) return true;
     // else
     digitalWrite(swPin, LOW);
     delay(100);
@@ -54,6 +55,7 @@ public:
       }
       delay(100);
     }
+    return !is_power_on();
   }
 };
 

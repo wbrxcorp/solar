@@ -1,14 +1,12 @@
 #ifndef __EPSOLAR_H_
 #define __EPSOLAR_H_
 
-#ifdef ARDUINO_ARCH_ESP8266
-#include "OneWireHalfDuplexSoftwareSerial.h"
-#endif
-
 #include "crc.h"
 
 #define EPSOLAR_COMM_SPEED 115200
 #define MIN_MESSAGE_INTERVAL 100
+#define MAX_MODBUS_MESSAGE_LENGTH 255
+#define MODBUS_TIMEOUT_MS 100
 
 class EPSolarTracerDeviceInfo {
   String vendor_name;
@@ -118,31 +116,26 @@ public:
   }
 };
 
-#if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_AVR_MEGA2560)
-typedef HardwareSerial EPSOLAR_SERIAL_TYPE;
-#elif ARDUINO_ARCH_ESP8266
-typedef OneWireHalfDuplexSoftwareSerial EPSOLAR_SERIAL_TYPE;
-#define SERIAL_TYPE_HAS_ENABLE_TX // used for one-wire half duplex communication
-#endif
-
 class EPSolar {
-  EPSOLAR_SERIAL_TYPE* RS485;
+  int commPin;
+  unsigned long m_bitTime;
+  unsigned long modbusTimeout;
   int rtsPin;
   unsigned long last_message;
 protected:
   void enableTx(bool on)
   {
-    digitalWrite(rtsPin,on? HIGH : LOW); // enable/disable RS485 driver
-#ifdef SERIAL_TYPE_HAS_ENABLE_TX
-    if (RS485) RS485->enableTx(on);
-#endif
+    digitalWrite(rtsPin, on? HIGH : LOW); // enable/disable RS485 driver
   }
 public:
-  EPSolar() : RS485(NULL), last_message(0L) {;}
+  EPSolar() : commPin(-1), last_message(0L) {;}
 
-  void begin(EPSOLAR_SERIAL_TYPE* _RS485, int _rtsPin)
+
+  void begin(int _commPin, int _rtsPin, long speed = EPSOLAR_COMM_SPEED, int _modbusTimeout = MODBUS_TIMEOUT_MS)
   {
-    RS485 = _RS485;
+    commPin = _commPin;
+    m_bitTime = F_CPU / speed;
+    modbusTimeout = F_CPU / 1000 * _modbusTimeout;
     rtsPin = _rtsPin;
     pinMode(rtsPin, OUTPUT);
     last_message = 0L;
@@ -173,6 +166,13 @@ public:
     data[2/*0x9015*/] = year << 8 | month;
     return put_registers(0x9013/*Real Time Clock*/, data, 3);
   }
+
+protected:
+  int ICACHE_RAM_ATTR receive_modbus_message(uint8_t* modbus_message/*must have 255 bytes at least*/);
+
+  bool receive_modbus_device_info_response(uint8_t slave_id, EPSolarTracerDeviceInfo& info);
+  bool receive_modbus_input_response(uint8_t slave_id, uint8_t function_code, EPSolarTracerInputRegister& reg);
+  bool receive_modbus_output_response(uint8_t slave_id, uint8_t function_code);
 };
 
 #endif // __EPSOLAR_H_

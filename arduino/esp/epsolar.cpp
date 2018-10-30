@@ -26,30 +26,48 @@ static void print_bytes(const uint8_t* bytes, size_t size)
   Serial.println();
 }
 
-static bool receive_modbus_device_info_response(EPSOLAR_SERIAL_TYPE& RS485, uint8_t slave_id, EPSolarTracerDeviceInfo& info)
+bool EPSolar::receive_modbus_device_info_response(uint8_t slave_id, EPSolarTracerDeviceInfo& info)
 {
-  uint8_t hdr[8];
-  if (RS485.readBytes(hdr, sizeof(hdr)) != sizeof(hdr)) return false;
-  // else
-  if (hdr[0] != slave_id || hdr[1] != 0x2b || hdr[2] != 0x0e || hdr[3] != 0x01) return false;
-  // else
-  uint16_t crc = 0xffff;
-  for (int i = 0; i < sizeof(hdr); i++) crc = update_crc(crc, hdr[i]);
-  uint8_t num_objects = hdr[7];
-  for (int i = 0; i < num_objects; i++) {
-    uint8_t object_hdr[2];
-    if (RS485.readBytes(object_hdr, sizeof(object_hdr)) != sizeof(object_hdr)) return false;
-    crc = update_crc(update_crc(crc, object_hdr[0]), object_hdr[1]);
-    uint8_t object_value[object_hdr[1]];
-    if (RS485.readBytes(object_value, sizeof(object_value)) != sizeof(object_value)) return false;
-    for (int i = 0; i < sizeof(object_value); i++) crc = update_crc(crc, object_value[i]);
-    info.set_value(object_hdr[0], object_hdr[1], object_value);
+  uint8_t response[MAX_MODBUS_MESSAGE_LENGTH];
+  int message_size = receive_modbus_message(response);
+  if (message_size < 8 + 2/*hdr size + crc*/) return false;
+
+  if (response[0] != slave_id) {
+    Serial.println("modbus: Slave id mismatch.");
+    return false;
   }
-  // crc check
-  uint8_t rx_crc[2] = {0, 0};
-  if (RS485.readBytes(rx_crc, sizeof(rx_crc)) != sizeof(rx_crc)) return false;
+
+  if (response[1] != 0x2b) {
+    Serial.println("modbus: Function code mismatch.(expected 0x2b)");
+    return false;
+  }
+
+  if (response[2] != 0x0e || response[3] != 0x01) {
+    Serial.println("modbus: Field mismatch.(expected 0x0e 0x01 = basic info)");
+    return false;
+  }
+
   // else
-  return (rx_crc[0] == LOBYTE(crc) && rx_crc[1] == HIBYTE(crc));
+  uint8_t num_objects = response[7];
+  const uint8_t* pt = response + 8;
+  for (int i = 0; i < num_objects; i++) {
+    if (pt - response + 2 >= message_size) {
+      Serial.println("modbus: Device info response is too short");
+      return false;
+    }
+    uint8_t object_id = pt[0];
+    uint8_t object_length = pt[1];
+    const uint8_t* object_value = pt + 2;
+
+    if (pt - response + 2 + object_length >= message_size) {
+      Serial.println("modbus: Device info response is too short");
+      return false;
+    }
+
+    info.set_value(object_id, object_length, object_value);
+    pt += 2 + object_length;
+  }
+  return true;
 }
 
 bool EPSolar::get_device_info(EPSolarTracerDeviceInfo& info, int max_retry/* = 5*/)
@@ -60,7 +78,7 @@ bool EPSolar::get_device_info(EPSolarTracerDeviceInfo& info, int max_retry/* = 5
 
   for (int i = 0; i < max_retry; i++) {
     send_modbus_message(message, sizeof(message));
-    if (receive_modbus_device_info_response(*(this->RS485), slave_id, info)) {
+    if (receive_modbus_device_info_response(slave_id, info)) {
       if (i > 0) Serial.println("Retry successful.");
       return true;
     }
@@ -71,85 +89,53 @@ bool EPSolar::get_device_info(EPSolarTracerDeviceInfo& info, int max_retry/* = 5
   return false;
 }
 
-static bool read_response_bytes(EPSOLAR_SERIAL_TYPE& RS485, uint8_t* buf, size_t expected_size)
+bool EPSolar::receive_modbus_input_response(uint8_t slave_id, uint8_t function_code, EPSolarTracerInputRegister& reg)
 {
-  int nread = RS485.readBytes(buf, expected_size);
-  if (nread == expected_size) return true;
-  // else
-  if (nread == 0) {
-    Serial.println("modbus: response timeout");
-  } else {
-    Serial.print("modbus: received data too short(expected=");
-    Serial.print(expected_size);
-    Serial.print(" octets,actual=");
-    Serial.print(nread);
-    Serial.println(" octets)");
-  }
-  return false;
-}
+  uint8_t response[MAX_MODBUS_MESSAGE_LENGTH];
+  int message_size = receive_modbus_message(response);
+  if (message_size < 3/*hdr*/ + 2/*crc*/) return false;
 
-static bool receive_modbus_input_response(EPSOLAR_SERIAL_TYPE& RS485, uint8_t slave_id, uint8_t function_code, EPSolarTracerInputRegister& reg)
-{
-  uint8_t hdr[3];
-  if (!read_response_bytes(RS485, hdr, sizeof(hdr))) return false;
-  if (hdr[0] != slave_id) {
+  if (response[0] != slave_id) {
     char buf[3];
     Serial.print("modbus: response slave id mismatch. expected=0x");
     sprintf(buf, "%02x", (int)slave_id);
     Serial.print(buf);
     Serial.print(",actual=0x");
-    sprintf(buf, "%02x", (int)hdr[0]);
+    sprintf(buf, "%02x", (int)response[0]);
     Serial.println(buf);
     return false;
   }
-  if (hdr[1] == 0x83/*Error*/) {
+  if (response[1] == 0x83/*Error*/) {
     Serial.print("modbus: slave returned error response(0x83). ");
-    Serial.println(exception_codes[hdr[2]]);
+    Serial.println(exception_codes[response[2]]);
     Serial.println();
-    uint8_t crc[2];
-    if (read_response_bytes(RS485, crc, sizeof(crc))) {
-      // TODO: check CRC
-    }
     return false;
   }
   //else
-  if (hdr[1] != function_code) {
+  if (response[1] != function_code) {
     char buf[3];
     Serial.print("modbus: response function code mismatch. expected=0x");
     sprintf(buf, "%02x", (int)function_code);
     Serial.print(buf);
     Serial.print(",actual=0x");
-    sprintf(buf, "%02x", (int)hdr[1]);
+    sprintf(buf, "%02x", (int)response[1]);
     Serial.println(buf);
     return false;
   }
   // else
-  size_t data_size = (size_t)hdr[2];
-  //Serial.print("data_size:");  Serial.println((int)data_size);
-  uint8_t buf[data_size];
-  if (RS485.readBytes(buf, sizeof(buf)) != sizeof(buf)) {
+  size_t data_size = (size_t)response[2];
+  if (data_size + 3/*hdr*/ + 2/*crc*/ > message_size) {
     Serial.print("modbus: received response payload too short(expected=");
-    Serial.print(sizeof(buf));
+    Serial.print(data_size);
     Serial.println(" octets)");
     return false;
   }
   // else
-  uint8_t rx_crc[2] = {0, 0};
-  if (RS485.readBytes(rx_crc, sizeof(rx_crc)) != sizeof(rx_crc)) {
-    Serial.println("modbus: received crc too short(expected=2 octets)");
-    return false;
-  }
-  // else
-  uint16_t crc = update_crc(update_crc(update_crc(0xFFFF,hdr[0]), hdr[1]), hdr[2]);
-  for (int i = 0; i < sizeof(buf); i++) crc = update_crc(crc, buf[i]);
-  if (rx_crc[0] != LOBYTE(crc) || rx_crc[1] != HIBYTE(crc)) {
-    Serial.println("modbus: CRC mismatch");
-    return false;
-  }
-
-  reg.setData(buf, data_size);
+  reg.setData(response + 3/*hdr*/, data_size);
   return true;
 }
+
+#define WAIT { while (ESP.getCycleCount()-start < wait) { ; }; wait += m_bitTime; }
 
 void EPSolar::send_modbus_message(const uint8_t* message, size_t size)
 {
@@ -158,15 +144,40 @@ void EPSolar::send_modbus_message(const uint8_t* message, size_t size)
     delay(MIN_MESSAGE_INTERVAL - time_past);
   }
 
-  EPSOLAR_SERIAL_TYPE& RS485 = *(this->RS485);
-  while(RS485.available()) RS485.read();
-
   last_message = millis();
 
   enableTx(true); // for one-wire half duplex communication(just ignored when 2-wire connection is used)
-  delayMicroseconds(304);// 35bit = 304us in 115200bps
-  RS485.write(message, size);
-  RS485.flush();
+#ifdef ARDUINO_ARCH_ESP8266
+  digitalWrite(commPin, HIGH);
+  pinMode(commPin, OUTPUT);
+
+  for (int i = 0; i < size; i++) {
+    uint8_t b = message[i];
+    cli(); // Disable interrupts in order to get a clean transmit
+    unsigned long wait = m_bitTime;
+    digitalWrite(commPin, HIGH);
+    unsigned long start = ESP.getCycleCount();
+    // Start bit;
+    digitalWrite(commPin, LOW);
+    WAIT;
+    for (int j = 0; j < 8; j++) {
+      digitalWrite(commPin, (b & 1) ? HIGH : LOW);
+      WAIT;
+      b >>= 1;
+    }
+    // Stop bit
+    digitalWrite(commPin, HIGH);
+    WAIT;
+    sei();
+  }
+
+  digitalWrite(commPin, HIGH);
+  pinMode(commPin, INPUT);
+#else
+  RS485->write(message, size);
+  RS485->flush();
+  delay(1);
+#endif
   enableTx(false);
 }
 
@@ -185,7 +196,7 @@ bool EPSolar::get_register(uint16_t addr, uint8_t num, EPSolarTracerInputRegiste
       Serial.print("modbus sent: ");
       print_bytes(message, sizeof(message));
     }
-    if (receive_modbus_input_response(*(this->RS485), slave_id, function_code, reg)) {
+    if (receive_modbus_input_response(slave_id, function_code, reg)) {
       if (i > 0) Serial.println("Retry successful.");
       return true;
     }
@@ -196,10 +207,12 @@ bool EPSolar::get_register(uint16_t addr, uint8_t num, EPSolarTracerInputRegiste
   return false;
 }
 
-static bool receive_modbus_output_response(EPSOLAR_SERIAL_TYPE& RS485, uint8_t slave_id, uint8_t function_code)
+bool EPSolar::receive_modbus_output_response(uint8_t slave_id, uint8_t function_code)
 {
-  uint8_t response[3];
-  if (!read_response_bytes(RS485, response, 2)) return false;
+  uint8_t response[MAX_MODBUS_MESSAGE_LENGTH];
+  int message_size = receive_modbus_message(response);
+  if (message_size < 3/*hdr*/ + 2/*crc*/) return false;
+
   //else
   if (response[0] != slave_id) {
     char buf[3];
@@ -211,14 +224,10 @@ static bool receive_modbus_output_response(EPSOLAR_SERIAL_TYPE& RS485, uint8_t s
     Serial.println(buf);
     return false;
   }
+  // else
   if (response[1] == 0x83/*Error*/) {
-    if (!read_response_bytes(RS485, response + 2, 1)) return false;
     Serial.print("modbus: slave returned error response(0x83). ");
     Serial.println(exception_codes[response[2]]);
-    uint8_t crc[2];
-    if (read_response_bytes(RS485, crc, sizeof(crc))) {
-      // TODO: check CRC
-    }
     return false;
   }
   //else
@@ -236,7 +245,6 @@ static bool receive_modbus_output_response(EPSOLAR_SERIAL_TYPE& RS485, uint8_t s
   return true;
 }
 
-
 bool EPSolar::put_register(uint16_t addr, uint16_t data)
 {
   uint8_t slave_id = 0x01, function_code = 0x06; // Preset Single Register(06)
@@ -245,12 +253,9 @@ bool EPSolar::put_register(uint16_t addr, uint16_t data)
   put_crc(message, sizeof(message) - 2);
 
   send_modbus_message(message, sizeof(message));
-  delay(50);
 
-  EPSOLAR_SERIAL_TYPE& RS485 = *(this->RS485);
-  if (!receive_modbus_output_response(RS485, slave_id, function_code)) return false;
+  if (!receive_modbus_output_response(slave_id, function_code)) return false;
   //else
-  while (RS485.available()) RS485.read(); // drop remaining
   return true;
 }
 
@@ -275,10 +280,54 @@ bool EPSolar::put_registers(uint16_t addr, uint16_t* data, uint16_t num)
 
   //print_bytes(message, sizeof(message));
   send_modbus_message(message, sizeof(message));
-  delay(50);
-  EPSOLAR_SERIAL_TYPE& RS485 = *(this->RS485);
-  if (!receive_modbus_output_response(RS485, slave_id, function_code)) return false;
+  if (!receive_modbus_output_response(slave_id, function_code)) return false;
   //else
-  while (RS485.available()) RS485.read(); // drop remaining
   return true;
+}
+
+int ICACHE_RAM_ATTR EPSolar::receive_modbus_message(uint8_t* modbus_message)
+{
+  int message_size;
+  bool waitingForFirstBit = true;
+  cli();
+
+  for (message_size = 0; message_size < MAX_MODBUS_MESSAGE_LENGTH; message_size++) {
+    unsigned long startTime = ESP.getCycleCount();
+    while (GPIP(commPin)) { // wait for a start bit
+      if ((ESP.getCycleCount() - startTime) > (waitingForFirstBit? modbusTimeout : (m_bitTime * 10 * 7 / 2)/*3.5 chars silent interval*/)) goto out;
+    }
+    waitingForFirstBit = false;
+    unsigned long wait = m_bitTime + m_bitTime / 2;
+    unsigned long start = ESP.getCycleCount();
+    uint8_t rec = 0;
+    for (int j = 0; j < 8; j++) {
+      WAIT;
+      rec >>= 1;
+      if (GPIP(commPin)) rec |= 0x80;
+    }
+    // Stop bit
+    WAIT;
+    modbus_message[message_size] = rec;
+  }
+out:;
+  sei();
+
+  if (message_size == 0) {
+    Serial.println("modbus: Response timeout(No device connected?)");
+    return 0;
+  }
+
+  if (message_size < 4) {
+    Serial.println("modbus: Response message too short(expected at least 4bytes)");
+    return -1;
+  }
+
+  uint16_t crc = 0xffff;
+  for (int i = 0; i < message_size - 2; i++) crc = update_crc(crc, modbus_message[i]);
+  if (modbus_message[message_size - 2] != LOBYTE(crc) || modbus_message[message_size - 1] != HIBYTE(crc)) {
+    Serial.println("modbus: CRC mismatch");
+    return -1;
+  }
+
+  return message_size;
 }
