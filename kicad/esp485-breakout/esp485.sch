@@ -214,8 +214,6 @@ Connection ~ 4150 4200
 Wire Wire Line
 	4450 4200 4800 4250
 Wire Wire Line
-	7250 4050 6900 4050
-Wire Wire Line
 	7100 3750 7100 4250
 Wire Wire Line
 	6750 4250 7100 4250
@@ -408,7 +406,7 @@ Wire Wire Line
 	7300 4050 7250 4050
 Connection ~ 7250 4050
 Wire Wire Line
-	7100 4750 7100 5250
+	7100 4750 7100 4950
 Wire Wire Line
 	8100 2700 9200 2700
 Wire Wire Line
@@ -443,7 +441,7 @@ Connection ~ 7300 4050
 Wire Wire Line
 	7800 4050 7800 4150
 Wire Wire Line
-	7800 4150 9200 4150
+	7800 4150 8300 4150
 Wire Wire Line
 	7900 3950 7900 4050
 Wire Wire Line
@@ -635,13 +633,6 @@ Connection ~ 7750 1050
 Wire Wire Line
 	7750 1050 8500 1050
 Wire Wire Line
-	6750 3850 6900 3850
-Wire Wire Line
-	6900 3850 6900 4050
-Connection ~ 6900 4050
-Wire Wire Line
-	6900 4050 6750 4050
-Wire Wire Line
 	4900 1900 7250 1900
 Wire Wire Line
 	4800 4350 2900 4350
@@ -688,4 +679,47 @@ Text Label 4400 3850 0    50   ~ 0
 EN
 Text Label 4650 4350 0    50   ~ 0
 IO2
+Wire Wire Line
+	6750 4050 7000 4050
+Wire Wire Line
+	6750 3850 6700 3850
+$Comp
+L Device:R R6
+U 1 1 5BDA29E7
+P 6850 3850
+F 0 "R6" V 6930 3850 50  0000 C CNN
+F 1 "1k" V 6850 3850 50  0000 C CNN
+F 2 "Resistor_SMD:R_0805_2012Metric_Pad1.15x1.40mm_HandSolder" V 6780 3850 50  0001 C CNN
+F 3 "" H 6850 3850 50  0001 C CNN
+	1    6850 3850
+	0    1    1    0   
+$EndComp
+Wire Wire Line
+	7000 3850 7000 4050
+Connection ~ 7000 4050
+Wire Wire Line
+	7000 4050 7250 4050
+$Comp
+L Device:C C6
+U 1 1 5BD9D886
+P 8300 4800
+F 0 "C6" H 8415 4846 50  0000 L CNN
+F 1 "C" H 8415 4755 50  0000 L CNN
+F 2 "Capacitor_SMD:C_0805_2012Metric_Pad1.15x1.40mm_HandSolder" H 8338 4650 50  0001 C CNN
+F 3 "~" H 8300 4800 50  0001 C CNN
+	1    8300 4800
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	8300 4650 8300 4150
+Connection ~ 8300 4150
+Wire Wire Line
+	8300 4150 9200 4150
+Wire Wire Line
+	8300 4950 7100 4950
+Connection ~ 7100 4950
+Wire Wire Line
+	7100 4950 7100 5250
+Text Label 6700 3850 0    50   ~ 0
+IO16
 $EndSCHEMATC
