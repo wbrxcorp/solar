@@ -131,6 +131,7 @@ public:
     m_bitTime = F_CPU / speed;
     modbusTimeout = F_CPU / 1000 * _modbusTimeout;
     rtsPin = _rtsPin;
+    digitalWrite(rtsPin, LOW);
     pinMode(rtsPin, OUTPUT);
     last_message = 0L;
   }

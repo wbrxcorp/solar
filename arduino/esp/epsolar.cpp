@@ -292,6 +292,7 @@ int ICACHE_RAM_ATTR EPSolar::receive_modbus_message(uint8_t* modbus_message)
     unsigned long startTime = ESP.getCycleCount();
     while (GPIP(commPin)) { // wait for a start bit
       if ((ESP.getCycleCount() - startTime) > (waitingForFirstBit? modbusTimeout : (m_bitTime * 10 * 7 / 2)/*3.5 chars silent interval*/)) goto out;
+      ESP.wdtFeed();
     }
     waitingForFirstBit = false;
     unsigned long wait = m_bitTime + m_bitTime / 2;

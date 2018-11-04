@@ -390,7 +390,7 @@ void setup() {
   for (int i = 0; i < 2; i++) {
     if (i == 0) {
       if (isRtcDataValid()) {
-        Serial.println("Attempting connect to previously connected ap...");
+        Serial.print("(Attempting connect to previously connected AP)");
         WiFi.begin(config.ssid, config.key, rtcData.channel, rtcData.bssid, true);
         invalidateRtcData();
       } else continue;
@@ -404,7 +404,7 @@ void setup() {
     unsigned long startTime = millis();
     while (WiFi.status() != WL_CONNECTED) {
       if (i == 0/*connect with stored bssid*/ && millis() - startTime > 5000/*5 seconds*/) {
-        Serial.println("Abandon connecting previously connected ap.");
+        Serial.println("Abandon connecting previously connected AP");
         WiFi.disconnect();
         delay(10);
         WiFi.forceSleepBegin();
