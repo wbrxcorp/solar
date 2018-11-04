@@ -635,7 +635,7 @@ Wire Wire Line
 Wire Wire Line
 	4900 1900 7250 1900
 Wire Wire Line
-	4800 4350 2900 4350
+	4800 4350 3400 4350
 Wire Wire Line
 	2900 4350 2900 4250
 Wire Wire Line
@@ -722,4 +722,27 @@ Wire Wire Line
 	7100 4950 7100 5250
 Text Label 6700 3850 0    50   ~ 0
 IO16
+Wire Wire Line
+	3400 4350 3400 3300
+Wire Wire Line
+	3400 3300 7700 3300
+Wire Wire Line
+	7700 3300 7700 3100
+Connection ~ 3400 4350
+Wire Wire Line
+	3400 4350 2900 4350
+$Comp
+L Device:R R8
+U 1 1 5BDFB9CD
+P 7700 2950
+F 0 "R8" H 7770 2996 50  0000 L CNN
+F 1 "0" H 7770 2905 50  0000 L CNN
+F 2 "Resistor_SMD:R_0805_2012Metric_Pad1.15x1.40mm_HandSolder" V 7630 2950 50  0001 C CNN
+F 3 "~" H 7700 2950 50  0001 C CNN
+	1    7700 2950
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	7700 2800 7700 2600
+Connection ~ 7700 2600
 $EndSCHEMATC
