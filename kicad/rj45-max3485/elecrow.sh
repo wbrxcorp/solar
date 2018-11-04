@@ -5,13 +5,11 @@ PROJ_NAME=`basename $ABS_DIR`
 rm -rf elecrow
 mkdir elecrow
 cp *.gtl elecrow/$PROJ_NAME.gtl
-#cp *.g2 elecrow/$PROJ_NAME.gl2
-#cp *.g3 elecrow/$PROJ_NAME.gl3
 cp *.gbl elecrow/$PROJ_NAME.gbl
 cp *.gto elecrow/$PROJ_NAME.gto
 cp *.gbo elecrow/$PROJ_NAME.gbo
 cp *.gts elecrow/$PROJ_NAME.gts
 cp *.gbs elecrow/$PROJ_NAME.gbs
 cp *.gm1 elecrow/$PROJ_NAME.gml
-cp *.drl elecrow/$PROJ_NAME.txt
+cp *.drl elecrow/$PROJ_NAMEw.txt
 cd elecrow && zip ../$PROJ_NAME.zip * && cd .. && rm -rf elecrow
