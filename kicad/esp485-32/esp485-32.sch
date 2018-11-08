@@ -37,17 +37,6 @@ F 3 "" H 3550 3950 50  0001 C CNN
 	-1   0    0    1   
 $EndComp
 $Comp
-L Device:R R2
-U 1 1 5B923CFF
-P 6550 4800
-F 0 "R2" V 6630 4800 50  0000 C CNN
-F 1 "10K" V 6550 4800 50  0000 C CNN
-F 2 "Resistor_SMD:R_0603_1608Metric_Pad1.05x0.95mm_HandSolder" V 6480 4800 50  0001 C CNN
-F 3 "" H 6550 4800 50  0001 C CNN
-	1    6550 4800
-	0    -1   -1   0   
-$EndComp
-$Comp
 L Device:R R4
 U 1 1 5B9244E1
 P 2750 1850
@@ -71,17 +60,6 @@ F 3 "" H 2850 1250 50  0001 C CNN
 $EndComp
 Text Notes 7950 7500 0    60   ~ 0
 ESP485
-$Comp
-L Device:R R10
-U 1 1 5B924936
-P 3350 1600
-F 0 "R10" V 3430 1600 50  0000 C CNN
-F 1 "100" V 3350 1600 50  0000 C CNN
-F 2 "Resistor_SMD:R_0805_2012Metric_Pad1.15x1.40mm_HandSolder" V 3280 1600 50  0001 C CNN
-F 3 "" H 3350 1600 50  0001 C CNN
-	1    3350 1600
-	-1   0    0    1   
-$EndComp
 $Comp
 L power:+3.3V #PWR01
 U 1 1 5B9252B0
@@ -202,27 +180,11 @@ F 3 "~" H 9300 1400 50  0001 C CNN
 	1    9300 1400
 	1    0    0    -1  
 $EndComp
-$Comp
-L Device:C C4
-U 1 1 5BA86D43
-P 9600 1400
-F 0 "C4" H 9715 1446 50  0000 L CNN
-F 1 "C" H 9715 1355 50  0000 L CNN
-F 2 "Capacitor_SMD:C_1206_3216Metric_Pad1.42x1.75mm_HandSolder" H 9638 1250 50  0001 C CNN
-F 3 "~" H 9600 1400 50  0001 C CNN
-	1    9600 1400
-	1    0    0    -1  
-$EndComp
 Wire Wire Line
 	9300 1550 8800 1550
 Connection ~ 8800 1550
 Wire Wire Line
 	8800 1550 8800 1600
-Wire Wire Line
-	9600 1550 9300 1550
-Connection ~ 9300 1550
-Wire Wire Line
-	9300 1250 9600 1250
 Wire Wire Line
 	8200 1300 8200 1050
 Wire Wire Line
@@ -361,13 +323,10 @@ Wire Wire Line
 	2600 1850 2600 1750
 Connection ~ 2600 1750
 Wire Wire Line
-	2600 1750 3350 1750
-Wire Wire Line
 	3000 1450 3000 2150
 Connection ~ 9300 1050
 Wire Wire Line
 	9300 1050 9100 1050
-Connection ~ 9300 1250
 Connection ~ 8200 1050
 Wire Wire Line
 	8200 1050 8500 1050
@@ -428,24 +387,6 @@ Wire Wire Line
 	4000 3800 4000 4000
 Text GLabel 6550 5050 2    50   Input ~ 0
 IO0
-$Comp
-L power:+3.3V #PWR0109
-U 1 1 5BFEBD2B
-P 6800 4800
-F 0 "#PWR0109" H 6800 4650 50  0001 C CNN
-F 1 "+3.3V" H 6800 4940 50  0000 C CNN
-F 2 "" H 6800 4800 50  0001 C CNN
-F 3 "" H 6800 4800 50  0001 C CNN
-	1    6800 4800
-	1    0    0    -1  
-$EndComp
-Wire Wire Line
-	5850 5050 6400 5050
-Wire Wire Line
-	6400 4800 6400 5050
-Connection ~ 6400 5050
-Wire Wire Line
-	6400 5050 6550 5050
 $Comp
 L power:+3.3V #PWR0110
 U 1 1 5BFEFD1C
@@ -518,12 +459,6 @@ Text GLabel 3600 1450 2    50   Input ~ 0
 B
 Text GLabel 3600 1750 2    50   Input ~ 0
 A
-Wire Wire Line
-	3600 1450 3350 1450
-Connection ~ 3350 1450
-Wire Wire Line
-	3600 1750 3350 1750
-Connection ~ 3350 1750
 Text GLabel 8750 3000 0    50   Input ~ 0
 B
 Wire Wire Line
@@ -568,8 +503,6 @@ Text GLabel 5950 4650 2    50   Input ~ 0
 SS
 Wire Wire Line
 	5950 4650 5850 4650
-Wire Wire Line
-	6700 4800 6800 4800
 Text GLabel 6350 3950 2    50   Input ~ 0
 SCL
 Wire Wire Line
@@ -609,7 +542,11 @@ NoConn ~ 5100 5650
 NoConn ~ 5200 5650
 NoConn ~ 5300 5650
 Wire Wire Line
-	2700 1450 3350 1450
-Wire Wire Line
 	4000 5300 4000 5700
+Wire Wire Line
+	2600 1750 3600 1750
+Wire Wire Line
+	2700 1450 3600 1450
+Wire Wire Line
+	5850 5050 6550 5050
 $EndSCHEMATC
