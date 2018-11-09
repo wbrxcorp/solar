@@ -1,14 +1,28 @@
 // arduino --upload --board esp8266com:esp8266:d1_mini:xtal=80,eesz=4M1M,baud=460800 --port /dev/ttyUSB0 .
+// arduino --upload --board espressif:esp32:mhetesp32minikit:FlashFreq=80,UploadSpeed=921600 --port /dev/ttyUSB0 .
 #include <EEPROM.h>
+#ifdef ARDUINO_ARCH_ESP8266
 #include <ESP8266WiFi.h>
 #include <user_interface.h>
+#elif defined ARDUINO_ARCH_ESP32
+#include <WiFi.h>
+#include <esp_wifi.h>
+#endif
 
 #define RS485_COMM_SOCKET 0
 #define RS485_RTS_SOCKET 2
-#define PW1_SW_SOCKET 14    // ESP8266 IO14 D1 mini D5
-#define PW1_LED_SOCKET 12   // ESP8266 IO12 D1 mini D6
-#define PW2_SW_SOCKET 15    // ESP8266 IO15(10k pull down) D1 mini D8
-#define PW2_LED_SOCKET 13   // ESP8266 IO13 D1 mini D7
+
+#ifdef ARDUINO_ARCH_ESP8266
+  #define PW1_SW_SOCKET 14    // ESP8266 IO14 D1 mini D5
+  #define PW1_LED_SOCKET 12   // ESP8266 IO12 D1 mini D6
+  #define PW2_SW_SOCKET 15    // ESP8266 IO15(10k pull down) D1 mini D8
+  #define PW2_LED_SOCKET 13   // ESP8266 IO13 D1 mini D7
+#elif defined ARDUINO_ARCH_ESP32
+  #define PW1_SW_SOCKET 18
+  #define PW1_LED_SOCKET 19
+  #define PW2_SW_SOCKET 5
+  #define PW2_LED_SOCKET 23
+#endif
 
 #define CHECK_INTERVAL 5000
 #define REPORT_INTERVAL 5000
@@ -57,17 +71,23 @@ struct {
 
 static bool isRtcDataValid()
 {
+#ifdef ARDUINO_ARCH_ESP8266
   uint16_t crc = 0xffff;
   for (size_t i = sizeof(rtcData.crc); i < sizeof(rtcData); i++) {
     crc = update_crc(crc, ((uint8_t*)&rtcData)[i]);
   }
   return (crc == rtcData.crc);
+#else
+  return false;
+#endif
 }
 
 static void invalidateRtcData()
 {
+#ifdef ARDUINO_ARCH_ESP8266
   memset(&rtcData, sizeof(rtcData), 0);
   ESP.rtcUserMemoryWrite(0, (uint32_t*)&rtcData, sizeof(rtcData));
+#endif
 }
 
 static void process_message(const char* message)
@@ -140,6 +160,7 @@ static void process_message(const char* message)
         edogawaUnit.power_on();
       }
     } else if (strcmp(key, "sleep") == 0 && isdigit(value[0])) {
+#ifdef ARDUINO_ARCH_ESP8266
       int seconds = atoi(value);
       display.ssd1306_command(0xae); // Display OFF
       // save WiFi AP info to rtc data
@@ -152,6 +173,9 @@ static void process_message(const char* message)
       ESP.rtcUserMemoryWrite(0, (uint32_t*)&rtcData, sizeof(rtcData));
       ESP.deepSleep(seconds * 1000L * 1000L , WAKE_RF_DEFAULT);
       delay(1000);
+#else
+      Serial.println("Sleep not implemented yet");
+#endif
     }
   }
 
@@ -216,8 +240,10 @@ void setup() {
 
   Serial.println("Half duplex communication mode: Single wire");
 
+#ifdef ARDUINO_ARCH_ESP8266
   // read rtc memory
   ESP.rtcUserMemoryRead(0, (uint32_t*)&rtcData, sizeof(rtcData));
+#endif
 
   // read config from EEPROM
   Serial.write("Loading config from EEPROM...");
@@ -407,10 +433,12 @@ void setup() {
         Serial.println("Abandon connecting previously connected AP");
         WiFi.disconnect();
         delay(10);
+#ifdef ARDUINO_ARCH_ESP8266
         WiFi.forceSleepBegin();
         delay(10);
         WiFi.forceSleepWake();
         delay(10);
+#endif
         break;
       }
       display.setCursor(0, display.getCursorY());
@@ -448,8 +476,13 @@ void setup() {
     Serial.println(" Connected.");
     display.println("Connected.");
     display.display();
-      Serial.println("Entering modem sleep(MODEM_SLEEP_T)...");
-      wifi_set_sleep_type(MODEM_SLEEP_T);
+#ifdef ARDUINO_ARCH_ESP8266
+    Serial.println("Entering modem sleep(MODEM_SLEEP_T)...");
+    wifi_set_sleep_type(MODEM_SLEEP_T);
+#elif defined ARDUINO_ARCH_ESP32
+    Serial.println("Entering modem sleep(WIFI_PS_MAX_MODEM)...");
+    esp_wifi_set_ps(WIFI_PS_MAX_MODEM) == ESP_OK;
+#endif
   } else if (operation_mode == OPERATION_MODE_SERVER) {
     setup_server();
   }

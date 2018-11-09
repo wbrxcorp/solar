@@ -290,9 +290,15 @@ int ICACHE_RAM_ATTR EPSolar::receive_modbus_message(uint8_t* modbus_message)
 
   for (message_size = 0; message_size < MAX_MODBUS_MESSAGE_LENGTH; message_size++) {
     unsigned long startTime = ESP.getCycleCount();
+#ifdef ARDUINO_ARCH_ESP8266
     while (GPIP(commPin)) { // wait for a start bit
+#else
+    while(digitalRead(commPin) == HIGH) { // wait for a start bit
+#endif
       if ((ESP.getCycleCount() - startTime) > (waitingForFirstBit? modbusTimeout : (m_bitTime * 10 * 7 / 2)/*3.5 chars silent interval*/)) goto out;
+#ifdef ARDUINO_ARCH_ESP8266
       ESP.wdtFeed();
+#endif
     }
     waitingForFirstBit = false;
     unsigned long wait = m_bitTime + m_bitTime / 2;
@@ -301,7 +307,11 @@ int ICACHE_RAM_ATTR EPSolar::receive_modbus_message(uint8_t* modbus_message)
     for (int j = 0; j < 8; j++) {
       WAIT;
       rec >>= 1;
+#ifdef ARDUINO_ARCH_ESP8266
       if (GPIP(commPin)) rec |= 0x80;
+#else
+      if (digitalRead(commPin)) rec |= 0x80;
+#endif
     }
     // Stop bit
     WAIT;
