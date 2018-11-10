@@ -10,14 +10,20 @@
 #endif
 
 #define RS485_COMM_SOCKET 0
-#define RS485_RTS_SOCKET 2
+#define RS485_DE_NRE_SOCKET 2
 
 #ifdef ARDUINO_ARCH_ESP8266
+  #define RS485_RE_SOCKET 2   // default pull-up(Receiver disable) in ESP8266
+  #define RS485_DE_SOCKET 15  // default pull-down(Driver disable) in ESP8266
+
   #define PW1_SW_SOCKET 14    // ESP8266 IO14 D1 mini D5
   #define PW1_LED_SOCKET 12   // ESP8266 IO12 D1 mini D6
   #define PW2_SW_SOCKET 15    // ESP8266 IO15(10k pull down) D1 mini D8
   #define PW2_LED_SOCKET 13   // ESP8266 IO13 D1 mini D7
 #elif defined ARDUINO_ARCH_ESP32
+  #define RS485_RE_SOCKET 5   // default pull-up(Receiver disable) in ESP32
+  #define RS485_DE_SOCKET 2   // default pull-down(Driver disable) in ESP32
+
   #define PW1_SW_SOCKET 18
   #define PW1_LED_SOCKET 19
   #define PW2_SW_SOCKET 5
@@ -30,6 +36,7 @@
 #define COMMAND_LINE_ONLY_MODE_WAIT_SECONDS 3
 
 const char* DEFAULT_NODENAME = "kennel01";
+const bool DEFAULT_SLEEP_ENABLED = false;
 const char* DEFAULT_SERVERNAME = "_solar._tcp";
 const uint16_t DEFAULT_PORT = 29574; // default server port number
 
@@ -99,6 +106,7 @@ static void process_message(const char* message)
   // else
   const char* pt = message + 3;
   int32_t date = -1, time = -1;
+  int sleep_sec = 0;
   while (*pt) {
     const char* ptcolon = strchr(pt, ':');
     if (ptcolon == NULL) break; // end parsing string if there's no colon anymore
@@ -136,8 +144,8 @@ static void process_message(const char* message)
       int pw = atoi(value);
       if (pw == 0) {
         Serial.println("Power OFF");
-        if (edogawaUnit1.is_power_on()) edogawaUnit1.power_off(); // atx power off
-        if (edogawaUnit2.is_power_on()) edogawaUnit2.power_off(); // atx power off
+        if (edogawaUnit1 && edogawaUnit1.is_power_on()) edogawaUnit1.power_off(); // atx power off
+        if (edogawaUnit2 && edogawaUnit2.is_power_on()) edogawaUnit2.power_off(); // atx power off
         epsolar.load_on(false);
       } else if (pw == 1) {
         Serial.println("Power ON");
@@ -145,37 +153,24 @@ static void process_message(const char* message)
       }
     } else if (key[0] == 'p' && key[1] == 'w' && (key[2] == '1' || key[2] == '2') && (isdigit(value[0]) || value[0] == '-')) { // atx power
       EdogawaUnit& edogawaUnit = key[2] == '1'? edogawaUnit1 : edogawaUnit2;
-      int pwX = atoi(value);
-      bool pwX_on = edogawaUnit.is_power_on();
-      if (pwX_on && pwX == 0) { // power off
-        Serial.print("Power");
-        Serial.print(key[2]);
-        Serial.println(" OFF");
-        edogawaUnit.power_off();
-      } else if (!pwX_on && pwX == 1) { // power on
-        Serial.print("Power");
-        Serial.print(key[2]);
-        Serial.println(" ON");
-        epsolar.load_on(true); // main power on first
-        edogawaUnit.power_on();
+      if (edogawaUnit) {
+        int pwX = atoi(value);
+        bool pwX_on = edogawaUnit.is_power_on();
+        if (pwX_on && pwX == 0) { // power off
+          Serial.print("Power");
+          Serial.print(key[2]);
+          Serial.println(" OFF");
+          edogawaUnit.power_off();
+        } else if (!pwX_on && pwX == 1) { // power on
+          Serial.print("Power");
+          Serial.print(key[2]);
+          Serial.println(" ON");
+          epsolar.load_on(true); // main power on first
+          edogawaUnit.power_on();
+        }
       }
     } else if (strcmp(key, "sleep") == 0 && isdigit(value[0])) {
-#ifdef ARDUINO_ARCH_ESP8266
-      int seconds = atoi(value);
-      display.ssd1306_command(0xae); // Display OFF
-      // save WiFi AP info to rtc data
-      rtcData.channel = WiFi.channel();
-      memcpy(rtcData.bssid, WiFi.BSSID(), sizeof(rtcData.bssid));
-      rtcData.crc = 0xffff;
-      for (size_t i = sizeof(rtcData.crc); i < sizeof(rtcData); i++) {
-        rtcData.crc = update_crc(rtcData.crc, ((uint8_t*)&rtcData)[i]);
-      }
-      ESP.rtcUserMemoryWrite(0, (uint32_t*)&rtcData, sizeof(rtcData));
-      ESP.deepSleep(seconds * 1000L * 1000L , WAKE_RF_DEFAULT);
-      delay(1000);
-#else
-      Serial.println("Sleep not implemented yet");
-#endif
+        sleep_sec = atoi(value);
     }
   }
 
@@ -195,6 +190,26 @@ static void process_message(const char* message)
       Serial.println("RTC did not saved(invalid date or communication error).");
     }
   }
+
+  if (sleep_sec > 0 && (bool)config.sleep_enabled) {
+#ifdef ARDUINO_ARCH_ESP8266
+    disconnect();  // disconnect from server
+    display.ssd1306_command(0xae); // Display OFF
+    // save WiFi AP info to rtc data
+    rtcData.channel = WiFi.channel();
+    memcpy(rtcData.bssid, WiFi.BSSID(), sizeof(rtcData.bssid));
+    rtcData.crc = 0xffff;
+    for (size_t i = sizeof(rtcData.crc); i < sizeof(rtcData); i++) {
+      rtcData.crc = update_crc(rtcData.crc, ((uint8_t*)&rtcData)[i]);
+    }
+    ESP.rtcUserMemoryWrite(0, (uint32_t*)&rtcData, sizeof(rtcData));
+    ESP.deepSleep(sleep_sec * 1000L * 1000L , WAKE_RF_DEFAULT);
+    delay(1000);
+#else
+    Serial.println("Sleep is not implemented for this architecture yet");
+#endif
+  }
+
 }
 
 void connect(const char* additional_init_params = NULL)
@@ -264,6 +279,7 @@ void setup() {
     memset(&config, 0, sizeof(config));
 
     config.default_operation_mode = OPERATION_MODE_NORMAL;
+    config.sleep_enabled = (uint8_t)DEFAULT_SLEEP_ENABLED;
     strcpy(config.nodename, DEFAULT_NODENAME);
     strcpy(config.ssid, "YOUR_ESSID");
     strcpy(config.key, "YOUR_WPA_KEY");
@@ -285,6 +301,8 @@ void setup() {
   Serial.println("Done.");
   Serial.print("Operation mode: ");
   Serial.println(operation_mode);
+  Serial.print("Deep sleep: ");
+  Serial.println(((bool)config.sleep_enabled)? "enabled" : "disabled");
   Serial.print("Nodename: ");
   Serial.println(config.nodename);
   Serial.print(("WiFi SSID: "));
@@ -324,10 +342,16 @@ void setup() {
   display.display();
 
   if (operation_mode == OPERATION_MODE_NORMAL) {
-    epsolar.begin(RS485_COMM_SOCKET, RS485_RTS_SOCKET);
+    if (config.sleep_enabled) {
+      epsolar.begin(RS485_COMM_SOCKET, RS485_DE_SOCKET, RS485_RE_SOCKET);
+    } else {
+      epsolar.begin(RS485_COMM_SOCKET, RS485_DE_NRE_SOCKET);
+    }
 
     edogawaUnit1.begin(PW1_SW_SOCKET, PW1_LED_SOCKET);
-    edogawaUnit2.begin(PW2_SW_SOCKET, PW2_LED_SOCKET);
+    if (!config.sleep_enabled) { // in ESP8266, IO15 is occupied by RS485 DE when deep sleep is enabled
+      edogawaUnit2.begin(PW2_SW_SOCKET, PW2_LED_SOCKET);
+    }
 
     EPSolarTracerDeviceInfo info;
     if (epsolar.get_device_info(info)) {
@@ -605,8 +629,8 @@ void loop_normal()
   String message;
   EPSolarValues values;
   if (getEPSolarValues(values)) {
-    bool pw1 = edogawaUnit1.is_power_on();
-    bool pw2 = edogawaUnit2.is_power_on();
+    bool pw1 = edogawaUnit1? edogawaUnit1.is_power_on() : false;
+    bool pw2 = edogawaUnit2? edogawaUnit2.is_power_on() : false;
 
     message = String("PV   ") + values.piw + "W\n"
       + "LOAD " + values.load + "W\n"

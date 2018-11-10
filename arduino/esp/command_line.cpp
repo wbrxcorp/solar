@@ -82,6 +82,30 @@ bool defaultmode(const LineParser& lineparser)
   return true;
 }
 
+bool sleepenabled(const LineParser& lineparser)
+{
+  if (lineparser.get_count() < 2) {
+    Serial.print("Deep sleep is '");
+    Serial.print(((bool)config.sleep_enabled)? "enabled(1)" : "disabled(0)");
+    Serial.println("'.");
+    return true;
+  }
+  // else
+  char sleep_enabled = lineparser[1][0];
+  if (sleep_enabled == '0') {
+    config.sleep_enabled = (uint8_t)false;
+    Serial.print("Deep sleep disabled");
+  } else if (sleep_enabled == '1') {
+    config.sleep_enabled = (uint8_t)true;
+    Serial.print("Deep sleep enabled");
+  } else {
+    Serial.println("Argument must be 1(enabled) or 0(disabled).");
+    return true;
+  }
+  Serial.println(". save and reboot the system to take effects.");
+  return true;
+}
+
 bool nodename(const LineParser& lineparser)
 {
   if (lineparser.get_count() < 2) {
@@ -435,6 +459,7 @@ bool process_command_line(const char* line) // true = go to next line,  false = 
   } command_table[] = {
     { "exit", _exit }, { "quit", _exit },
     { "defaultmode", defaultmode },
+    { "sleepenabled", sleepenabled },
     { "nodename", nodename },
     { "ssid", ssid },
     { "key", key },

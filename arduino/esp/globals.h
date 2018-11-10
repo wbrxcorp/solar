@@ -12,6 +12,7 @@ extern uint8_t operation_mode;
 
 typedef struct strCONFIG {
   uint8_t default_operation_mode;
+  uint8_t sleep_enabled;
   char nodename[32];
   char ssid[34];
   char key[64];

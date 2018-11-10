@@ -146,7 +146,8 @@ void EPSolar::send_modbus_message(const uint8_t* message, size_t size)
   digitalWrite(commPin, HIGH);
   pinMode(commPin, OUTPUT);
 
-  digitalWrite(rtsPin, HIGH); // enableRS485 driver
+  if (rtrPin >= 0) digitalWrite(rtrPin, HIGH); // disable RS485 receiver
+  digitalWrite(rtsPin, HIGH); // enable RS485 driver
 
   for (int i = 0; i < size; i++) {
     uint8_t b = message[i];
@@ -288,6 +289,8 @@ int ICACHE_RAM_ATTR EPSolar::receive_modbus_message(uint8_t* modbus_message)
   bool waitingForFirstBit = true;
   cli();
 
+  if (rtrPin >= 0) digitalWrite(rtrPin, LOW); // enable RS485 receiver
+
   for (message_size = 0; message_size < MAX_MODBUS_MESSAGE_LENGTH; message_size++) {
     unsigned long startTime = ESP.getCycleCount();
 #ifdef ARDUINO_ARCH_ESP8266
@@ -318,6 +321,8 @@ int ICACHE_RAM_ATTR EPSolar::receive_modbus_message(uint8_t* modbus_message)
     modbus_message[message_size] = rec;
   }
 out:;
+  if (rtrPin >= 0) digitalWrite(rtrPin, HIGH); // disable RS485 receiver
+
   sei();
 
   if (message_size == 0) {

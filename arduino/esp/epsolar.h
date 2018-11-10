@@ -119,20 +119,26 @@ class EPSolar {
   int commPin;
   unsigned long m_bitTime;
   unsigned long modbusTimeout;
-  int rtsPin;
+  int rtsPin, rtrPin;
   unsigned long last_message;
 public:
-  EPSolar() : commPin(-1), last_message(0L) {;}
+  EPSolar() : commPin(-1), rtsPin(-1), rtrPin(-1), last_message(0L) {;}
 
 
-  void begin(int _commPin, int _rtsPin, long speed = EPSOLAR_COMM_SPEED, int _modbusTimeout = MODBUS_TIMEOUT_MS)
+  void begin(int _commPin, int _rtsPin, int _rtrPin = -1, long speed = EPSOLAR_COMM_SPEED, int _modbusTimeout = MODBUS_TIMEOUT_MS)
   {
     commPin = _commPin;
     m_bitTime = F_CPU / speed;
     modbusTimeout = F_CPU / 1000 * _modbusTimeout;
     rtsPin = _rtsPin;
-    digitalWrite(rtsPin, LOW);
+    rtrPin = _rtrPin;
+    digitalWrite(rtsPin, LOW);  // disable RS485 driver
     pinMode(rtsPin, OUTPUT);
+    if (rtrPin >= 0) {
+      digitalWrite(rtrPin, HIGH); // disable RS485 receiver
+      pinMode(rtrPin, OUTPUT);
+    }
+
     last_message = 0L;
   }
 

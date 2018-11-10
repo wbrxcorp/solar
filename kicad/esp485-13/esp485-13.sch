@@ -1,5 +1,4 @@
 EESchema Schematic File Version 4
-LIBS:esp485-12f-cache
 EELAYER 26 0
 EELAYER END
 $Descr A4 11693 8268
@@ -15,14 +14,14 @@ Comment3 ""
 Comment4 ""
 $EndDescr
 $Comp
-L components:ESP-12F U2
+L components:ESP-13-WROOM-02 U2
 U 1 1 5B923A7D
-P 5800 4050
-F 0 "U2" H 5800 3950 50  0000 C CNN
-F 1 "ESP-12F" H 5800 4500 50  0000 C CNN
-F 2 "ESP8266:ESP-12E_SMD_NO_UNUSED_PAD" H 5700 4050 50  0001 C CNN
-F 3 "" H 5700 4050 50  0001 C CNN
-	1    5800 4050
+P 5200 4350
+F 0 "U2" H 5200 4250 50  0000 C CNN
+F 1 "ESP-WROOM-02" H 5200 4800 50  0000 C CNN
+F 2 "ESP8266:ESP-13-WROOM-02" H 5100 4350 50  0001 C CNN
+F 3 "" H 5100 4350 50  0001 C CNN
+	1    5200 4350
 	1    0    0    -1  
 $EndComp
 $Comp
@@ -118,12 +117,12 @@ $EndComp
 $Comp
 L power:GND #PWR03
 U 1 1 5B92A51D
-P 7100 5250
-F 0 "#PWR03" H 7100 5000 50  0001 C CNN
-F 1 "GND" H 7100 5100 50  0000 C CNN
-F 2 "" H 7100 5250 50  0001 C CNN
-F 3 "" H 7100 5250 50  0001 C CNN
-	1    7100 5250
+P 5200 5350
+F 0 "#PWR03" H 5200 5100 50  0001 C CNN
+F 1 "GND" H 5200 5200 50  0000 C CNN
+F 2 "" H 5200 5350 50  0001 C CNN
+F 3 "" H 5200 5350 50  0001 C CNN
+	1    5200 5350
 	1    0    0    -1  
 $EndComp
 $Comp
@@ -289,16 +288,6 @@ Wire Wire Line
 	7750 1050 8500 1050
 Wire Wire Line
 	1550 1600 1400 1600
-NoConn ~ 4900 3850
-NoConn ~ 4900 4150
-NoConn ~ 4900 4350
-NoConn ~ 4900 4250
-Wire Wire Line
-	6700 4450 7000 4450
-Wire Wire Line
-	7000 4450 7000 5250
-Wire Wire Line
-	7000 5250 7100 5250
 $Comp
 L Connector_Generic:Conn_01x08 J1
 U 1 1 5BA89674
@@ -341,16 +330,16 @@ F 3 "~" H 8500 3650 50  0001 C CNN
 	1    0    0    -1  
 $EndComp
 Wire Wire Line
-	4900 3750 4600 3750
+	6150 4350 6450 4350
 $Comp
 L power:+3.3V #PWR0101
 U 1 1 5BE725C4
-P 3900 4450
-F 0 "#PWR0101" H 3900 4300 50  0001 C CNN
-F 1 "+3.3V" H 3900 4590 50  0000 C CNN
-F 2 "" H 3900 4450 50  0001 C CNN
-F 3 "" H 3900 4450 50  0001 C CNN
-	1    3900 4450
+P 3200 4050
+F 0 "#PWR0101" H 3200 3900 50  0001 C CNN
+F 1 "+3.3V" H 3200 4190 50  0000 C CNN
+F 2 "" H 3200 4050 50  0001 C CNN
+F 3 "" H 3200 4050 50  0001 C CNN
+	1    3200 4050
 	1    0    0    -1  
 $EndComp
 Wire Wire Line
@@ -368,7 +357,7 @@ F 3 "" H 3700 1550 50  0001 C CNN
 	1    3700 1550
 	1    0    0    -1  
 $EndComp
-Text GLabel 7600 4250 2    50   Input ~ 0
+Text GLabel 3300 4650 0    50   Input ~ 0
 IO2
 Text GLabel 1150 1400 0    50   Input ~ 0
 IO2
@@ -378,12 +367,12 @@ Text GLabel 2500 1600 2    50   Input ~ 0
 A
 Text GLabel 4100 2350 0    50   Input ~ 0
 A
-Text GLabel 7250 4150 2    50   Input ~ 0
+Text GLabel 3650 4750 0    50   Input ~ 0
 IO0
 Text GLabel 1400 1600 0    50   Input ~ 0
 IO0
 Wire Wire Line
-	6700 4150 7250 4150
+	4200 4750 3650 4750
 Text GLabel 4350 2250 0    50   Input ~ 0
 B
 Wire Wire Line
@@ -461,8 +450,8 @@ Connection ~ 9100 3100
 Wire Wire Line
 	9100 3100 9100 3350
 Wire Wire Line
-	4500 3950 4900 3950
-Text GLabel 4500 3950 0    50   Input ~ 0
+	3800 4150 4200 4150
+Text GLabel 3800 4150 0    50   Input ~ 0
 EN
 Wire Wire Line
 	8150 3500 8150 3100
@@ -492,10 +481,10 @@ Wire Wire Line
 	8900 4000 9100 4000
 Text GLabel 9100 4000 2    50   Input ~ 0
 IO15
-Text GLabel 7250 4350 2    50   Input ~ 0
+Text GLabel 3650 4550 0    50   Input ~ 0
 IO15
 Wire Wire Line
-	7250 4350 6700 4350
+	3650 4550 4200 4550
 Text GLabel 8200 4750 0    50   Input ~ 0
 IO16
 Text GLabel 8900 4750 2    50   Input ~ 0
@@ -504,16 +493,16 @@ Wire Wire Line
 	8200 4750 8400 4750
 Wire Wire Line
 	8700 4750 8900 4750
-Text GLabel 4700 4050 0    50   Input ~ 0
+Text GLabel 6350 4150 2    50   Input ~ 0
 IO16
 Wire Wire Line
-	4700 4050 4900 4050
-Text GLabel 4600 3750 0    50   Input ~ 0
+	6350 4150 6150 4150
+Text GLabel 6450 4350 2    50   Input ~ 0
 RST
 Wire Wire Line
-	6700 4250 7600 4250
+	4200 4650 3300 4650
 Wire Wire Line
-	4900 4450 3900 4450
+	4200 4050 3200 4050
 Wire Wire Line
 	4600 1950 4200 1950
 Text GLabel 4200 1950 0    50   Input ~ 0
@@ -526,14 +515,14 @@ Text GLabel 4500 2550 0    50   Input ~ 0
 RXD
 Wire Wire Line
 	4500 2550 4600 2550
-Text GLabel 6800 3750 2    50   Input ~ 0
+Text GLabel 6250 4650 2    50   Input ~ 0
 TXD
 Wire Wire Line
-	6700 3750 6800 3750
-Text GLabel 7000 3850 2    50   Input ~ 0
+	6150 4650 6250 4650
+Text GLabel 6450 4750 2    50   Input ~ 0
 RXD
 Wire Wire Line
-	6700 3850 7000 3850
+	6150 4750 6450 4750
 Text GLabel 4200 2650 0    50   Input ~ 0
 IO0
 Wire Wire Line
@@ -550,14 +539,39 @@ Wire Wire Line
 Connection ~ 8800 1850
 Wire Wire Line
 	8800 1850 8800 1900
-Text GLabel 6800 3950 2    50   Input ~ 0
-SCL
-Wire Wire Line
-	6700 3950 6800 3950
-Text GLabel 7000 4050 2    50   Input ~ 0
-SDA
-Wire Wire Line
-	6700 4050 7000 4050
 Wire Wire Line
 	3900 2450 3900 2950
+Wire Wire Line
+	5200 5250 5200 5350
+Wire Wire Line
+	5200 5250 4200 5250
+Wire Wire Line
+	4200 5250 4200 4850
+Connection ~ 5200 5250
+Wire Wire Line
+	6150 4050 7150 4050
+$Comp
+L power:GND #PWR0106
+U 1 1 5BE81A57
+P 7150 4950
+F 0 "#PWR0106" H 7150 4700 50  0001 C CNN
+F 1 "GND" H 7150 4800 50  0000 C CNN
+F 2 "" H 7150 4950 50  0001 C CNN
+F 3 "" H 7150 4950 50  0001 C CNN
+	1    7150 4950
+	1    0    0    -1  
+$EndComp
+NoConn ~ 6150 4250
+Wire Wire Line
+	7150 4050 7150 4550
+Wire Wire Line
+	6150 4550 7150 4550
+Connection ~ 7150 4550
+Wire Wire Line
+	7150 4550 7150 4950
+NoConn ~ 6150 4450
+NoConn ~ 6150 4850
+NoConn ~ 4200 4250
+NoConn ~ 4200 4350
+NoConn ~ 4200 4450
 $EndSCHEMATC

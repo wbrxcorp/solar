@@ -17,6 +17,7 @@ public:
     pinMode(swPin, OUTPUT);
     pinMode(ledPin, INPUT_PULLUP);
   }
+  operator bool() const { return swPin >= 0 || ledPin >= 0; }
   bool is_power_on() { return digitalRead(ledPin) == LOW; }
   bool power_on()
   {
