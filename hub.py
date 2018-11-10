@@ -28,7 +28,7 @@ def process_data(nodename, data):
             cur.execute("replace into data(hostname,t,piv,pia,piw,pov,poa,loadw,temp,kwh,lkwh) values(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)", (nodename,now_str, piv,float(data["pia"]),piw,pov,float(data["poa"]),float(data["load"]),float(data["temp"]),float(data["kwh"]),float(data["lkwh"])))
             saved = True
 
-        if piw < 0.01 and ("pw1" not in data or int(data["pw1"]) == 0):
+        if piv <= pov and ("pw1" not in data or int(data["pw1"]) == 0):
             response_data["sleep"] = 60
 
         bv_compensation = float(data["btcv"]) if "btcv" in data else 0.0
