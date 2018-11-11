@@ -7,6 +7,6 @@ EdogawaUnit edogawaUnit1, edogawaUnit2;
 
 EPSolar epsolar;
 
-Adafruit_SSD1306 display(-1);
+Display display;
 
 bool debug_mode = false;

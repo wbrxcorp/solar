@@ -30,6 +30,8 @@
   #define PW2_LED_SOCKET 23
 #endif
 
+#define DISPLAY_I2C_ADDRESS 0x3c
+
 #define CHECK_INTERVAL 5000
 #define REPORT_INTERVAL 5000
 #define MESSAGE_TIMEOUT 10000
@@ -43,8 +45,6 @@ const uint16_t DEFAULT_PORT = 29574; // default server port number
 #include "network.h"
 #include "command_line.h"
 #include "server.h"
-
-#include "logo.h"
 
 #include "globals.h"
 
@@ -194,7 +194,7 @@ static void process_message(const char* message)
   if (sleep_sec > 0 && (bool)config.sleep_enabled) {
 #ifdef ARDUINO_ARCH_ESP8266
     disconnect();  // disconnect from server
-    display.ssd1306_command(0xae); // Display OFF
+    display.turnOff(); // Display OFF
     // save WiFi AP info to rtc data
     rtcData.channel = WiFi.channel();
     memcpy(rtcData.bssid, WiFi.BSSID(), sizeof(rtcData.bssid));
@@ -240,13 +240,13 @@ void connect(const char* additional_init_params = NULL)
 void setup() {
   Serial.begin(115200);
 
-  display.begin(SSD1306_SWITCHCAPVCC, SSD1306_I2C_ADDRESS);
+  display.begin(DISPLAY_I2C_ADDRESS);
 
-  display.clearDisplay();
-  display.setTextColor(WHITE);
+  //display.clearDisplay();
+  display.setTextColor(1/*Light pixel*/);
   display.setTextSize(1);
   display.setCursor(0,0);
-  display.drawXBitmap(0, 0, logo_bits, 128, 64, 1);
+  //display.drawXBitmap(0, 0, logo_bits, 128, 64, 1);
   display.display();
 
   Serial.println();

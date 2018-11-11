@@ -337,7 +337,7 @@ bool reboot(const LineParser& lineparser)
 {
 #if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266)
   Serial.println("Rebooting...");
-  display.ssd1306_command(0xae); // Display OFF
+  display.turnOff();
   ESP.restart();
 #else
   Serial.println("Reboot not implemented...");
