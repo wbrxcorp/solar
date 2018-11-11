@@ -291,8 +291,11 @@ int ICACHE_RAM_ATTR EPSolar::receive_modbus_message(uint8_t* modbus_message)
 
   if (rtrPin >= 0) digitalWrite(rtrPin, LOW); // enable RS485 receiver
 
+  unsigned long startTime = ESP.getCycleCount();
+  while (ESP.getCycleCount() - startTime < m_bitTime * 10 * 7 / 2/*expect 3.5 chars silent interval*/) { ; }
+
   for (message_size = 0; message_size < MAX_MODBUS_MESSAGE_LENGTH; message_size++) {
-    unsigned long startTime = ESP.getCycleCount();
+    startTime = ESP.getCycleCount();
 #ifdef ARDUINO_ARCH_ESP8266
     while (GPIP(commPin)) { // wait for a start bit
 #else
