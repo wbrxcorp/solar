@@ -22,6 +22,8 @@ const uint16_t EDOGAWA_UNIT_OPERATION_INTERVAL_SECS = 300;
 const float LOW_TEMPERATURE = 22.5;
 const float HIGH_TEMPERATURE = 25.5;
 
+uint8_t cnt = 0;
+
 void setup()
 {
   Serial.begin(115200);
@@ -43,30 +45,50 @@ void setup()
   }
 
   lastEdogawaUnitOperation = millis();
+  delay(1000);
 }
 
 void loop()
 {
-  char buf[6];
   display.clearDisplay();
 
-  // Temperature
+  // read values from sensor
   float temperature = bme.readTemperature();
-  dtostrf(temperature, 4, 1, buf);
-  char* decimal_part = strchr(buf, '.');
+  char temp_s[6];
+  dtostrf(temperature, 4, 1, temp_s);
+  float humidity = bme.readHumidity();
+  char hum_s[6];
+  dtostrf(humidity, 4, 1, hum_s);
+  int pressure = (int)(bme.readPressure() / 100.0F);
+
+  Serial.print("Temp=");
+  Serial.print(temp_s);
+  Serial.print((char)0xE2);
+  Serial.print((char)0x84);
+  Serial.print((char)0x83); // DEGREE CELSIUS symbol in UTF-8
+  Serial.print(" , Humidity=");
+  Serial.print(hum_s);
+  Serial.print("%, Pressure=");
+  Serial.print(pressure);
+  Serial.println("hPa");
+
+  // Temperature
+  char* decimal_part = strchr(temp_s, '.');
 
   if (decimal_part) {
     // decimal part first
     display.setTextSize(2);
     display.setCursor(58, 0);
+    if (cnt % 2 == 1) *decimal_part = ' ';
     display.print(decimal_part);
 
     *decimal_part = '\0';
   }
+  cnt++;
 
   display.setCursor(0, 0);
   display.setTextSize(5);
-  display.print(buf);
+  display.print(temp_s);
 
   const uint8_t x = 58, y = 20;
   for (int i = 2; i <= 3; i++) {
@@ -77,15 +99,12 @@ void loop()
   display.println("C");
 
   // Humidity
-  float humidity = bme.readHumidity();
-  dtostrf(humidity, 4, 1, buf);
-  strcat(buf, "%");
+  strcat(hum_s, "%");
   display.setCursor(90,0);
   display.setTextSize(1);
-  display.print(buf);
+  display.print(hum_s);
 
   // Pressure
-  int pressure = (int)(bme.readPressure() / 100.0F);
   display.setCursor(90, 40);
   display.print(pressure);
   display.setCursor(90, 50);
