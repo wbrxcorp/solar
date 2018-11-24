@@ -57,6 +57,7 @@ unsigned long last_reported = 0;
 char session_id[48] = "";
 uint8_t battery_rated_voltage = 0; // 12 or 24(V)
 uint8_t temperature_compensation_coefficient = 0; // 0-9(mV)
+int reset_reason = REASON_DEFAULT_RST;
 
 typedef struct strEPSolarValues {
   float piv,pia,bv,poa;
@@ -174,7 +175,7 @@ static void process_message(const char* message)
     }
   }
 
-  if (date > 20170101L && time >= 0) {
+  if (reset_reason != REASON_DEEP_SLEEP_AWAKE && date > 20170101L && time >= 0) {
     uint16_t year = date / 10000 - 2000;
     uint16_t month = date % 10000 / 100;
     uint16_t day = date % 100;
@@ -187,7 +188,7 @@ static void process_message(const char* message)
       sprintf(buf, "Date saved: 20%02u-%02u-%02u %02u:%02u:%02u", year, month, day, hour, minute, second);
       Serial.println(buf);
     } else {
-      Serial.println("RTC did not saved(invalid date or communication error).");
+      Serial.println("RTC was not saved(invalid date or communication error).");
     }
   }
 
@@ -313,7 +314,10 @@ void setup() {
   Serial.print("Server port: ");
   Serial.println(config.port);
 
-  if (isRtcDataValid()) { // Not resuming from deep sleep
+  const rst_info *prst = ESP.getResetInfoPtr();
+  reset_reason = prst->reason;
+
+  if (reset_reason == REASON_DEEP_SLEEP_AWAKE && isRtcDataValid()) { // Not resuming from deep sleep
     Serial.println("Resuming from deep sleep.");
   } else {
     // wait ESC key to enter command line only mode
@@ -496,7 +500,7 @@ void setup() {
   if (operation_mode == OPERATION_MODE_NORMAL) {
     display.println("Connecting to server...");
     display.display();
-    connect("boot:1");
+    connect(reset_reason == REASON_DEEP_SLEEP_AWAKE? NULL : "boot:1");
     Serial.println(" Connected.");
     display.println("Connected.");
     display.display();

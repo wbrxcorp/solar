@@ -150,8 +150,8 @@ void EPSolar::send_modbus_message(const uint8_t* message, size_t size)
   digitalWrite(rtsPin, HIGH); // enable RS485 driver
 
   for (int i = 0; i < size; i++) {
-    uint8_t b = message[i];
     cli(); // Disable interrupts in order to get a clean transmit
+    uint8_t b = message[i];
     unsigned long wait = m_bitTime;
     digitalWrite(commPin, HIGH);
     unsigned long start = ESP.getCycleCount();
@@ -172,7 +172,6 @@ void EPSolar::send_modbus_message(const uint8_t* message, size_t size)
   digitalWrite(rtsPin, LOW); // disable RS485 driver
 
   // turn commPin back to input
-  digitalWrite(commPin, HIGH);
   pinMode(commPin, INPUT);
 
   startTime = ESP.getCycleCount();
@@ -292,7 +291,7 @@ int ICACHE_RAM_ATTR EPSolar::receive_modbus_message(uint8_t* modbus_message)
   if (rtrPin >= 0) digitalWrite(rtrPin, LOW); // enable RS485 receiver
 
   unsigned long startTime = ESP.getCycleCount();
-  while (ESP.getCycleCount() - startTime < m_bitTime * 10 * 7 / 2/*expect 3.5 chars silent interval*/) { ; }
+  while (ESP.getCycleCount() - startTime < m_bitTime * 10 * 7 / 2 /*ignore input for some chars as turning RS485 receiver on produces some garbage when bias resistor is not connected*/) { ; }
 
   for (message_size = 0; message_size < MAX_MODBUS_MESSAGE_LENGTH; message_size++) {
     startTime = ESP.getCycleCount();
