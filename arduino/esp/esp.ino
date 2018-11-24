@@ -45,6 +45,7 @@ const uint16_t DEFAULT_PORT = 29574; // default server port number
 #include "network.h"
 #include "command_line.h"
 #include "server.h"
+#include "crc.h"
 
 #include "globals.h"
 

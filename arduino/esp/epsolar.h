@@ -1,10 +1,9 @@
 #ifndef __EPSOLAR_H_
 #define __EPSOLAR_H_
 
-#include "crc.h"
+#include "RS485Modbus.h"
 
 #define EPSOLAR_COMM_SPEED 115200
-#define MAX_MODBUS_MESSAGE_LENGTH 255
 #define MODBUS_TIMEOUT_MS 100
 
 class EPSolarTracerDeviceInfo {
@@ -115,34 +114,14 @@ public:
   }
 };
 
-class EPSolar {
-  int commPin;
-  unsigned long m_bitTime;
-  unsigned long modbusTimeout;
-  int rtsPin, rtrPin;
-  unsigned long last_message;
+class EPSolar : public RS485Modbus {
 public:
-  EPSolar() : commPin(-1), rtsPin(-1), rtrPin(-1), last_message(0L) {;}
-
+  EPSolar() : RS485Modbus() {;}
 
   void begin(int _commPin, int _rtsPin, int _rtrPin = -1, long speed = EPSOLAR_COMM_SPEED, int _modbusTimeout = MODBUS_TIMEOUT_MS)
   {
-    commPin = _commPin;
-    m_bitTime = F_CPU / speed;
-    modbusTimeout = F_CPU / 1000 * _modbusTimeout;
-    rtsPin = _rtsPin;
-    rtrPin = _rtrPin;
-    digitalWrite(rtsPin, LOW);  // disable RS485 driver
-    pinMode(rtsPin, OUTPUT);
-    if (rtrPin >= 0) {
-      digitalWrite(rtrPin, HIGH); // disable RS485 receiver
-      pinMode(rtrPin, OUTPUT);
-    }
-
-    last_message = 0L;
+    RS485Modbus::begin(_commPin, _rtsPin, _rtrPin, speed, _modbusTimeout);
   }
-
-  void send_modbus_message(const uint8_t* message, size_t size);
 
   // http://www.modbus.org/docs/Modbus_Application_Protocol_V1_1b.pdf
   bool get_device_info(EPSolarTracerDeviceInfo& info, int max_retry = 5);
@@ -169,8 +148,6 @@ public:
   }
 
 protected:
-  int ICACHE_RAM_ATTR receive_modbus_message(uint8_t* modbus_message/*must have 255 bytes at least*/);
-
   bool receive_modbus_device_info_response(uint8_t slave_id, EPSolarTracerDeviceInfo& info);
   bool receive_modbus_input_response(uint8_t slave_id, uint8_t function_code, EPSolarTracerInputRegister& reg);
   bool receive_modbus_output_response(uint8_t slave_id, uint8_t function_code);
