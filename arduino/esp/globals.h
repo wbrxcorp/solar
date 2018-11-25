@@ -29,8 +29,8 @@ extern CONFIG config;
 #include "edogawa_unit.h"
 extern EdogawaUnit edogawaUnit1, edogawaUnit2;
 
-#include "epsolar.h"
-extern EPSolar epsolar;
+#include "RS485Modbus.h"
+extern RS485Modbus modbus;
 
 extern bool debug_mode;
 

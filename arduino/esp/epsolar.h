@@ -114,14 +114,12 @@ public:
   }
 };
 
-class EPSolar : public RS485Modbus {
-public:
-  EPSolar() : RS485Modbus() {;}
+class EPSolar {
 
-  void begin(int _commPin, int _rtsPin, int _rtrPin = -1, long speed = EPSOLAR_COMM_SPEED, int _modbusTimeout = MODBUS_TIMEOUT_MS)
-  {
-    RS485Modbus::begin(_commPin, _rtsPin, _rtrPin, speed, _modbusTimeout);
-  }
+  RS485Modbus& modbus;
+
+public:
+  EPSolar(RS485Modbus& _modbus) : modbus(_modbus) {;}
 
   // http://www.modbus.org/docs/Modbus_Application_Protocol_V1_1b.pdf
   bool get_device_info(EPSolarTracerDeviceInfo& info, int max_retry = 5);

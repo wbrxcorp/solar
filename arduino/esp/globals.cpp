@@ -5,7 +5,7 @@ CONFIG config;
 
 EdogawaUnit edogawaUnit1, edogawaUnit2;
 
-EPSolar epsolar;
+RS485Modbus modbus;
 
 Display display;
 

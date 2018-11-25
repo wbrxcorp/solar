@@ -30,7 +30,7 @@ static void print_bytes(const uint8_t* bytes, size_t size)
 bool EPSolar::receive_modbus_device_info_response(uint8_t slave_id, EPSolarTracerDeviceInfo& info)
 {
   uint8_t response[MAX_MODBUS_MESSAGE_LENGTH];
-  int message_size = receive_modbus_message(response);
+  int message_size = modbus.receive_modbus_message(response);
   if (message_size < 8 + 2/*hdr size + crc*/) return false;
 
   if (response[0] != slave_id) {
@@ -78,7 +78,7 @@ bool EPSolar::get_device_info(EPSolarTracerDeviceInfo& info, int max_retry/* = 5
   put_crc(message, sizeof(message) - 2);
 
   for (int i = 0; i < max_retry; i++) {
-    send_modbus_message(message, sizeof(message));
+    modbus.send_modbus_message(message, sizeof(message));
     if (receive_modbus_device_info_response(slave_id, info)) {
       if (i > 0) Serial.println("Retry successful.");
       return true;
@@ -93,7 +93,7 @@ bool EPSolar::get_device_info(EPSolarTracerDeviceInfo& info, int max_retry/* = 5
 bool EPSolar::receive_modbus_input_response(uint8_t slave_id, uint8_t function_code, EPSolarTracerInputRegister& reg)
 {
   uint8_t response[MAX_MODBUS_MESSAGE_LENGTH];
-  int message_size = receive_modbus_message(response);
+  int message_size = modbus.receive_modbus_message(response);
   if (message_size < 3/*hdr*/ + 2/*crc*/) return false;
 
   if (response[0] != slave_id) {
@@ -146,7 +146,7 @@ bool EPSolar::get_register(uint16_t addr, uint8_t num, EPSolarTracerInputRegiste
   put_crc(message, sizeof(message) - 2);
 
   for (int i = 0; i < max_retry; i++) {
-    send_modbus_message(message, sizeof(message));
+    modbus.send_modbus_message(message, sizeof(message));
     if (debug_mode) {
       Serial.print("modbus sent: ");
       print_bytes(message, sizeof(message));
@@ -165,7 +165,7 @@ bool EPSolar::get_register(uint16_t addr, uint8_t num, EPSolarTracerInputRegiste
 bool EPSolar::receive_modbus_output_response(uint8_t slave_id, uint8_t function_code)
 {
   uint8_t response[MAX_MODBUS_MESSAGE_LENGTH];
-  int message_size = receive_modbus_message(response);
+  int message_size = modbus.receive_modbus_message(response);
   if (message_size < 3/*hdr*/ + 2/*crc*/) return false;
 
   //else
@@ -207,7 +207,7 @@ bool EPSolar::put_register(uint16_t addr, uint16_t data)
   byte message[] = {slave_id, function_code, HIBYTE(addr), LOBYTE(addr), HIBYTE(data), LOBYTE(data), 0x00, 0x00 };
   put_crc(message, sizeof(message) - 2);
 
-  send_modbus_message(message, sizeof(message));
+  modbus.send_modbus_message(message, sizeof(message));
 
   if (!receive_modbus_output_response(slave_id, function_code)) return false;
   //else
@@ -234,7 +234,7 @@ bool EPSolar::put_registers(uint16_t addr, uint16_t* data, uint16_t num)
   put_crc(message, message_size - 2);
 
   //print_bytes(message, sizeof(message));
-  send_modbus_message(message, sizeof(message));
+  modbus.send_modbus_message(message, sizeof(message));
   if (!receive_modbus_output_response(slave_id, function_code)) return false;
   //else
   return true;

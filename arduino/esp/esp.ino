@@ -48,6 +48,9 @@ const uint16_t DEFAULT_PORT = 29574; // default server port number
 #include "crc.h"
 
 #include "globals.h"
+#include "epsolar.h"
+
+static EPSolar epsolar(modbus);
 
 String cmdline_buffer;
 
@@ -109,6 +112,7 @@ static void process_message(const char* message)
   const char* pt = message + 3;
   int32_t date = -1, time = -1;
   int sleep_sec = 0;
+
   while (*pt) {
     const char* ptcolon = strchr(pt, ':');
     if (ptcolon == NULL) break; // end parsing string if there's no colon anymore
@@ -348,9 +352,9 @@ void setup() {
 
   if (operation_mode == OPERATION_MODE_NORMAL) {
     if (config.sleep_enabled) {
-      epsolar.begin(RS485_COMM_SOCKET, RS485_DE_SOCKET, RS485_RE_SOCKET);
+      modbus.begin(RS485_COMM_SOCKET, RS485_DE_SOCKET, RS485_RE_SOCKET, EPSOLAR_COMM_SPEED, MODBUS_TIMEOUT_MS);
     } else {
-      epsolar.begin(RS485_COMM_SOCKET, RS485_DE_NRE_SOCKET);
+      modbus.begin(RS485_COMM_SOCKET, RS485_DE_NRE_SOCKET, -1, EPSOLAR_COMM_SPEED, MODBUS_TIMEOUT_MS);
     }
 
     edogawaUnit1.begin(PW1_SW_SOCKET, PW1_LED_SOCKET);

@@ -3,6 +3,9 @@
 #include "command_line.h"
 #include "globals.h"
 #include "crc.h"
+#include "epsolar.h"
+
+static EPSolar epsolar(modbus);
 
 class LineParser {
   char* buf = NULL;
