@@ -621,7 +621,6 @@ void loop_normal()
   if (!connected()) {
     Serial.println("Connection lost. Performing autoreconnect...");
     connect();
-    return;
   }
 
   if (current_time - last_checked <= CHECK_INTERVAL) {
