@@ -18,16 +18,12 @@
 
   #define PW1_SW_SOCKET 14    // ESP8266 IO14 D1 mini D5
   #define PW1_LED_SOCKET 12   // ESP8266 IO12 D1 mini D6
-  #define PW2_SW_SOCKET 15    // ESP8266 IO15(10k pull down) D1 mini D8
-  #define PW2_LED_SOCKET 13   // ESP8266 IO13 D1 mini D7
 #elif defined ARDUINO_ARCH_ESP32
   #define RS485_RE_SOCKET 5   // default pull-up(Receiver disable) in ESP32
   #define RS485_DE_SOCKET 2   // default pull-down(Driver disable) in ESP32
 
   #define PW1_SW_SOCKET 18
   #define PW1_LED_SOCKET 19
-  #define PW2_SW_SOCKET 5
-  #define PW2_LED_SOCKET 23
 #endif
 
 #define DISPLAY_I2C_ADDRESS 0x3c
@@ -38,7 +34,6 @@
 #define COMMAND_LINE_ONLY_MODE_WAIT_SECONDS 3
 
 const char* DEFAULT_NODENAME = "kennel01";
-const bool DEFAULT_SLEEP_ENABLED = false;
 const char* DEFAULT_SERVERNAME = "_solar._tcp";
 const uint16_t DEFAULT_PORT = 29574; // default server port number
 
@@ -197,7 +192,7 @@ static void process_message(const char* message)
     }
   }
 
-  if (sleep_sec > 0 && (bool)config.sleep_enabled) {
+  if (sleep_sec > 0) {
 #ifdef ARDUINO_ARCH_ESP8266
     disconnect();  // disconnect from server
     display.turnOff(); // Display OFF
@@ -285,7 +280,6 @@ void setup() {
     memset(&config, 0, sizeof(config));
 
     config.default_operation_mode = OPERATION_MODE_NORMAL;
-    config.sleep_enabled = (uint8_t)DEFAULT_SLEEP_ENABLED;
     strcpy(config.nodename, DEFAULT_NODENAME);
     strcpy(config.ssid, "YOUR_ESSID");
     strcpy(config.key, "YOUR_WPA_KEY");
@@ -307,8 +301,6 @@ void setup() {
   Serial.println("Done.");
   Serial.print("Operation mode: ");
   Serial.println(operation_mode);
-  Serial.print("Deep sleep: ");
-  Serial.println(((bool)config.sleep_enabled)? "enabled" : "disabled");
   Serial.print("Nodename: ");
   Serial.println(config.nodename);
   Serial.print(("WiFi SSID: "));
@@ -351,16 +343,14 @@ void setup() {
   display.display();
 
   if (operation_mode == OPERATION_MODE_NORMAL) {
-    if (config.sleep_enabled) {
-      modbus.begin(RS485_COMM_SOCKET, RS485_DE_SOCKET, RS485_RE_SOCKET, EPSOLAR_COMM_SPEED, MODBUS_TIMEOUT_MS);
-    } else {
-      modbus.begin(RS485_COMM_SOCKET, RS485_DE_NRE_SOCKET, -1, EPSOLAR_COMM_SPEED, MODBUS_TIMEOUT_MS);
-    }
+    modbus.begin(RS485_COMM_SOCKET, RS485_DE_SOCKET, RS485_RE_SOCKET, EPSOLAR_COMM_SPEED, MODBUS_TIMEOUT_MS);
 
+  #if defined(PW1_SW_SOCKET) && defined(PW1_LED_SOCKET)
     edogawaUnit1.begin(PW1_SW_SOCKET, PW1_LED_SOCKET);
-    if (!config.sleep_enabled) { // in ESP8266, IO15 is occupied by RS485 DE when deep sleep is enabled
-      edogawaUnit2.begin(PW2_SW_SOCKET, PW2_LED_SOCKET);
-    }
+  #endif
+  #if defined(PW2_SW_SOCKET) && defined(PW2_LED_SOCKET)
+    edogawaUnit2.begin(PW2_SW_SOCKET, PW2_LED_SOCKET);
+  #endif
 
     EPSolarTracerDeviceInfo info;
     if (epsolar.get_device_info(info)) {
