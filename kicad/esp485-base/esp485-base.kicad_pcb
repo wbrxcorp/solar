@@ -725,7 +725,7 @@
   (gr_text VIN (at 126.365 99.06 90) (layer B.SilkS) (tstamp 5BB27AF6)
     (effects (font (size 0.8 0.8) (thickness 0.15)) (justify mirror))
   )
-  (gr_text IO0 (at 126.619 111.633 90) (layer B.SilkS) (tstamp 5BB27416)
+  (gr_text IO0 (at 126.365 116.713 90) (layer B.SilkS) (tstamp 5BB27416)
     (effects (font (size 0.8 0.8) (thickness 0.15)) (justify mirror))
   )
   (gr_text RXD (at 152.908 114.427 90) (layer B.SilkS) (tstamp 5BB26F8E)
