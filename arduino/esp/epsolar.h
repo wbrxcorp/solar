@@ -41,12 +41,6 @@ class EPSolarTracerInputRegister {
   uint8_t* _data;
   size_t _size;
 
-  inline uint16_t MKWORD(uint8_t hi, uint8_t lo) const {
-    return ((uint16_t)hi) << 8 | lo;
-  }
-  inline uint32_t MKDWORD(uint16_t hi, uint16_t lo) const {
-    return ((uint32_t)hi) << 16 | lo;
-  }
 public:
   EPSolarTracerInputRegister() : _data(NULL), _size(0) {
   }

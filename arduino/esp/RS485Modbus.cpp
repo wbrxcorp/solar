@@ -16,6 +16,13 @@ void RS485Modbus::begin(int _commPin, int _rtsPin, int _rtrPin, long speed, int 
   }
 }
 
+void RS485Modbus::enter_slave()
+{
+  slave = true;
+  digitalWrite(rtsPin, LOW); // disable RS485 driver
+  if (rtrPin >= 0) digitalWrite(rtrPin, LOW); // enable RS485 driver
+}
+
 #define WAIT { while (ESP.getCycleCount()-start < wait) { ; }; wait += m_bitTime; }
 
 void RS485Modbus::send_modbus_message(const uint8_t* message, size_t size)
@@ -34,7 +41,6 @@ void RS485Modbus::send_modbus_message(const uint8_t* message, size_t size)
     cli(); // Disable interrupts in order to get a clean transmit
     uint8_t b = message[i];
     unsigned long wait = m_bitTime;
-    digitalWrite(commPin, HIGH);
     unsigned long start = ESP.getCycleCount();
     // Start bit;
     digitalWrite(commPin, LOW);
@@ -51,6 +57,7 @@ void RS485Modbus::send_modbus_message(const uint8_t* message, size_t size)
   }
 
   digitalWrite(rtsPin, LOW); // disable RS485 driver
+  if (rtrPin >= 0 && slave) digitalWrite(rtrPin, LOW); // enable RS485 receiver
 
   // turn commPin back to input
   pinMode(commPin, INPUT);
@@ -65,10 +72,14 @@ int ICACHE_RAM_ATTR RS485Modbus::receive_modbus_message(uint8_t* modbus_message)
   bool waitingForFirstBit = true;
   cli();
 
-  if (rtrPin >= 0) digitalWrite(rtrPin, LOW); // enable RS485 receiver
+  if (rtrPin >= 0 && !slave) digitalWrite(rtrPin, LOW); // enable RS485 receiver
 
   unsigned long startTime = ESP.getCycleCount();
-  while (ESP.getCycleCount() - startTime < m_bitTime * 10 * 7 / 2 /*ignore input for some chars as turning RS485 receiver on produces some garbage when bias resistor is not connected*/) { ; }
+
+  //ignore input for some chars as turning RS485 receiver on produces some garbage when bias resistor is not connected
+  if (!slave) {
+    while (ESP.getCycleCount() - startTime < m_bitTime * 10 * 7 / 2/* 3.5 chars as modbus protocol defines*/) { ; }
+  }
 
   for (message_size = 0; message_size < MAX_MODBUS_MESSAGE_LENGTH; message_size++) {
     startTime = ESP.getCycleCount();
@@ -82,7 +93,6 @@ int ICACHE_RAM_ATTR RS485Modbus::receive_modbus_message(uint8_t* modbus_message)
       ESP.wdtFeed();
 #endif
     }
-    waitingForFirstBit = false;
     unsigned long wait = m_bitTime + m_bitTime / 2;
     unsigned long start = ESP.getCycleCount();
     uint8_t rec = 0;
@@ -97,15 +107,16 @@ int ICACHE_RAM_ATTR RS485Modbus::receive_modbus_message(uint8_t* modbus_message)
     }
     // Stop bit
     WAIT;
+    waitingForFirstBit = false;
     modbus_message[message_size] = rec;
   }
 out:;
-  if (rtrPin >= 0) digitalWrite(rtrPin, HIGH); // disable RS485 receiver
+  if (rtrPin >= 0 && !slave) digitalWrite(rtrPin, HIGH); // disable RS485 receiver
 
   sei();
 
   if (message_size == 0) {
-    Serial.println("modbus: Response timeout(No device connected?)");
+    if (!slave) Serial.println("modbus: Response timeout(No device connected?)");
     return 0;
   }
 
@@ -117,7 +128,16 @@ out:;
   uint16_t crc = 0xffff;
   for (int i = 0; i < message_size - 2; i++) crc = update_crc(crc, modbus_message[i]);
   if (modbus_message[message_size - 2] != LOBYTE(crc) || modbus_message[message_size - 1] != HIBYTE(crc)) {
-    Serial.println("modbus: CRC mismatch");
+    Serial.print("modbus: CRC mismatch. Message=[ ");
+    char buf[4];
+    for (int i = 0; i < message_size; i++) {
+      sprintf(buf, "%02x ", modbus_message[i]);
+      Serial.print(buf);
+    }
+    Serial.print("](");
+    Serial.print(message_size);
+    Serial.println(" bytes)");
+
     return -1;
   }
 

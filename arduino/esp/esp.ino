@@ -1,5 +1,5 @@
 // arduino --upload --board esp8266com:esp8266:d1_mini:xtal=80,eesz=4M1M,baud=460800 --port /dev/ttyUSB0 .
-// arduino --upload --board espressif:esp32:mhetesp32minikit:FlashFreq=80,UploadSpeed=921600 --port /dev/ttyUSB0 .
+// arduino --upload --board espressif:esp32:esp32:FlashFreq=80,UploadSpeed=921600 --port /dev/ttyUSB0 .
 #include <EEPROM.h>
 #ifdef ARDUINO_ARCH_ESP8266
 #include <ESP8266WiFi.h>
@@ -7,10 +7,13 @@
 #elif defined ARDUINO_ARCH_ESP32
 #include <WiFi.h>
 #include <esp_wifi.h>
+#include <rom/rtc.h>
+
+#define REASON_DEFAULT_RST POWERON_RESET
+#define REASON_DEEP_SLEEP_AWAKE DEEPSLEEP_RESET
 #endif
 
 #define RS485_COMM_SOCKET 0
-#define RS485_DE_NRE_SOCKET 2
 
 #ifdef ARDUINO_ARCH_ESP8266
   #define RS485_RE_SOCKET 2   // default pull-up(Receiver disable) in ESP8266
@@ -40,6 +43,7 @@ const uint16_t DEFAULT_PORT = 29574; // default server port number
 #include "network.h"
 #include "command_line.h"
 #include "server.h"
+#include "nisetracer.h"
 #include "crc.h"
 
 #include "globals.h"
@@ -311,8 +315,13 @@ void setup() {
   Serial.print("Server port: ");
   Serial.println(config.port);
 
+#ifdef ARDUINO_ARCH_ESP8266
   const rst_info *prst = ESP.getResetInfoPtr();
   reset_reason = prst->reason;
+#endif
+#ifdef ARDUINO_ARCH_ESP32
+  reset_reason = rtc_get_reset_reason(xPortGetCoreID());
+#endif
 
   if (reset_reason == REASON_DEEP_SLEEP_AWAKE && isRtcDataValid()) { // Not resuming from deep sleep
     Serial.println("Resuming from deep sleep.");
@@ -342,9 +351,11 @@ void setup() {
   display.println(config.ssid);
   display.display();
 
-  if (operation_mode == OPERATION_MODE_NORMAL) {
+  if (operation_mode == OPERATION_MODE_NORMAL || operation_mode == OPERATION_MODE_NISETRACER) {
     modbus.begin(RS485_COMM_SOCKET, RS485_DE_SOCKET, RS485_RE_SOCKET, EPSOLAR_COMM_SPEED, MODBUS_TIMEOUT_MS);
+  }
 
+  if (operation_mode == OPERATION_MODE_NORMAL) {
   #if defined(PW1_SW_SOCKET) && defined(PW1_LED_SOCKET)
     edogawaUnit1.begin(PW1_SW_SOCKET, PW1_LED_SOCKET);
   #endif
@@ -508,6 +519,8 @@ void setup() {
 #endif
   } else if (operation_mode == OPERATION_MODE_SERVER) {
     setup_server();
+  } else if (operation_mode == OPERATION_MODE_NISETRACER) {
+    setup_nisetracer();
   }
 }
 
@@ -692,6 +705,9 @@ void loop()
       break;
     case OPERATION_MODE_SERVER:
       loop_server();
+      break;
+    case OPERATION_MODE_NISETRACER:
+      loop_nisetracer();
       break;
     default:
       break;
