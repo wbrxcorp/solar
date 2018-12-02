@@ -156,6 +156,20 @@ bool connected()
   return tcp_client.connected();
 }
 
+String get_remote_address()
+{
+  if (!tcp_client.connected()) return "";
+  // else
+  return tcp_client.remoteIP().toString();
+}
+
+uint16_t get_remote_port()
+{
+  if (!tcp_client.connected()) return 0;
+  // else
+  return tcp_client.remotePort();
+}
+
 bool send_message(const char* message)
 {
   if (!tcp_client.connected()) return false;

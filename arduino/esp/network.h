@@ -4,6 +4,8 @@
 bool connect(const char* nodename, const char* servername, uint16_t port);
 void disconnect();
 bool connected();
+String get_remote_address();
+uint16_t get_remote_port();
 bool send_message(const char* message);
 int receive_message(void (*process_message)(const char*));
 

@@ -1,5 +1,5 @@
 // arduino --upload --board esp8266com:esp8266:d1_mini:xtal=80,eesz=4M1M,baud=460800 --port /dev/ttyUSB0 .
-// arduino --upload --board espressif:esp32:esp32:FlashFreq=80,UploadSpeed=921600 --port /dev/ttyUSB0 .
+// arduino --upload --board espressif:esp32:esp32:FlashFreq=40,UploadSpeed=921600 --port /dev/ttyUSB0 .
 #include <EEPROM.h>
 #ifdef ARDUINO_ARCH_ESP8266
 #include <ESP8266WiFi.h>
@@ -58,8 +58,6 @@ unsigned long last_message_received = 0;
 unsigned long last_checked = 0;
 unsigned long last_reported = 0;
 char session_id[48] = "";
-uint8_t battery_rated_voltage = 0; // 12 or 24(V)
-uint8_t temperature_compensation_coefficient = 0; // 0-9(mV)
 int reset_reason = REASON_DEFAULT_RST;
 
 typedef struct strEPSolarValues {
@@ -74,32 +72,21 @@ typedef struct strEPSolarValues {
 } EPSolarValues;
 
 struct {
-  uint16_t crc;
+  // --- 0
+  uint8_t valid;
   uint8_t channel;
   uint8_t bssid[6];
-  uint8_t padding[3]; // to make the size multiple of 4
+  // --- 8
+  uint8_t battery_rated_voltage = 0; // 12 or 24(V)
+  uint8_t temperature_compensation_coefficient = 0; // 0-9(mV)
+  // --- 10
+  char server_addr[46]; // maximum IPv6 string length is 45 characters
+  uint16_t server_port;
+  // --- 58
+  uint16_t crc;
+  // --- 60
+  // size have to be multiple of 4
 } rtcData;
-
-static bool isRtcDataValid()
-{
-#ifdef ARDUINO_ARCH_ESP8266
-  uint16_t crc = 0xffff;
-  for (size_t i = sizeof(rtcData.crc); i < sizeof(rtcData); i++) {
-    crc = update_crc(crc, ((uint8_t*)&rtcData)[i]);
-  }
-  return (crc == rtcData.crc);
-#else
-  return false;
-#endif
-}
-
-static void invalidateRtcData()
-{
-#ifdef ARDUINO_ARCH_ESP8266
-  memset(&rtcData, sizeof(rtcData), 0);
-  ESP.rtcUserMemoryWrite(0, (uint32_t*)&rtcData, sizeof(rtcData));
-#endif
-}
 
 static void process_message(const char* message)
 {
@@ -134,12 +121,12 @@ static void process_message(const char* message)
       date = atol(value);
     } else if (strcmp(key, "t") == 0 && strlen(value) > 0 && isdigit(value[0])) {
       time = atol(value);
-    } else if (strcmp(key, "bt") == 0) {
+    } else if (strcmp(key, "bt") == 0 && reset_reason != REASON_DEEP_SLEEP_AWAKE) {
       int battery_type = atoi(value);
       epsolar.put_register(0x9000/*Battery type*/, (uint16_t)battery_type);
       Serial.print("Battery type saved: ");
       Serial.println(battery_type);
-    } else if (strcmp(key, "bc") == 0) {
+    } else if (strcmp(key, "bc") == 0 && reset_reason != REASON_DEEP_SLEEP_AWAKE) {
       int battery_capacity= atoi(value);
       epsolar.put_register(0x9001/*Battery capacity*/, (uint16_t)battery_capacity);
       Serial.print("Battery capacity saved: ");
@@ -200,11 +187,10 @@ static void process_message(const char* message)
 #ifdef ARDUINO_ARCH_ESP8266
     disconnect();  // disconnect from server
     display.turnOff(); // Display OFF
-    // save WiFi AP info to rtc data
-    rtcData.channel = WiFi.channel();
-    memcpy(rtcData.bssid, WiFi.BSSID(), sizeof(rtcData.bssid));
+
+    rtcData.valid = 1;
     rtcData.crc = 0xffff;
-    for (size_t i = sizeof(rtcData.crc); i < sizeof(rtcData); i++) {
+    for (size_t i = 0; i < sizeof(rtcData) - sizeof(rtcData.crc); i++) {
       rtcData.crc = update_crc(rtcData.crc, ((uint8_t*)&rtcData)[i]);
     }
     ESP.rtcUserMemoryWrite(0, (uint32_t*)&rtcData, sizeof(rtcData));
@@ -222,7 +208,28 @@ void connect(const char* additional_init_params = NULL)
   unsigned long retry_delay = 1;/*sec*/
 
   while (true) {
-    if (connect(config.nodename, config.servername, config.port)) {
+    bool success = false;
+    if (rtcData.valid && rtcData.server_addr[0] != 0 && rtcData.server_port != 0) {
+      Serial.print("Resuming connection to ");
+      Serial.print(rtcData.server_addr);
+      Serial.print(':');
+      Serial.print(rtcData.server_port);
+      Serial.println(".");
+      success = connect(config.nodename, rtcData.server_addr, rtcData.server_port);
+      // invalidate them once used
+      rtcData.server_addr[0] = 0;
+      rtcData.server_port = 0;
+    } else {
+      success = connect(config.nodename, config.servername, config.port);
+    }
+    if (success) {
+      // save server address and port
+      String remoteAddr = get_remote_address();
+      if (remoteAddr.length() < sizeof(rtcData.server_addr)) {
+        memcpy(rtcData.server_addr, remoteAddr.c_str(), remoteAddr.length() + 1);
+      }
+      rtcData.server_port = get_remote_port();
+
       String init_str = "INIT\tnodename:";
       init_str += config.nodename;
       if (additional_init_params) {
@@ -247,23 +254,40 @@ void setup() {
 
   display.begin(DISPLAY_I2C_ADDRESS);
 
-  //display.clearDisplay();
   display.setTextColor(1/*Light pixel*/);
   display.setTextSize(1);
   display.setCursor(0,0);
-  //display.drawXBitmap(0, 0, logo_bits, 128, 64, 1);
   display.display();
 
   Serial.println();
   Serial.print("Build date: ");
   Serial.println(__DATE__ " " __TIME__);
 
-  Serial.println("Half duplex communication mode: Single wire");
-
 #ifdef ARDUINO_ARCH_ESP8266
-  // read rtc memory
-  ESP.rtcUserMemoryRead(0, (uint32_t*)&rtcData, sizeof(rtcData));
+  const rst_info *prst = ESP.getResetInfoPtr();
+  reset_reason = prst->reason;
 #endif
+#ifdef ARDUINO_ARCH_ESP32
+  reset_reason = rtc_get_reset_reason(xPortGetCoreID());
+#endif
+
+  if (reset_reason == REASON_DEEP_SLEEP_AWAKE) {
+#ifdef ARDUINO_ARCH_ESP8266
+    // read rtc memory
+    ESP.rtcUserMemoryRead(0, (uint32_t*)&rtcData, sizeof(rtcData));
+#endif
+    uint16_t crc = 0xffff;
+    for (size_t i = 0; i < sizeof(rtcData) - sizeof(rtcData.crc); i++) {
+      crc = update_crc(crc, ((uint8_t*)&rtcData)[i]);
+    }
+    if (crc != rtcData.crc) rtcData.valid = 0;
+    else Serial.println("Resuming from deep sleep.");
+  } else {
+    rtcData.valid = 0;
+  }
+
+  // clear everything in rtcData when invalid
+  if (!rtcData.valid) memset(&rtcData, 0, sizeof(rtcData));
 
   // read config from EEPROM
   Serial.write("Loading config from EEPROM...");
@@ -315,17 +339,8 @@ void setup() {
   Serial.print("Server port: ");
   Serial.println(config.port);
 
-#ifdef ARDUINO_ARCH_ESP8266
-  const rst_info *prst = ESP.getResetInfoPtr();
-  reset_reason = prst->reason;
-#endif
-#ifdef ARDUINO_ARCH_ESP32
-  reset_reason = rtc_get_reset_reason(xPortGetCoreID());
-#endif
 
-  if (reset_reason == REASON_DEEP_SLEEP_AWAKE && isRtcDataValid()) { // Not resuming from deep sleep
-    Serial.println("Resuming from deep sleep.");
-  } else {
+  if (!rtcData.valid) { // Not resuming from deep sleep
     // wait ESC key to enter command line only mode
     Serial.println("Send ESC to enter command line only mode...");
 
@@ -353,93 +368,98 @@ void setup() {
 
   if (operation_mode == OPERATION_MODE_NORMAL || operation_mode == OPERATION_MODE_NISETRACER) {
     modbus.begin(RS485_COMM_SOCKET, RS485_DE_SOCKET, RS485_RE_SOCKET, EPSOLAR_COMM_SPEED, MODBUS_TIMEOUT_MS);
-  }
-
-  if (operation_mode == OPERATION_MODE_NORMAL) {
   #if defined(PW1_SW_SOCKET) && defined(PW1_LED_SOCKET)
     edogawaUnit1.begin(PW1_SW_SOCKET, PW1_LED_SOCKET);
   #endif
   #if defined(PW2_SW_SOCKET) && defined(PW2_LED_SOCKET)
     edogawaUnit2.begin(PW2_SW_SOCKET, PW2_LED_SOCKET);
   #endif
+  }
 
-    EPSolarTracerDeviceInfo info;
-    if (epsolar.get_device_info(info)) {
-      Serial.print("Vendor: ");
-      Serial.println(info.get_vendor_name());
-      Serial.print("Product: ");
-      Serial.println(info.get_product_code());
-      Serial.print("Revision: ");
-      Serial.println(info.get_revision());
+  if (operation_mode == OPERATION_MODE_NORMAL) {
+    if (!rtcData.valid) {
+      EPSolarTracerDeviceInfo info;
+      if (epsolar.get_device_info(info)) {
+        Serial.print("Vendor: ");
+        Serial.println(info.get_vendor_name());
+        Serial.print("Product: ");
+        Serial.println(info.get_product_code());
+        Serial.print("Revision: ");
+        Serial.println(info.get_revision());
 
-      display.print("Vendor: ");
-      display.println(info.get_vendor_name());
-      display.print("Product: ");
-      display.println(info.get_product_code());
-      display.print("Revision: ");
-      display.println(info.get_revision());
-      display.display();
-    } else {
-      Serial.println("Getting charge controller device info failed!");
-    }
+        display.print("Vendor: ");
+        display.println(info.get_vendor_name());
+        display.print("Product: ");
+        display.println(info.get_product_code());
+        display.print("Revision: ");
+        display.println(info.get_revision());
+        display.display();
+      } else {
+        Serial.println("Getting charge controller device info failed!");
+      }
 
-    EPSolarTracerInputRegister reg;
-    if (epsolar.get_register(0x9013/*Real Time Clock*/, 3, reg, 3)) {
-      uint64_t rtc = reg.getRTCValue(0);
-      char buf[128];
-      sprintf(buf, "RTC: %lu %06lu", (uint32_t)(rtc / 1000000L), (uint32_t)(rtc % 1000000LL));
-      Serial.println(buf);
-      if (epsolar.get_register(0x9000/*battery type, battery capacity*/, 2, reg)) {
-        const char* battery_type_str[] = { "User Defined", "Sealed", "GEL", "Flooded" };
-        int battery_type = reg.getIntValue(0);
-        int battery_capacity = reg.getIntValue(2);
-        sprintf(buf, "Battery type: %d(%s), %dAh", battery_type, battery_type_str[battery_type], battery_capacity);
+      EPSolarTracerInputRegister reg;
+      if (epsolar.get_register(0x9013/*Real Time Clock*/, 3, reg, 3)) {
+        uint64_t rtc = reg.getRTCValue(0);
+        char buf[128];
+        sprintf(buf, "RTC: %lu %06lu", (uint32_t)(rtc / 1000000L), (uint32_t)(rtc % 1000000LL));
         Serial.println(buf);
-        if (epsolar.get_register(0x311d/*Battery real rated voltage*/, 1, reg)) {
-          battery_rated_voltage = (uint8_t)reg.getFloatValue(0);
-          sprintf(buf, "Battery real rated voltage: %dV", (int)battery_rated_voltage);
+        if (epsolar.get_register(0x9000/*battery type, battery capacity*/, 2, reg)) {
+          const char* battery_type_str[] = { "User Defined", "Sealed", "GEL", "Flooded" };
+          int battery_type = reg.getIntValue(0);
+          int battery_capacity = reg.getIntValue(2);
+          sprintf(buf, "Battery type: %d(%s), %dAh", battery_type, battery_type_str[battery_type], battery_capacity);
           Serial.println(buf);
-          if (epsolar.get_register(0x9002/*Temperature compensation coefficient*/, 1, reg)) {
-            temperature_compensation_coefficient = (uint8_t)reg.getFloatValue(0);
-            sprintf(buf, "Temperature compensation coefficient: %dmV/Cecelsius degree/2V", (int)temperature_compensation_coefficient);
-            Serial.println(buf);
-            if (epsolar.get_register(0x0006/*Force the load on/off*/, 1, reg)) {
-              sprintf(buf, "Force the load on/off: %s", reg.getBoolValue(0)? "on" : "off(used for test)");
-              Serial.println(buf);
+          if (epsolar.get_register(0x311d/*Battery real rated voltage*/, 1, reg)) {
+            rtcData.battery_rated_voltage = (uint8_t)reg.getFloatValue(0);
+            if (epsolar.get_register(0x9002/*Temperature compensation coefficient*/, 1, reg)) {
+              rtcData.temperature_compensation_coefficient = (uint8_t)reg.getFloatValue(0);
+              if (epsolar.get_register(0x0006/*Force the load on/off*/, 1, reg)) {
+                sprintf(buf, "Force the load on/off: %s", reg.getBoolValue(0)? "on" : "off(used for test)");
+                Serial.println(buf);
+              }
             }
           }
         }
-      }
 
-      // lifpo4:
-      //  9000=0(User)
-      //  9002=0
-      //  9003=15.68
-      //  9004=14.6
-      //  9005=14.6
-      //  9006=14.4
-      //  9007=14.4
-      //  9008=13.6
-      //  9009=13.2
-      //  900a=12.4
-      //  900b=12.2
-      //  900c=12.0
-      //  900d=11.0
-      //  900e=10.8
-      //  9067=1(12V) or 2(24V)
+        // lifpo4:
+        //  9000=0(User)
+        //  9002=0
+        //  9003=15.68
+        //  9004=14.6
+        //  9005=14.6
+        //  9006=14.4
+        //  9007=14.4
+        //  9008=13.6
+        //  9009=13.2
+        //  900a=12.4
+        //  900b=12.2
+        //  900c=12.0
+        //  900d=11.0
+        //  900e=10.8
+        //  9067=1(12V) or 2(24V)
 
-      if (epsolar.put_register(0x903d/*Load controlling mode*/, (uint16_t)0)) {
-        Serial.println("Load controlling mode set to 0(Manual)");
+        if (epsolar.put_register(0x903d/*Load controlling mode*/, (uint16_t)0)) {
+          Serial.println("Load controlling mode set to 0(Manual)");
+        }
+        if (epsolar.put_register(0x906a/*Default load on/off in manual mode*/, (uint16_t)1)) {
+          Serial.println("Default load on/off in manual mode set to 1(on)");
+        }
+        if (epsolar.put_register(0x0006/*Force the load on/off*/, (uint16_t)0xff00)) {
+          Serial.println("Force the load on/off set to 'on'");
+        }
+      } else {
+        Serial.println("Getting charge controller settings failed!");
       }
-      if (epsolar.put_register(0x906a/*Default load on/off in manual mode*/, (uint16_t)1)) {
-        Serial.println("Default load on/off in manual mode set to 1(on)");
-      }
-      if (epsolar.put_register(0x0006/*Force the load on/off*/, (uint16_t)0xff00)) {
-        Serial.println("Force the load on/off set to 'on'");
-      }
-    } else {
-      Serial.println("Getting charge controller settings failed!");
-    }
+    } // reset_reason != REASON_DEEP_SLEEP_AWAKE
+
+    Serial.print("Battery real rated voltage: ");
+    Serial.print((int)rtcData.battery_rated_voltage);
+    Serial.println("V");
+
+    Serial.print("Temperature compensation coefficient: ");
+    Serial.print((int)rtcData.temperature_compensation_coefficient);
+    Serial.println("mV/Cecelsius degree/2V");
   } // operation_mode == OPERATION_MODE_NORMAL
 
   Serial.print("Connecting to WiFi AP");
@@ -449,10 +469,9 @@ void setup() {
 
   for (int i = 0; i < 2; i++) {
     if (i == 0) {
-      if (isRtcDataValid()) {
+      if (rtcData.valid) {
         Serial.print("(Attempting connect to previously connected AP)");
         WiFi.begin(config.ssid, config.key, rtcData.channel, rtcData.bssid, true);
-        invalidateRtcData();
       } else continue;
     } else {
       // attempt to connect with ssid/key
@@ -491,6 +510,10 @@ void setup() {
 
     if (WiFi.status() == WL_CONNECTED) break;
   }
+
+  // save WiFi AP info to rtc data
+  rtcData.channel = WiFi.channel();
+  memcpy(rtcData.bssid, WiFi.BSSID(), sizeof(rtcData.bssid));
 
   Serial.println(" Connected.");
   Serial.print("IP address: ");
@@ -653,8 +676,8 @@ void loop_normal()
     display.print(message);
 
     float btcv = 0.0f;
-    if (battery_rated_voltage && temperature_compensation_coefficient && values.temp < 25.0f && values.piv >= values.bv && values.cs > 0) {
-      btcv = 0.001 * temperature_compensation_coefficient * (25.0f - values.temp) * (battery_rated_voltage / 2);
+    if (rtcData.battery_rated_voltage && rtcData.temperature_compensation_coefficient && values.temp < 25.0f && values.piv >= values.bv && values.cs > 0) {
+      btcv = 0.001 * rtcData.temperature_compensation_coefficient * (25.0f - values.temp) * (rtcData.battery_rated_voltage / 2);
     }
 
     message = String("DATA\tpiv:") + values.piv
