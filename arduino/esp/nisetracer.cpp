@@ -26,6 +26,10 @@ void setup_nisetracer()
     Serial.println("Entering modem sleep(WIFI_PS_MAX_MODEM)...");
     esp_wifi_set_ps(WIFI_PS_MAX_MODEM) == ESP_OK;
 #endif
+
+    display.clearDisplay();
+    display.fillRect(64, 0, 127, 63, 1);
+    display.display();
 }
 
 static uint16_t get_data(uint16_t addr)
@@ -72,15 +76,23 @@ void loop_nisetracer()
     modbus.send_modbus_message(response, sizeof(response));
   } else if (modbus_message[0] == 0x01 && (modbus_message[1] == 0x01 || modbus_message[1] == 0x03 || modbus_message[1] == 0x04)) {
     uint8_t func = modbus_message[1];
-    if (func == 0x01) Serial.println("Get coil status");
-    else if (func == 0x03) Serial.println("Get holding register");
-    else if (func == 0x04) Serial.println("Get input register");
+    if (func == 0x01) {
+      Serial.println("Get coil status");
+    }
+    else if (func == 0x03) {
+      Serial.println("Get holding register");
+    }
+    else if (func == 0x04) {
+      Serial.println("Get input register");
+    }
 
     if (message_size < 6 + 2) {
       Serial.println("modbus: Message too short");
       return;
     }
+
     // else
+    //display.invertDisplay(true);
     uint16_t addr = MKWORD(modbus_message[2], modbus_message[3]);
     uint8_t num = MKWORD(modbus_message[4], modbus_message[5]);
 
@@ -96,6 +108,7 @@ void loop_nisetracer()
     put_crc(response, sizeof(response) - 2);
 
     modbus.send_modbus_message(response, sizeof(response));
+    //display.invertDisplay(false);
   } else {
     Serial.println("Message received!");
   }

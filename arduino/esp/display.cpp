@@ -102,7 +102,8 @@ static void send_commands(uint8_t i2caddr, const uint8_t commands[], uint8_t cou
   }
 }
 
-void Display::begin(uint8_t _i2caddr) {
+void Display::begin(uint8_t _i2caddr)
+{
   i2caddr = _i2caddr;
   Wire.begin();
 
@@ -128,7 +129,8 @@ void Display::begin(uint8_t _i2caddr) {
   send_commands(i2caddr, init_sequence, sizeof(init_sequence));
 }
 
-void Display::display() {
+void Display::display()
+{
   const uint8_t command_sequence[] = {
     0x21/*column address*/,   0, DISPLAY_WIDTH - 1,
     0x22/*page address*/,     0, 7
@@ -145,8 +147,15 @@ void Display::display() {
   }
 }
 
-void Display::clearDisplay() {
+void Display::clearDisplay()
+{
   memset(buffer, 0, sizeof(buffer));
+}
+
+void Display::invertDisplay(bool invert)
+{
+  const uint8_t cmd = invert? 0xA7 : 0xA6;
+  send_commands(i2caddr, &cmd, 1);
 }
 
 void Display::turnOn()

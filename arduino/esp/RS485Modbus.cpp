@@ -27,7 +27,7 @@ void RS485Modbus::enter_slave()
 
 void RS485Modbus::send_modbus_message(const uint8_t* message, size_t size)
 {
-  unsigned long startTime = ESP.getCycleCount();
+  uint32_t startTime = ESP.getCycleCount();
   while (ESP.getCycleCount() - startTime < m_bitTime * 10 * 7 / 2/*3.5 chars silent interval*/) { ; }
 
   // set commPin to output mode
@@ -40,8 +40,8 @@ void RS485Modbus::send_modbus_message(const uint8_t* message, size_t size)
   for (int i = 0; i < size; i++) {
     cli(); // Disable interrupts in order to get a clean transmit
     uint8_t b = message[i];
-    unsigned long wait = m_bitTime;
-    unsigned long start = ESP.getCycleCount();
+    uint32_t wait = m_bitTime;
+    uint32_t start = ESP.getCycleCount();
     // Start bit;
     digitalWrite(commPin, LOW);
     WAIT;
@@ -62,8 +62,10 @@ void RS485Modbus::send_modbus_message(const uint8_t* message, size_t size)
   // turn commPin back to input
   pinMode(commPin, INPUT);
 
-  startTime = ESP.getCycleCount();
-  while (ESP.getCycleCount() - startTime < m_bitTime * 10 * 7 / 2/*3.5 chars silent interval*/) { ; }
+  if (!slave) {
+    startTime = ESP.getCycleCount();
+    while (ESP.getCycleCount() - startTime < m_bitTime * 10 * 7 / 2/*3.5 chars silent interval*/) { ; }
+  }
 }
 
 int ICACHE_RAM_ATTR RS485Modbus::receive_modbus_message(uint8_t* modbus_message)
@@ -74,7 +76,7 @@ int ICACHE_RAM_ATTR RS485Modbus::receive_modbus_message(uint8_t* modbus_message)
 
   if (rtrPin >= 0 && !slave) digitalWrite(rtrPin, LOW); // enable RS485 receiver
 
-  unsigned long startTime = ESP.getCycleCount();
+  uint32_t startTime = ESP.getCycleCount();
 
   //ignore input for some chars as turning RS485 receiver on produces some garbage when bias resistor is not connected
   if (!slave) {
@@ -93,8 +95,8 @@ int ICACHE_RAM_ATTR RS485Modbus::receive_modbus_message(uint8_t* modbus_message)
       ESP.wdtFeed();
 #endif
     }
-    unsigned long wait = m_bitTime + m_bitTime / 2;
-    unsigned long start = ESP.getCycleCount();
+    uint32_t wait = m_bitTime + m_bitTime / 2;
+    uint32_t start = ESP.getCycleCount();
     uint8_t rec = 0;
     for (int j = 0; j < 8; j++) {
       WAIT;

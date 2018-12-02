@@ -17,8 +17,8 @@ inline uint32_t MKDWORD(uint16_t hi, uint16_t lo)
 
 class RS485Modbus {
   int commPin;
-  unsigned long m_bitTime;
-  unsigned long modbusTimeout;
+  uint32_t m_bitTime;
+  uint32_t modbusTimeout;
   int rtsPin, rtrPin;
   bool slave;
 public:

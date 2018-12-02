@@ -14,6 +14,7 @@ public:
   void begin(uint8_t _i2caddr);
 
   void clearDisplay();
+  void invertDisplay(bool invert);
   void display();
 
   void drawPixel(int16_t x, int16_t y, uint16_t color);

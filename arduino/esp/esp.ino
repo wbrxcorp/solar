@@ -339,7 +339,6 @@ void setup() {
   Serial.print("Server port: ");
   Serial.println(config.port);
 
-
   if (!rtcData.valid) { // Not resuming from deep sleep
     // wait ESC key to enter command line only mode
     Serial.println("Send ESC to enter command line only mode...");
