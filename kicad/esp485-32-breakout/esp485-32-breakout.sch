@@ -393,17 +393,6 @@ Text GLabel 1450 2000 0    50   Input ~ 0
 IO2
 Text GLabel 1700 1900 0    50   Input ~ 0
 IO5
-Text GLabel 1450 1800 0    50   Input ~ 0
-IO0
-Wire Wire Line
-	1450 1800 2100 1800
-Wire Wire Line
-	2100 1800 2100 2100
-Wire Wire Line
-	2100 2100 2250 2100
-Connection ~ 2100 1800
-Wire Wire Line
-	2100 1800 2250 1800
 Wire Wire Line
 	1700 1900 2250 1900
 Wire Wire Line
@@ -522,8 +511,6 @@ Text GLabel 4450 4200 0    50   Input ~ 0
 IO26
 Wire Wire Line
 	4450 4200 4650 4200
-NoConn ~ 6500 4050
-NoConn ~ 6500 4150
 NoConn ~ 6500 4250
 NoConn ~ 5950 4950
 NoConn ~ 5850 4950
@@ -566,4 +553,20 @@ Wire Wire Line
 	5150 5050 6500 5050
 Connection ~ 5150 5050
 Connection ~ 6500 5050
+Wire Wire Line
+	2250 1800 1250 1800
+Text Label 1300 1800 0    50   ~ 0
+IO16
+Wire Wire Line
+	1500 2100 2250 2100
+Text Label 1550 2100 0    50   ~ 0
+IO17
+Wire Wire Line
+	6500 4050 7300 4050
+Text Label 7150 4050 0    50   ~ 0
+IO17
+Wire Wire Line
+	6500 4150 7000 4150
+Text Label 6850 4150 0    50   ~ 0
+IO16
 $EndSCHEMATC
