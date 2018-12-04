@@ -1,4 +1,5 @@
 EESchema Schematic File Version 4
+LIBS:esp485-13-cache
 EELAYER 26 0
 EELAYER END
 $Descr A4 11693 8268
@@ -152,7 +153,7 @@ Wire Wire Line
 Wire Wire Line
 	8350 1850 8800 1850
 Wire Wire Line
-	2500 1600 2350 1600
+	3300 1600 2900 1600
 $Comp
 L Regulator_Linear:AMS1117-3.3 U3
 U 1 1 5BA6808A
@@ -363,8 +364,6 @@ Text GLabel 1150 1400 0    50   Input ~ 0
 IO2
 Wire Wire Line
 	1150 1400 1550 1400
-Text GLabel 2500 1600 2    50   Input ~ 0
-A
 Text GLabel 4100 2350 0    50   Input ~ 0
 A
 Text GLabel 3650 4750 0    50   Input ~ 0
@@ -379,8 +378,6 @@ Wire Wire Line
 	4350 2250 4600 2250
 Wire Wire Line
 	2350 1300 2500 1300
-Text GLabel 2500 1300 2    50   Input ~ 0
-B
 $Comp
 L power:GND #PWR0103
 U 1 1 5BEEB1F7
@@ -406,7 +403,7 @@ F 3 "" H 1950 800 50  0001 C CNN
 	1    0    0    -1  
 $EndComp
 Wire Wire Line
-	1950 800  1950 900 
+	1950 800  1950 850 
 Text GLabel 8400 2600 0    50   Input ~ 0
 IO0
 Text GLabel 8400 2850 0    50   Input ~ 0
@@ -574,4 +571,69 @@ NoConn ~ 6150 4850
 NoConn ~ 4200 4250
 NoConn ~ 4200 4350
 NoConn ~ 4200 4450
+$Comp
+L Device:R R8
+U 1 1 5C07223C
+P 2500 1450
+F 0 "R8" H 2570 1496 50  0000 L CNN
+F 1 "120" H 2570 1405 50  0000 L CNN
+F 2 "Resistor_SMD:R_0805_2012Metric_Pad1.15x1.40mm_HandSolder" V 2430 1450 50  0001 C CNN
+F 3 "~" H 2500 1450 50  0001 C CNN
+	1    2500 1450
+	1    0    0    -1  
+$EndComp
+Connection ~ 2500 1300
+Wire Wire Line
+	2500 1300 2750 1300
+Connection ~ 2500 1600
+Wire Wire Line
+	2500 1600 2350 1600
+Text Label 3250 1300 0    50   ~ 0
+B
+Text Label 3250 1600 0    50   ~ 0
+A
+Wire Wire Line
+	2750 1300 2750 2000
+Wire Wire Line
+	2750 2000 2600 2000
+Connection ~ 2750 1300
+Wire Wire Line
+	2750 1300 3300 1300
+$Comp
+L Device:R R4
+U 1 1 5C074687
+P 2450 2000
+F 0 "R4" V 2243 2000 50  0000 C CNN
+F 1 "1K" V 2334 2000 50  0000 C CNN
+F 2 "Resistor_SMD:R_0805_2012Metric_Pad1.15x1.40mm_HandSolder" V 2380 2000 50  0001 C CNN
+F 3 "~" H 2450 2000 50  0001 C CNN
+	1    2450 2000
+	0    1    1    0   
+$EndComp
+Wire Wire Line
+	2300 2000 1950 2000
+Connection ~ 1950 2000
+Wire Wire Line
+	2900 1600 2900 850 
+Wire Wire Line
+	2900 850  2650 850 
+Connection ~ 2900 1600
+Wire Wire Line
+	2900 1600 2500 1600
+$Comp
+L Device:R R5
+U 1 1 5C07932B
+P 2500 850
+F 0 "R5" V 2293 850 50  0000 C CNN
+F 1 "1K" V 2384 850 50  0000 C CNN
+F 2 "Resistor_SMD:R_0805_2012Metric_Pad1.15x1.40mm_HandSolder" V 2430 850 50  0001 C CNN
+F 3 "~" H 2500 850 50  0001 C CNN
+	1    2500 850 
+	0    1    1    0   
+$EndComp
+Wire Wire Line
+	2350 850  1950 850 
+Connection ~ 1950 850 
+Wire Wire Line
+	1950 850  1950 900 
 $EndSCHEMATC
