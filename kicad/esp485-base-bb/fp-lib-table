@@ -1,0 +1,8 @@
+(fp_lib_table
+  (lib (name Connector_PinHeader_2.54mm)(type KiCad)(uri ${KISYSMOD}/Connector_PinHeader_2.54mm.pretty)(options "")(descr ""))
+  (lib (name Connector_PinSocket_2.54mm)(type KiCad)(uri ${KISYSMOD}/Connector_PinSocket_2.54mm.pretty)(options "")(descr ""))
+  (lib (name Connector_JST)(type KiCad)(uri ${KISYSMOD}/Connector_JST.pretty)(options "")(descr ""))
+  (lib (name MountingHole)(type KiCad)(uri ${KISYSMOD}/MountingHole.pretty)(options "")(descr ""))
+  (lib (name Fuse)(type KiCad)(uri ${KISYSMOD}/Fuse.pretty)(options "")(descr ""))
+  (lib (name tact)(type KiCad)(uri ${KIPRJMOD}/tact.pretty)(options "")(descr ""))
+)
