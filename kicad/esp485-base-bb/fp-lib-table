@@ -5,4 +5,5 @@
   (lib (name MountingHole)(type KiCad)(uri ${KISYSMOD}/MountingHole.pretty)(options "")(descr ""))
   (lib (name Fuse)(type KiCad)(uri ${KISYSMOD}/Fuse.pretty)(options "")(descr ""))
   (lib (name tact)(type KiCad)(uri ${KIPRJMOD}/tact.pretty)(options "")(descr ""))
+  (lib (name Resistor_SMD)(type KiCad)(uri ${KISYSMOD}/Resistor_SMD.pretty)(options "")(descr ""))
 )
