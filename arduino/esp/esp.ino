@@ -249,6 +249,12 @@ void connect(const char* additional_init_params = NULL)
   }
 }
 
+#ifdef ARDUINO_ARCH_ESP8266
+void preinit() {
+  ESP8266WiFiClass::preinitWiFiOff();
+}
+#endif
+
 void setup() {
   Serial.begin(115200);
 
@@ -462,6 +468,7 @@ void setup() {
   } // operation_mode == OPERATION_MODE_NORMAL
 
   Serial.print("Connecting to WiFi AP");
+  WiFi.forceSleepWake();
   WiFi.disconnect();
   WiFi.mode(WIFI_STA);
   WiFi.setAutoReconnect(true);
