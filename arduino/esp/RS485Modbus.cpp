@@ -1,6 +1,7 @@
 #include "RS485Modbus.h"
 #include "crc.h"
 
+#if defined(ARDUINO_ARCH_ESP8266)
 void RS485Modbus::begin(int _commPin, int _rtsPin, int _rtrPin, long speed, int _modbusTimeout)
 {
   commPin = _commPin;
@@ -15,11 +16,39 @@ void RS485Modbus::begin(int _commPin, int _rtsPin, int _rtrPin, long speed, int 
     pinMode(rtrPin, OUTPUT);
   }
 }
+#elif defined(ARDUINO_ARCH_ESP32)
+void RS485Modbus::begin(uart_port_t _uartNum, int txPin, int rxPin, int rtsPin, int _rtrPin/*-1 not to use*/, long speed, int _modbusTimeout)
+{
+  uartNum = _uartNum;
+  m_bitTime = F_CPU / speed;
+  modbusTimeout = F_CPU / 1000 * _modbusTimeout;
+  rtrPin = _rtrPin;
+
+  if (rtrPin >= 0) {
+    digitalWrite(rtrPin, HIGH); // disable RS485 receiver
+    pinMode(rtrPin, OUTPUT);
+  }
+
+  uart_config_t uart_config = {
+    .baud_rate = speed,
+    .data_bits = UART_DATA_8_BITS,
+    .parity = UART_PARITY_DISABLE,
+    .stop_bits = UART_STOP_BITS_1,
+    .flow_ctrl = UART_HW_FLOWCTRL_DISABLE
+  };
+  uart_param_config(uartNum, &uart_config);
+  uart_set_pin(uartNum, txPin, rxPin, rtsPin, UART_PIN_NO_CHANGE);
+  uart_driver_install(uartNum, MAX_MODBUS_MESSAGE_LENGTH + 1, 0, 0, NULL, 0);
+  uart_set_mode(uartNum, UART_MODE_RS485_HALF_DUPLEX);
+}
+#endif
 
 void RS485Modbus::enter_slave()
 {
   slave = true;
+#ifdef ARDUINO_ARCH_ESP8266
   digitalWrite(rtsPin, LOW); // disable RS485 driver
+#endif
   if (rtrPin >= 0) digitalWrite(rtrPin, LOW); // enable RS485 driver
 }
 
@@ -30,6 +59,7 @@ void RS485Modbus::send_modbus_message(const uint8_t* message, size_t size)
   uint32_t startTime = ESP.getCycleCount();
   while (ESP.getCycleCount() - startTime < m_bitTime * 10 * 7 / 2/*3.5 chars silent interval*/) { ; }
 
+#if defined(ARDUINO_ARCH_ESP8266)
   // set commPin to output mode
   digitalWrite(commPin, HIGH);
   pinMode(commPin, OUTPUT);
@@ -62,6 +92,12 @@ void RS485Modbus::send_modbus_message(const uint8_t* message, size_t size)
   // turn commPin back to input
   pinMode(commPin, INPUT);
 
+#elif defined(ARDUINO_ARCH_ESP32)
+  if (rtrPin >= 0) digitalWrite(rtrPin, HIGH); // disable RS485 receiver
+  uart_write_bytes(uartNum, (const char*)message, size);
+  if (rtrPin >= 0 && slave) digitalWrite(rtrPin, LOW); // enable RS485 receiver
+#endif
+
   if (!slave) {
     startTime = ESP.getCycleCount();
     while (ESP.getCycleCount() - startTime < m_bitTime * 10 * 7 / 2/*3.5 chars silent interval*/) { ; }
@@ -72,28 +108,22 @@ int ICACHE_RAM_ATTR RS485Modbus::receive_modbus_message(uint8_t* modbus_message)
 {
   int message_size;
   bool waitingForFirstBit = true;
-  cli();
-
   if (rtrPin >= 0 && !slave) digitalWrite(rtrPin, LOW); // enable RS485 receiver
 
   uint32_t startTime = ESP.getCycleCount();
-
   //ignore input for some chars as turning RS485 receiver on produces some garbage when bias resistor is not connected
   if (!slave) {
     while (ESP.getCycleCount() - startTime < m_bitTime * 10 * 7 / 2/* 3.5 chars as modbus protocol defines*/) { ; }
   }
 
+#if defined(ARDUINO_ARCH_ESP8266)
+  cli();
+
   for (message_size = 0; message_size < MAX_MODBUS_MESSAGE_LENGTH; message_size++) {
     startTime = ESP.getCycleCount();
-#ifdef ARDUINO_ARCH_ESP8266
     while (GPIP(commPin)) { // wait for a start bit
-#else
-    while(digitalRead(commPin) == HIGH) { // wait for a start bit
-#endif
       if ((ESP.getCycleCount() - startTime) > (waitingForFirstBit? modbusTimeout : (m_bitTime * 10 * 7 / 2)/*3.5 chars silent interval*/)) goto out;
-#ifdef ARDUINO_ARCH_ESP8266
       ESP.wdtFeed();
-#endif
     }
     uint32_t wait = m_bitTime + m_bitTime / 2;
     uint32_t start = ESP.getCycleCount();
@@ -101,11 +131,7 @@ int ICACHE_RAM_ATTR RS485Modbus::receive_modbus_message(uint8_t* modbus_message)
     for (int j = 0; j < 8; j++) {
       WAIT;
       rec >>= 1;
-#ifdef ARDUINO_ARCH_ESP8266
       if (GPIP(commPin)) rec |= 0x80;
-#else
-      if (digitalRead(commPin)) rec |= 0x80;
-#endif
     }
     // Stop bit
     WAIT;
@@ -113,9 +139,24 @@ int ICACHE_RAM_ATTR RS485Modbus::receive_modbus_message(uint8_t* modbus_message)
     modbus_message[message_size] = rec;
   }
 out:;
-  if (rtrPin >= 0 && !slave) digitalWrite(rtrPin, HIGH); // disable RS485 receiver
-
   sei();
+
+#elif defined(ARDUINO_ARCH_ESP32)
+  if (!slave) uart_flush(uartNum);
+  for (message_size = 0; message_size < MAX_MODBUS_MESSAGE_LENGTH; message_size++) {
+    int r;
+    r = uart_read_bytes(uartNum, modbus_message + message_size, 1, (waitingForFirstBit? (modbusTimeout / (F_CPU / 1000)) : (10 * 7 / 2 * 1000 / (F_CPU / m_bitTime))) / portTICK_RATE_MS);
+    waitingForFirstBit = false;
+    if (r < 0) {
+      Serial.println("RS485 failed to receive");
+      return -1;
+    }
+    // else
+    if (r == 0) break;
+  }
+#endif
+
+  if (rtrPin >= 0 && !slave) digitalWrite(rtrPin, HIGH); // disable RS485 receiver
 
   if (message_size == 0) {
     if (!slave) Serial.println("modbus: Response timeout(No device connected?)");
@@ -142,6 +183,5 @@ out:;
 
     return -1;
   }
-
   return message_size;
 }

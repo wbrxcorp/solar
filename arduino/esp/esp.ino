@@ -15,13 +15,15 @@
 
 #define RS485_COMM_SOCKET 0
 
-#ifdef ARDUINO_ARCH_ESP8266
+#if defined(ARDUINO_ARCH_ESP8266)
   #define RS485_RE_SOCKET 2   // default pull-up(Receiver disable) in ESP8266
   #define RS485_DE_SOCKET 15  // default pull-down(Driver disable) in ESP8266
 
   #define PW1_SW_SOCKET 14    // ESP8266 IO14 D1 mini D5
   #define PW1_LED_SOCKET 12   // ESP8266 IO12 D1 mini D6
-#elif defined ARDUINO_ARCH_ESP32
+#elif defined(ARDUINO_ARCH_ESP32)
+  #define RS485_TX_SOCKET 17
+  #define RS485_RX_SOCKET 16
   #define RS485_RE_SOCKET 5   // default pull-up(Receiver disable) in ESP32
   #define RS485_DE_SOCKET 2   // default pull-down(Driver disable) in ESP32
 
@@ -372,7 +374,11 @@ void setup() {
   display.display();
 
   if (operation_mode == OPERATION_MODE_NORMAL || operation_mode == OPERATION_MODE_NISETRACER) {
+  #if defined(ARDUINO_ARCH_ESP8266)
     modbus.begin(RS485_COMM_SOCKET, RS485_DE_SOCKET, RS485_RE_SOCKET, EPSOLAR_COMM_SPEED, MODBUS_TIMEOUT_MS);
+  #elif defined(ARDUINO_ARCH_ESP32)
+    modbus.begin(UART_NUM_1, RS485_TX_SOCKET, RS485_RX_SOCKET, RS485_DE_SOCKET, RS485_RE_SOCKET, EPSOLAR_COMM_SPEED, MODBUS_TIMEOUT_MS);
+  #endif
   #if defined(PW1_SW_SOCKET) && defined(PW1_LED_SOCKET)
     edogawaUnit1.begin(PW1_SW_SOCKET, PW1_LED_SOCKET);
   #endif
@@ -468,7 +474,9 @@ void setup() {
   } // operation_mode == OPERATION_MODE_NORMAL
 
   Serial.print("Connecting to WiFi AP");
+#ifdef ARDUINO_ARCH_ESP8266
   WiFi.forceSleepWake();
+#endif
   WiFi.disconnect();
   WiFi.mode(WIFI_STA);
   WiFi.setAutoReconnect(true);
