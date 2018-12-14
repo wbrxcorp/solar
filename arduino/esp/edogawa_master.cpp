@@ -1,21 +1,29 @@
-// arduino --upload --board arduino:avr:uno --port /dev/ttyACM0 edogawamaster.ino
-// arduino --upload --board arduino:avr:mega:cpu=atmega2560 --port /dev/ttyACM0 edogawamaster.ino
+#if defined(ARDUINO_ARCH_ESP8266)
+#include <ESP8266WiFi.h>
+#elif defined(ARDUINO_ARCH_ESP32)
+#include <WiFi.h>
+#include <esp_sleep.h>
+#endif
 
-#include <Adafruit_Sensor.h>
 #include <Adafruit_BME280.h>
-#include "display.h"
-#include "edogawa_unit.h"
+#include "globals.h"
 
-#define DISPLAY_I2C_ADDRESS 0x3c
 #define BME280_I2C_ADDRESS 0x76 // GYBMEP
 
-Display display;
 Adafruit_BME280 bme; // I2C
 
-const uint8_t NUM_EDOGAWA_UNIT = 5;
-EdogawaUnit edg[NUM_EDOGAWA_UNIT];
-uint8_t swPin[NUM_EDOGAWA_UNIT] = { 2, 4, 6, 8, 10 };
-uint8_t ledPin[NUM_EDOGAWA_UNIT] = { 3, 5, 7, 9, 11 };
+#if defined(ARDUINO_ARCH_ESP8266)
+  const uint8_t NUM_EDOGAWA_UNIT = 1;
+  EdogawaUnit* edg = &edogawaUnit1;
+  uint8_t swPin[NUM_EDOGAWA_UNIT] = { 14 };
+  uint8_t ledPin[NUM_EDOGAWA_UNIT] = { 12 };
+#elif defined(ARDUINO_ARCH_ESP32)
+  const uint8_t NUM_EDOGAWA_UNIT = 5;
+  EdogawaUnit edg[NUM_EDOGAWA_UNIT];
+  uint8_t swPin[NUM_EDOGAWA_UNIT] = { 26, 17, 27, 12, 2 };
+  uint8_t ledPin[NUM_EDOGAWA_UNIT] = { 25, 16, 14, 13, 4 };
+#endif
+
 unsigned long lastEdogawaUnitOperation = 0;
 const uint16_t EDOGAWA_UNIT_OPERATION_INTERVAL_SECS = 300;
 
@@ -24,19 +32,23 @@ const float HIGH_TEMPERATURE = 25.5;
 
 uint8_t cnt = 0;
 
-void setup()
+void setup_edogawa_master()
 {
-  Serial.begin(115200);
-
-  display.begin(DISPLAY_I2C_ADDRESS);
-  display.display();
-
   if (!bme.begin(BME280_I2C_ADDRESS)) {
     Serial.println("Could not find a valid BME280 sensor, check wiring!");
-    display.print("SENSOR NOT FOUND");
+    display.println("SENSOR NOT FOUND");
+    display.println("REBOOT AFTER 5SEC");
     display.display();
-    while (1);
+
+#if defined(ARDUINO_ARCH_ESP8266)
+    ESP.deepSleep(5 * 1000L * 1000L , WAKE_RF_DEFAULT);
+#elif defined(ARDUINO_ARCH_ESP32)
+    esp_sleep_enable_timer_wakeup(5 * 1000L * 1000L);
+    esp_deep_sleep_start();
+#endif
+    delay(1000);
   }
+
   // else
   Serial.println("Temperature sensor Initialized");
 
@@ -48,7 +60,7 @@ void setup()
   delay(1000);
 }
 
-void loop()
+void loop_edogawa_master()
 {
   display.clearDisplay();
 

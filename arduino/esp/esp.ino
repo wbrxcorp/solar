@@ -46,6 +46,7 @@ const uint16_t DEFAULT_PORT = 29574; // default server port number
 #include "command_line.h"
 #include "server.h"
 #include "nisetracer.h"
+#include "edogawa_master.h"
 #include "crc.h"
 
 #include "globals.h"
@@ -558,6 +559,8 @@ void setup() {
     setup_server();
   } else if (operation_mode == OPERATION_MODE_NISETRACER) {
     setup_nisetracer();
+  } else if (operation_mode == OPERATION_MODE_EDOGAWA_MASTER) {
+    setup_edogawa_master();
   }
 }
 
@@ -745,6 +748,9 @@ void loop()
       break;
     case OPERATION_MODE_NISETRACER:
       loop_nisetracer();
+      break;
+    case OPERATION_MODE_EDOGAWA_MASTER:
+      loop_edogawa_master();
       break;
     default:
       break;

@@ -19,14 +19,6 @@ void setup_nisetracer()
     Serial.println("Setup nisetracer");
     modbus.enter_slave();
 
-#ifdef ARDUINO_ARCH_ESP8266
-    Serial.println("Entering modem sleep(MODEM_SLEEP_T)...");
-    wifi_set_sleep_type(MODEM_SLEEP_T);
-#elif defined ARDUINO_ARCH_ESP32
-    Serial.println("Entering modem sleep(WIFI_PS_MAX_MODEM)...");
-    esp_wifi_set_ps(WIFI_PS_MAX_MODEM) == ESP_OK;
-#endif
-
     display.clearDisplay();
     display.fillRect(64, 0, 127, 63, 1);
     display.display();
@@ -92,7 +84,7 @@ void loop_nisetracer()
     }
 
     // else
-    //display.invertDisplay(true);
+    display.invertDisplay(true);
     uint16_t addr = MKWORD(modbus_message[2], modbus_message[3]);
     uint8_t num = MKWORD(modbus_message[4], modbus_message[5]);
 
@@ -108,7 +100,7 @@ void loop_nisetracer()
     put_crc(response, sizeof(response) - 2);
 
     modbus.send_modbus_message(response, sizeof(response));
-    //display.invertDisplay(false);
+    display.invertDisplay(false);
   } else {
     Serial.println("Message received!");
   }

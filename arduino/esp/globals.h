@@ -9,7 +9,8 @@ extern uint8_t operation_mode;
 #define OPERATION_MODE_NORMAL 2
 #define OPERATION_MODE_SERVER 3
 #define OPERATION_MODE_NISETRACER 4
-#define OPERATION_MODE_MAX 4
+#define OPERATION_MODE_EDOGAWA_MASTER 5
+#define OPERATION_MODE_MAX 5
 
 typedef struct strCONFIG {
   uint8_t default_operation_mode;
