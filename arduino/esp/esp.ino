@@ -335,6 +335,10 @@ void setup() {
 
   operation_mode = config.default_operation_mode;
 
+  if (operation_mode == OPERATION_MODE_TFTTEST) {
+    early_setup_tfttest(); // begin TFT early
+  }
+
   Serial.println("Done.");
   Serial.print("Operation mode: ");
   Serial.println(operation_mode);
@@ -561,6 +565,8 @@ void setup() {
     setup_nisetracer();
   } else if (operation_mode == OPERATION_MODE_EDOGAWA_MASTER) {
     setup_edogawa_master();
+  } else if (operation_mode == OPERATION_MODE_TFTTEST) {
+    setup_tfttest();
   }
 }
 
@@ -751,6 +757,9 @@ void loop()
       break;
     case OPERATION_MODE_EDOGAWA_MASTER:
       loop_edogawa_master();
+      break;
+    case OPERATION_MODE_TFTTEST:
+      loop_tfttest();
       break;
     default:
       break;

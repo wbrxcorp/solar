@@ -10,7 +10,8 @@ extern uint8_t operation_mode;
 #define OPERATION_MODE_SERVER 3
 #define OPERATION_MODE_NISETRACER 4
 #define OPERATION_MODE_EDOGAWA_MASTER 5
-#define OPERATION_MODE_MAX 5
+#define OPERATION_MODE_TFTTEST 6
+#define OPERATION_MODE_MAX 6
 
 typedef struct strCONFIG {
   uint8_t default_operation_mode;
@@ -24,6 +25,9 @@ typedef struct strCONFIG {
 
 #include "display.h"
 extern Display display;
+
+#include "TFT.h"
+extern TFT tft;
 
 extern CONFIG config;
 

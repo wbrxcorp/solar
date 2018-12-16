@@ -1,3 +1,6 @@
+#ifndef __TFT_H__
+#define __TFT_H__
+
 #include <SPI.h>
 #include <Adafruit_GFX.h>
 
@@ -23,6 +26,8 @@ class TFT : public Adafruit_GFX {
   int32_t  _cs, _dc, _rst;
 	int16_t  _xstart = 0, _ystart = 0;
   uint8_t _colstart = 0, _rowstart = 0;
+  bool started = false;
+  uint8_t initialRotation = 2;
 
 protected:
   void writeCommand(uint8_t cmd);
@@ -62,3 +67,9 @@ public:
 
   uint16_t color565(uint8_t r, uint8_t g, uint8_t b);
 };
+
+void early_setup_tfttest();
+void setup_tfttest();
+void loop_tfttest();
+
+#endif // __TFT_H__

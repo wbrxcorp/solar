@@ -9,4 +9,6 @@ RS485Modbus modbus;
 
 Display display;
 
+TFT tft;
+
 bool debug_mode = false;
