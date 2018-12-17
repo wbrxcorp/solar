@@ -32,11 +32,9 @@ uint8_t cnt = 0;
 
 void early_setup_edogawa_master()
 {
-  #if defined(ARDUINO_ARCH_ESP8266)
-    tft.begin((int8_t)0, (int8_t)15);
-  #elif defined(ARDUINO_ARCH_ESP32)
-    tft.begin((int8_t)5, (int8_t)0);
-  #endif
+#if defined(ARDUINO_ARCH_ESP32)
+  tft.begin((int8_t)5, (int8_t)0);
+#endif
 }
 
 void setup_edogawa_master()
@@ -61,18 +59,19 @@ void setup_edogawa_master()
 #endif
     delay(1000);
   }
-
-  load_background_image(); // in thermometer.h
-
-  for (int i = 0; i < NUM_EDOGAWA_UNIT; i++) {
-    tft.drawRect(20 * i, tft.height() - 19, 19, 19, TFT_RED);
-  }
-
   // else
   Serial.println("Temperature sensor Initialized");
 
   for (int i = 0; i < NUM_EDOGAWA_UNIT; i++) {
     edg[i].begin(swPin[i], ledPin[i]);
+  }
+
+  if (tft) {
+    load_background_image(); // in thermometer.h
+
+    for (int i = 0; i < NUM_EDOGAWA_UNIT; i++) {
+      tft.drawRect(20 * i, tft.height() - 19, 19, 19, TFT_RED);
+    }
   }
 
   lastEdogawaUnitOperation = millis();
@@ -149,11 +148,13 @@ void loop_edogawa_master()
 
   display.display();
 
-  // TFT
-  thermometer_print_values(temperature, humidity, pressure);
-  // 江戸川装置(TFT)
-  for (int i = 0; i < NUM_EDOGAWA_UNIT; i++) {
-    tft.fillRect(20 * i + 1, tft.height() - 18, 17, 17, edg[i].is_power_on()? TFT_RED : TFT_WHITE);
+  if (tft) {
+    // TFT
+    thermometer_print_values(temperature, humidity, pressure);
+    // 江戸川装置(TFT)
+    for (int i = 0; i < NUM_EDOGAWA_UNIT; i++) {
+      tft.fillRect(20 * i + 1, tft.height() - 18, 17, 17, edg[i].is_power_on()? TFT_RED : TFT_WHITE);
+    }
   }
 
   unsigned long currentTime = millis();

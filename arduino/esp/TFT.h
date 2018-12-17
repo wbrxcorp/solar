@@ -22,7 +22,7 @@
 class TFT : public Adafruit_GFX {
   SPIClass *_spi;
   uint32_t _freq;
-  uint8_t _spiDataMode;
+  uint8_t _spiDataMode = SPI_MODE3;
   int32_t  _cs, _dc, _rst;
 	int16_t  _xstart = 0, _ystart = 0;
   uint8_t _colstart = 0, _rowstart = 0;
@@ -34,10 +34,12 @@ protected:
   void setAddrWindow(uint16_t x, uint16_t y, uint16_t w, uint16_t h);
 
 public:
-  TFT() : Adafruit_GFX(TFT_WIDTH, TFT_HEIGHT), _spiDataMode(SPI_MODE3) { ; }
+  TFT() : Adafruit_GFX(TFT_WIDTH, TFT_HEIGHT) { ; }
   void setDataMode(uint8_t spiDataMode) { _spiDataMode = spiDataMode; }
   void begin(SPIClass *spiClass, int8_t dc, int8_t rst = -1, int8_t cs = -1, uint32_t freq = TFT_SPI_DEFAULT_FREQ);
   void begin(int8_t dc, int8_t rst = -1, int8_t cs = -1, uint32_t freq = TFT_SPI_DEFAULT_FREQ);
+
+  operator bool() const { return started; }
 
   void setRotation(uint8_t m);
 
