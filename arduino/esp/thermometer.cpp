@@ -27,7 +27,7 @@ void early_setup_thermometer()
 //
 // mkspiffs -c . -b 4096 -p 256 -s 0x16f000 /tmp/esp32.spiffs
 // esptool.py --chip esp32 --baud 460800 --port /dev/ttyUSB0 write_flash 0x291000 /tmp/esp32.spiffs
-void setup_thermometer()
+void load_background_image()
 {
   SPIFFS.begin();
   File f = SPIFFS.open("/background.bmp", "r");
@@ -41,6 +41,12 @@ void setup_thermometer()
     tft.fillScreen(TFT_WHITE);
   }
   SPIFFS.end();
+}
+
+
+void setup_thermometer()
+{
+  load_background_image();
 
   if (!bme.begin(BME280_I2C_ADDRESS)) {
     Serial.println("Could not find a valid BME280 sensor, check wiring!");
@@ -59,10 +65,10 @@ void setup_thermometer()
   }
 }
 
-void loop_thermometer()
+void thermometer_print_values(float temperature, float humidity, uint16_t pressure)
 {
   char buf[16];
-  sprintf(buf, "%2.1f", bme.readTemperature());
+  sprintf(buf, "%2.1f", temperature);
   char* decimal_part = strchr(buf, '.');
 
   if (decimal_part) {
@@ -80,18 +86,23 @@ void loop_thermometer()
   tft.print(buf);
 
   // humidity
-  sprintf(buf, "%2.1f", bme.readHumidity());
+  sprintf(buf, "%2.1f", humidity);
   tft.setTextSize(3);
   tft.setCursor(13, 122);
   tft.setTextColor(TFT_BLUE, TFT_WHITE);
   tft.print(buf);
 
   // pressure
-  sprintf(buf, "%4d", (int)(bme.readPressure() / 100.0F));
+  sprintf(buf, "%4d", pressure);
   tft.setTextSize(3);
   tft.setCursor(10, 155);
   tft.setTextColor(TFT_GREEN, TFT_WHITE);
   tft.print(buf);
 
+}
+
+void loop_thermometer()
+{
+  thermometer_print_values(bme.readTemperature(), bme.readHumidity(), (uint16_t)(bme.readPressure() / 100.0F));
   delay(1000);
 }

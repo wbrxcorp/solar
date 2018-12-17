@@ -336,8 +336,11 @@ void setup() {
 
   operation_mode = config.default_operation_mode;
 
+  // begin TFT early
   if (operation_mode == OPERATION_MODE_THERMOMETER) {
-    early_setup_thermometer(); // begin TFT early
+    early_setup_thermometer();
+  } else if (operation_mode == OPERATION_MODE_EDOGAWA_MASTER) {
+    early_setup_edogawa_master();
   }
 
   Serial.println("Done.");

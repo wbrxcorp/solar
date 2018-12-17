@@ -6,6 +6,7 @@
 #endif
 
 #include "globals.h"
+#include "thermometer.h"
 
 #define BME280_I2C_ADDRESS 0x76 // GYBMEP
 
@@ -29,6 +30,15 @@ const float HIGH_TEMPERATURE = 25.5;
 
 uint8_t cnt = 0;
 
+void early_setup_edogawa_master()
+{
+  #if defined(ARDUINO_ARCH_ESP8266)
+    tft.begin((int8_t)0, (int8_t)15);
+  #elif defined(ARDUINO_ARCH_ESP32)
+    tft.begin((int8_t)5, (int8_t)0);
+  #endif
+}
+
 void setup_edogawa_master()
 {
   if (!bme.begin(BME280_I2C_ADDRESS)) {
@@ -37,6 +47,12 @@ void setup_edogawa_master()
     display.println("REBOOT AFTER 5SEC");
     display.display();
 
+    tft.fillScreen(TFT_BLACK);
+    tft.setTextColor(TFT_WHITE);
+    tft.setTextSize(2);
+    tft.println("SENSOR NOT FOUND");
+    tft.println("REBOOT AFTER 5SEC");
+
 #if defined(ARDUINO_ARCH_ESP8266)
     ESP.deepSleep(5 * 1000L * 1000L , WAKE_RF_DEFAULT);
 #elif defined(ARDUINO_ARCH_ESP32)
@@ -44,6 +60,12 @@ void setup_edogawa_master()
     esp_deep_sleep_start();
 #endif
     delay(1000);
+  }
+
+  load_background_image(); // in thermometer.h
+
+  for (int i = 0; i < NUM_EDOGAWA_UNIT; i++) {
+    tft.drawRect(20 * i, tft.height() - 19, 19, 19, TFT_RED);
   }
 
   // else
@@ -68,7 +90,7 @@ void loop_edogawa_master()
   float humidity = bme.readHumidity();
   char hum_s[6];
   dtostrf(humidity, 4, 1, hum_s);
-  int pressure = (int)(bme.readPressure() / 100.0F);
+  uint16_t pressure = (uint16_t)(bme.readPressure() / 100.0F);
 
   Serial.print("Temp=");
   Serial.print(temp_s);
@@ -119,13 +141,20 @@ void loop_edogawa_master()
   display.setCursor(90, 50);
   display.print("hPa");
 
-  // 江戸川装置
+  // 江戸川装置(OLED)
   for (int i = 0; i < NUM_EDOGAWA_UNIT; i++) {
     display.drawRect(10 * i, 54, 9, 9, 1);
     if (edg[i].is_power_on()) display.fillRect(10 * i + 1, 55, 7, 7, 1);
   }
 
   display.display();
+
+  // TFT
+  thermometer_print_values(temperature, humidity, pressure);
+  // 江戸川装置(TFT)
+  for (int i = 0; i < NUM_EDOGAWA_UNIT; i++) {
+    tft.fillRect(20 * i + 1, tft.height() - 18, 17, 17, edg[i].is_power_on()? TFT_RED : TFT_WHITE);
+  }
 
   unsigned long currentTime = millis();
   if (lastEdogawaUnitOperation + EDOGAWA_UNIT_OPERATION_INTERVAL_SECS * 1000L < currentTime) {
