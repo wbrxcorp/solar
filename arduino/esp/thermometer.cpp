@@ -1,4 +1,11 @@
+#if defined(ARDUINO_ARCH_ESP8266)
+#include <ESP8266WiFi.h>
+#elif defined(ARDUINO_ARCH_ESP32)
+#include <WiFi.h>
+#include <SPIFFS.h>
+#endif
 #include <FS.h>
+
 #include <Adafruit_BME280.h>
 #include "globals.h"
 
@@ -6,13 +13,20 @@
 
 void early_setup_thermometer()
 {
-  tft.begin(D3, D4);
+  WiFi.mode(WIFI_OFF);
+#if defined(ARDUINO_ARCH_ESP8266)
+  tft.begin((int8_t)0, (int8_t)15);
+#elif defined(ARDUINO_ARCH_ESP32)
+  tft.begin((int8_t)5, (int8_t)0);
+#endif
 }
 
 // for 4M1M esp8266
-// mkspiffs -c . -b 8192 -p 256 -s 0xfb000 /tmp/esp.spiffs
-// esptool.py --baud 460800 --port /dev/ttyUSB0 write_flash 0x300000 /tmp/esp.spiffs
-
+// mkspiffs -c . -b 8192 -p 256 -s 0xfb000 /tmp/esp8266.spiffs
+// esptool.py --baud 460800 --port /dev/ttyUSB0 write_flash 0x300000 /tmp/esp8266.spiffs
+//
+// mkspiffs -c . -b 4096 -p 256 -s 0x16f000 /tmp/esp32.spiffs
+// esptool.py --chip esp32 --baud 460800 --port /dev/ttyUSB0 write_flash 0x291000 /tmp/esp32.spiffs
 void setup_thermometer()
 {
   SPIFFS.begin();

@@ -201,8 +201,8 @@ uint16_t TFT::color565(uint8_t red, uint8_t green, uint8_t blue) {
 }
 
 void inline TFT::startWrite(void){
-    _spi->beginTransaction(SPISettings(_freq, MSBFIRST, _spiDataMode));
-    if(_cs >= 0) digitalWrite(_cs, HIGH);
+  _spi->beginTransaction(SPISettings(_freq, MSBFIRST, _spiDataMode));
+  if(_cs >= 0) digitalWrite(_cs, HIGH);
 }
 
 void inline TFT::endWrite(void){
@@ -218,7 +218,7 @@ void TFT::writeCommand(uint8_t cmd){
 
 void TFT::writePixels(uint16_t *colors, uint32_t len) {
 #ifdef SPI_HAS_WRITE_PIXELS
-  _spi->writePixels((uint8_t*)colors , len * 2)
+  _spi->writePixels((uint8_t*)colors , len * 2);
 #else
   for(uint32_t i = 0; i < len; i++) {
     _spi->write16(((uint16_t*)colors)[i]);
@@ -385,8 +385,6 @@ void TFT::drawRGBBitmap(int16_t x, int16_t y,
 
 void TFT::pushColors(uint16_t *data, uint32_t len)
 {
-  startWrite();
-
 #ifdef SPI_HAS_WRITE_PIXELS
   _spi->writePixels(data,len<<1);
 #else
@@ -449,8 +447,6 @@ void TFT::pushColors(uint16_t *data, uint32_t len)
   while(SPI1CMD & SPIBUSY) {}
 
 #endif
-
-  endWrite();
 }
 
 void TFT::pushImage(int32_t x, int32_t y, uint32_t w, uint32_t h, const uint16_t *data)
@@ -535,14 +531,14 @@ static const uint8_t PROGMEM
     255 };                          //     255 = max (500 ms) delay
 
 
-void TFT::begin(SPIClass *spiClass, int8_t dc, int8_t rst/* = -1*/, int8_t cs/* = -1*/, uint32_t freq/* = SPI_DEFAULT_FREQ*/) {
+void TFT::begin(SPIClass *spiClass, int8_t dc, int8_t rst/* = -1*/, int8_t cs/* = -1*/, uint32_t freq/* = TFT_SPI_DEFAULT_FREQ*/) {
   _cs   = cs;
   _dc   = dc;
   _rst  = rst;
   _spi = spiClass;
 
   if(!freq) {
-    freq = SPI_DEFAULT_FREQ;
+    freq = TFT_SPI_DEFAULT_FREQ;
   }
   _freq = freq;
 
@@ -597,6 +593,7 @@ void TFT::begin(SPIClass *spiClass, int8_t dc, int8_t rst/* = -1*/, int8_t cs/* 
 
   // show splash
   startWrite();
+
   uint16_t  buffer[64];
   const uint8_t bufferSize = sizeof(buffer) / sizeof(buffer[0]);
   const int8_t* pt = logo240x240rle;
@@ -622,7 +619,7 @@ void TFT::begin(SPIClass *spiClass, int8_t dc, int8_t rst/* = -1*/, int8_t cs/* 
   endWrite();
 }
 
-void TFT::begin(int8_t dc, int8_t rst/* = -1*/, int8_t cs/* = -1*/, uint32_t freq/* = SPI_DEFAULT_FREQ*/)
+void TFT::begin(int8_t dc, int8_t rst/* = -1*/, int8_t cs/* = -1*/, uint32_t freq/* = TFT_SPI_DEFAULT_FREQ*/)
 {
   begin(&SPI, dc, rst, cs, freq);
 }
@@ -713,6 +710,7 @@ bool TFT::showBitmapFile(Stream& f)
     };
   }
 
+  startWrite();
   for (int i = 0; i < (bmpheader.height > 0? bmpheader.height : -bmpheader.height); i++) {
     uint16_t line[bmpheader.width];
     uint16_t y = bmpheader.height > 0? (bmpheader.height - i - 1) : i;
@@ -721,15 +719,14 @@ bool TFT::showBitmapFile(Stream& f)
       return false;
     }
 
-    startWrite();
     setAddrWindow(0, y, bmpheader.width, 1);
     uint16_t* pt;
     for (pt = line; pt - line + 64 < bmpheader.width; pt += 64) {
       pushColors(pt, 64);
     }
     pushColors(pt, bmpheader.width % 64);
-    endWrite();
   }
+  endWrite();
 
   return true;
 }

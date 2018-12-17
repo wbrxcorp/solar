@@ -1,6 +1,9 @@
 #include <Arduino.h>
 #include <EEPROM.h>
 #include <FS.h>
+#ifdef ARDUINO_ARCH_ESP32
+#include <SPIFFS.h>
+#endif
 #include "command_line.h"
 #include "globals.h"
 #include "crc.h"
@@ -431,13 +434,54 @@ bool ratedvoltagecode(const LineParser& lineparser)
 bool ls(const LineParser& lineparser)
 {
   SPIFFS.begin();
+#if defined(ARDUINO_ARCH_ESP8266)
   Dir dir = SPIFFS.openDir("/");
   while (dir.next()) {
     Serial.print(dir.fileName());
     File f = dir.openFile("r");
     Serial.println(String(" ") + f.size());
+    f.close();
   }
+#elif defined(ARDUINO_ARCH_ESP32)
+  File dir = SPIFFS.open("/");
+  File entry;
+  while ((bool)(entry = dir.openNextFile())) {
+    Serial.print(entry.name());
+    Serial.println(String(" ") + entry.size());
+    entry.close();
+  }
+#endif
   SPIFFS.end();
+  return true;
+}
+
+bool partitions(const LineParser& lineparser)
+{
+#ifdef ARDUINO_ARCH_ESP32
+  size_t ul;
+  esp_partition_iterator_t _mypartiterator;
+  const esp_partition_t *_mypart;
+  ul = spi_flash_get_chip_size(); Serial.print("Flash chip size: "); Serial.println(ul);
+  Serial.println("Partiton table:");
+  _mypartiterator = esp_partition_find(ESP_PARTITION_TYPE_APP, ESP_PARTITION_SUBTYPE_ANY, NULL);
+  if (_mypartiterator) {
+    do {
+      _mypart = esp_partition_get(_mypartiterator);
+      printf("%x - %x - %x - %x - %s - %i\r\n", _mypart->type, _mypart->subtype, _mypart->address, _mypart->size, _mypart->label, _mypart->encrypted);
+    } while (_mypartiterator = esp_partition_next(_mypartiterator));
+  }
+  esp_partition_iterator_release(_mypartiterator);
+  _mypartiterator = esp_partition_find(ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_ANY, NULL);
+  if (_mypartiterator) {
+    do {
+      _mypart = esp_partition_get(_mypartiterator);
+      printf("%x - %x - %x - %x - %s - %i\r\n", _mypart->type, _mypart->subtype, _mypart->address, _mypart->size, _mypart->label, _mypart->encrypted);
+    } while (_mypartiterator = esp_partition_next(_mypartiterator));
+  }
+  esp_partition_iterator_release(_mypartiterator);
+#else
+  Serial.println("Not implemented in this platform");
+#endif
   return true;
 }
 
@@ -470,6 +514,7 @@ bool process_command_line(const char* line) // true = go to next line,  false = 
     { "eqcycle", eqcycle },
     { "ratedvoltagecode", ratedvoltagecode },
     { "ls", ls },
+    { "partitions", partitions},
     { NULL, NULL }
   };
 

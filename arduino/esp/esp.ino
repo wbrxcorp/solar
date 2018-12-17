@@ -479,72 +479,74 @@ void setup() {
     Serial.println("mV/Cecelsius degree/2V");
   } // operation_mode == OPERATION_MODE_NORMAL
 
-  Serial.print("Connecting to WiFi AP");
+  if (operation_mode != OPERATION_MODE_THERMOMETER) {
+    Serial.print("Connecting to WiFi AP");
 #ifdef ARDUINO_ARCH_ESP8266
-  WiFi.forceSleepWake();
+    WiFi.forceSleepWake();
 #endif
-  WiFi.disconnect();
-  WiFi.mode(WIFI_STA);
-  WiFi.setAutoReconnect(true);
+    WiFi.disconnect();
+    WiFi.mode(WIFI_STA);
+    WiFi.setAutoReconnect(true);
 
-  for (int i = 0; i < 2; i++) {
-    if (i == 0) {
-      if (rtcData.valid) {
-        Serial.print("(Attempting connect to previously connected AP)");
-        WiFi.begin(config.ssid, config.key, rtcData.channel, rtcData.bssid, true);
-      } else continue;
-    } else {
-      // attempt to connect with ssid/key
-      WiFi.begin(config.ssid, config.key);
-    }
-    char rot[] = {'|','/','-','\\', '\0'};
-    char minus[] = {'-', '\0'};
-    int irot = 0;
-    unsigned long startTime = millis();
-    while (WiFi.status() != WL_CONNECTED) {
-      if (i == 0/*connect with stored bssid*/ && millis() - startTime > 5000/*5 seconds*/) {
-        Serial.println("Abandon connecting previously connected AP");
-        WiFi.disconnect();
-        delay(10);
-#ifdef ARDUINO_ARCH_ESP8266
-        WiFi.forceSleepBegin();
-        delay(10);
-        WiFi.forceSleepWake();
-        delay(10);
-#endif
-        break;
+    for (int i = 0; i < 2; i++) {
+      if (i == 0) {
+        if (rtcData.valid) {
+          Serial.print("(Attempting connect to previously connected AP)");
+          WiFi.begin(config.ssid, config.key, rtcData.channel, rtcData.bssid, true);
+        } else continue;
+      } else {
+        // attempt to connect with ssid/key
+        WiFi.begin(config.ssid, config.key);
       }
-      display.setCursor(0, display.getCursorY());
-      display.print("Connecting WiFi...");
-      int16_t x, y;
-      uint16_t w, h;
-      display.getTextBounds(minus, display.getCursorX(), display.getCursorY(), &x, &y, &w, &h);
-      display.fillRect(x, y, w, h, 0);
-      display.print(rot[irot++]);
-      if (!rot[irot]) irot = 0;
-      display.display();
-      delay(500);
-      Serial.print(".");
-      //Serial.println(WiFi.status());
+      char rot[] = {'|','/','-','\\', '\0'};
+      char minus[] = {'-', '\0'};
+      int irot = 0;
+      unsigned long startTime = millis();
+      while (WiFi.status() != WL_CONNECTED) {
+        if (i == 0/*connect with stored bssid*/ && millis() - startTime > 5000/*5 seconds*/) {
+          Serial.println("Abandon connecting previously connected AP");
+          WiFi.disconnect();
+          delay(10);
+#ifdef ARDUINO_ARCH_ESP8266
+          WiFi.forceSleepBegin();
+          delay(10);
+          WiFi.forceSleepWake();
+          delay(10);
+#endif
+          break;
+        }
+        display.setCursor(0, display.getCursorY());
+        display.print("Connecting WiFi...");
+        int16_t x, y;
+        uint16_t w, h;
+        display.getTextBounds(minus, display.getCursorX(), display.getCursorY(), &x, &y, &w, &h);
+        display.fillRect(x, y, w, h, 0);
+        display.print(rot[irot++]);
+        if (!rot[irot]) irot = 0;
+        display.display();
+        delay(500);
+        Serial.print(".");
+        //Serial.println(WiFi.status());
+      }
+
+      if (WiFi.status() == WL_CONNECTED) break;
     }
 
-    if (WiFi.status() == WL_CONNECTED) break;
+    // save WiFi AP info to rtc data
+    rtcData.channel = WiFi.channel();
+    memcpy(rtcData.bssid, WiFi.BSSID(), sizeof(rtcData.bssid));
+
+    Serial.println(" Connected.");
+    Serial.print("IP address: ");
+    Serial.println(WiFi.localIP());
+
+    display.clearDisplay();
+    display.setCursor(0,0);
+    display.println("WiFi connected.");
+    display.print("IP address: ");
+    display.println(WiFi.localIP());
+    display.display();
   }
-
-  // save WiFi AP info to rtc data
-  rtcData.channel = WiFi.channel();
-  memcpy(rtcData.bssid, WiFi.BSSID(), sizeof(rtcData.bssid));
-
-  Serial.println(" Connected.");
-  Serial.print("IP address: ");
-  Serial.println(WiFi.localIP());
-
-  display.clearDisplay();
-  display.setCursor(0,0);
-  display.println("WiFi connected.");
-  display.print("IP address: ");
-  display.println(WiFi.localIP());
-  display.display();
 
   if (operation_mode == OPERATION_MODE_NORMAL) {
     display.println("Connecting to server...");

@@ -17,7 +17,7 @@
 #define TFT_YELLOW     0xFFE0
 #define	TFT_ORANGE     0xFC00
 
-#define SPI_DEFAULT_FREQ 40000000 ///< Default SPI data clock frequency
+#define TFT_SPI_DEFAULT_FREQ 40000000 ///< Default SPI data clock frequency
 
 class TFT : public Adafruit_GFX {
   SPIClass *_spi;
@@ -36,8 +36,8 @@ protected:
 public:
   TFT() : Adafruit_GFX(TFT_WIDTH, TFT_HEIGHT), _spiDataMode(SPI_MODE3) { ; }
   void setDataMode(uint8_t spiDataMode) { _spiDataMode = spiDataMode; }
-  void begin(SPIClass *spiClass, int8_t dc, int8_t rst = -1, int8_t cs = -1, uint32_t freq = SPI_DEFAULT_FREQ);
-  void begin(int8_t dc, int8_t rst = -1, int8_t cs = -1, uint32_t freq = SPI_DEFAULT_FREQ);
+  void begin(SPIClass *spiClass, int8_t dc, int8_t rst = -1, int8_t cs = -1, uint32_t freq = TFT_SPI_DEFAULT_FREQ);
+  void begin(int8_t dc, int8_t rst = -1, int8_t cs = -1, uint32_t freq = TFT_SPI_DEFAULT_FREQ);
 
   void setRotation(uint8_t m);
 
