@@ -47,6 +47,7 @@ const uint16_t DEFAULT_PORT = 29574; // default server port number
 #include "server.h"
 #include "nisetracer.h"
 #include "edogawa_master.h"
+#include "thermometer.h"
 #include "crc.h"
 
 #include "globals.h"
@@ -335,8 +336,8 @@ void setup() {
 
   operation_mode = config.default_operation_mode;
 
-  if (operation_mode == OPERATION_MODE_TFTTEST) {
-    early_setup_tfttest(); // begin TFT early
+  if (operation_mode == OPERATION_MODE_THERMOMETER) {
+    early_setup_thermometer(); // begin TFT early
   }
 
   Serial.println("Done.");
@@ -565,8 +566,8 @@ void setup() {
     setup_nisetracer();
   } else if (operation_mode == OPERATION_MODE_EDOGAWA_MASTER) {
     setup_edogawa_master();
-  } else if (operation_mode == OPERATION_MODE_TFTTEST) {
-    setup_tfttest();
+  } else if (operation_mode == OPERATION_MODE_THERMOMETER) {
+    setup_thermometer();
   }
 }
 
@@ -758,8 +759,8 @@ void loop()
     case OPERATION_MODE_EDOGAWA_MASTER:
       loop_edogawa_master();
       break;
-    case OPERATION_MODE_TFTTEST:
-      loop_tfttest();
+    case OPERATION_MODE_THERMOMETER:
+      loop_thermometer();
       break;
     default:
       break;

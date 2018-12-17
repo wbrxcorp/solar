@@ -12,3 +12,5 @@ Display display;
 TFT tft;
 
 bool debug_mode = false;
+
+Adafruit_BME280 bme; // I2C

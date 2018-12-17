@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include <EEPROM.h>
+#include <FS.h>
 #include "command_line.h"
 #include "globals.h"
 #include "crc.h"
@@ -427,6 +428,19 @@ bool ratedvoltagecode(const LineParser& lineparser)
   return true;
 }
 
+bool ls(const LineParser& lineparser)
+{
+  SPIFFS.begin();
+  Dir dir = SPIFFS.openDir("/");
+  while (dir.next()) {
+    Serial.print(dir.fileName());
+    File f = dir.openFile("r");
+    Serial.println(String(" ") + f.size());
+  }
+  SPIFFS.end();
+  return true;
+}
+
 bool process_command_line(const char* line) // true = go to next line,  false = go to next loop
 {
   LineParser lineparser(line);
@@ -455,6 +469,7 @@ bool process_command_line(const char* line) // true = go to next line,  false = 
     { "r9010", r9010 },
     { "eqcycle", eqcycle },
     { "ratedvoltagecode", ratedvoltagecode },
+    { "ls", ls },
     { NULL, NULL }
   };
 

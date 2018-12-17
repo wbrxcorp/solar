@@ -1,3 +1,4 @@
+#include <FS.h>
 #include "TFT.h"
 
 #define ST_CMD_DELAY      0x80    // special signifier for command lists
@@ -656,24 +657,79 @@ void TFT::setRotation(uint8_t rotation)
   endWrite();
 }
 
-// test
-
-#include "globals.h"
-
-void early_setup_tfttest()
+bool TFT::showBitmapFile(Stream& f)
 {
-  tft.begin(D3, D4);
-}
+  struct __attribute__((__packed__)) {
+    char bm[2];
+    uint32_t filesize;
+    uint16_t reserved[2];
+    uint32_t offset;
 
-void setup_tfttest()
-{
-  //tft.fillScreen(TFT_BLACK);
-  //tft.fillScreen(TFT_BLUE);
-  Serial.println("Start.");
-}
+    uint32_t hdrsize; // >= 40
+    uint32_t width; // == 240
+    int32_t height; // == 240 | -240
+    uint16_t planes; // == 1
+    uint16_t depth;  // == 16
+    uint32_t compression; // == 3
 
-void loop_tfttest()
-{
-  Serial.println("Hello, World!");
-  delay(1000);
+    uint32_t datasize,hresoltion,vresolution,usedcolors,importabtcolors;
+    uint32_t colormask_r,colormask_g,colormask_b;
+  } bmpheader;
+
+  if (f.readBytes((char*)&bmpheader, sizeof(bmpheader)) != sizeof(bmpheader)) {
+    Serial.println("Bitmap file too short");
+    return false;
+  }
+  // else
+  if (bmpheader.bm[0] != 'B' || bmpheader.bm[1] != 'M' || bmpheader.hdrsize < 108) {
+    Serial.println("Incorrect bitmap file header");
+    Serial.print("identifier: "); Serial.print(bmpheader.bm[0]); Serial.println(bmpheader.bm[1]);
+    Serial.print("hdrsize: "); Serial.println(bmpheader.hdrsize);
+    return false;
+  }
+  // else
+  if (bmpheader.planes != 1 || bmpheader.width == 0 || bmpheader.height == 0
+    || bmpheader.width > _width || bmpheader.height > _height || -bmpheader.height > _height
+    || bmpheader.depth != 16) {
+    Serial.println("Invalid image size or format");
+    return false;
+  }
+  // else
+  if (bmpheader.compression != 3) {
+    Serial.println("Unsupprted compression type(must be 3:BI_BITFIELDS");
+    return false;
+  }
+
+  if (bmpheader.colormask_r != 0x0000f800 || bmpheader.colormask_g != 0x000007E0 || bmpheader.colormask_b != 0x0000001f) {
+    Serial.println("Invalid pixel format(must be RGB565)");
+    return false;
+  }
+
+  // skip
+  for (int i = sizeof(bmpheader); i < bmpheader.offset; i++) {
+    if (f.read() < 0) {
+      Serial.print("File seek error(probably file is too short). offset="); Serial.println(bmpheader.offset);
+      return false;
+    };
+  }
+
+  for (int i = 0; i < (bmpheader.height > 0? bmpheader.height : -bmpheader.height); i++) {
+    uint16_t line[bmpheader.width];
+    uint16_t y = bmpheader.height > 0? (bmpheader.height - i - 1) : i;
+    if (f.readBytes((char*)line, sizeof(line)) < sizeof(line)) {
+      Serial.print("Bitmap size is too short. y="); Serial.println(y);
+      return false;
+    }
+
+    startWrite();
+    setAddrWindow(0, y, bmpheader.width, 1);
+    uint16_t* pt;
+    for (pt = line; pt - line + 64 < bmpheader.width; pt += 64) {
+      pushColors(pt, 64);
+    }
+    pushColors(pt, bmpheader.width % 64);
+    endWrite();
+  }
+
+  return true;
 }

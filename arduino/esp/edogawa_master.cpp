@@ -5,12 +5,9 @@
 #include <esp_sleep.h>
 #endif
 
-#include <Adafruit_BME280.h>
 #include "globals.h"
 
 #define BME280_I2C_ADDRESS 0x76 // GYBMEP
-
-Adafruit_BME280 bme; // I2C
 
 #if defined(ARDUINO_ARCH_ESP8266)
   const uint8_t NUM_EDOGAWA_UNIT = 1;

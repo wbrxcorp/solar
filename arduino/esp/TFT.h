@@ -63,13 +63,10 @@ public:
 
   void pushColors(uint16_t *data, uint32_t len);
   void pushImage(int32_t x, int32_t y, uint32_t w, uint32_t h, const uint16_t *data);
+  bool showBitmapFile(Stream& f);
 	void invertDisplay(boolean i);
 
   uint16_t color565(uint8_t r, uint8_t g, uint8_t b);
 };
-
-void early_setup_tfttest();
-void setup_tfttest();
-void loop_tfttest();
 
 #endif // __TFT_H__
