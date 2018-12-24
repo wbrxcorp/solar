@@ -66,8 +66,6 @@ static void process_message(const char* message)
     else if (strcmp(key, "pw2") == 0) pw2 = pw_str(value);
   }
 
-  sleep = piv < 10.0? 60 : 0;
-
   if (strncmp(message, "DATA\t", 5) == 0) {
     display.clearDisplay();
     display.setCursor(0,0);
@@ -80,6 +78,7 @@ static void process_message(const char* message)
         + "TEMP " + temp + "deg.\n" +
         + "PW   " + pw + '\n'
         + "PW1  " + pw1 + '\n');
+    sleep = piv < 10.0? 60 : 0;
     if (sleep) {
       display.println("(SLEEP)");
     }

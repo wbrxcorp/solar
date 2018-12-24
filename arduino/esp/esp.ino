@@ -670,6 +670,7 @@ void loop_normal()
 
   if (last_message_sent > last_message_received && current_time - last_message_sent >= MESSAGE_TIMEOUT) {
     Serial.println("Message timeout. Disconnecting.");
+    last_message_sent = 0L;
     disconnect();
   }
 
