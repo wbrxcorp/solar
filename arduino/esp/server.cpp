@@ -132,7 +132,7 @@ void loop_server()
     if (receive_message(client, receive_buffer, process_message) > 0) {
       if (sleep) {
         client.write("OK\tsleep:");
-        client.write(sleep);
+        client.print(sleep);
         client.write('\n');
       } else {
         client.write("OK\n");
