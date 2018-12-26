@@ -83,6 +83,8 @@ static void process_message(const char* message)
       display.println("(SLEEP)");
     }
     display.display();
+  } else {
+    sleep = 0;
   }
 }
 
@@ -127,16 +129,21 @@ void setup_server()
 void loop_server()
 {
   MDNS.update();
-  if (!client) client = server->available();
-  if (client && client.connected()) {
-    if (receive_message(client, receive_buffer, process_message) > 0) {
-      if (sleep) {
-        client.write("OK\tsleep:");
-        client.print(sleep);
-        client.write('\n');
-      } else {
-        client.write("OK\n");
-      }
+  if (!client) {
+    client = server->available();
+    if (client) {
+      Serial.println("Client connected");
+      receive_buffer = "";
+    }
+  }
+  if (!client) return;
+  if (receive_message(client, receive_buffer, process_message) > 0) {
+    if (sleep) {
+      client.write("OK\tsleep:");
+      client.print(sleep);
+      client.write('\n');
+    } else {
+      client.write("OK\n");
     }
   }
 }
