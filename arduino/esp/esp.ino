@@ -482,7 +482,7 @@ void setup() {
     Serial.println("mV/Cecelsius degree/2V");
   } // operation_mode == OPERATION_MODE_NORMAL
 
-  if (operation_mode != OPERATION_MODE_THERMOMETER) {
+  if (operation_mode != OPERATION_MODE_THERMOMETER && operation_mode != OPERATION_MODE_NISETRACER) {
     Serial.print("Connecting to WiFi AP");
 #ifdef ARDUINO_ARCH_ESP8266
     WiFi.forceSleepWake();
