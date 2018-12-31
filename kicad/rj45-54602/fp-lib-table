@@ -1,0 +1,4 @@
+(fp_lib_table
+  (lib (name 7810-8P8C)(type KiCad)(uri ${KIPRJMOD}/7810-8P8C)(options "")(descr ""))
+  (lib (name Connector_PinHeader_2.54mm)(type KiCad)(uri ${KISYSMOD}/Connector_PinHeader_2.54mm.pretty)(options "")(descr ""))
+)
