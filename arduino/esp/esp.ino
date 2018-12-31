@@ -482,7 +482,7 @@ void setup() {
     Serial.println("mV/Cecelsius degree/2V");
   } // operation_mode == OPERATION_MODE_NORMAL
 
-  if (operation_mode != OPERATION_MODE_THERMOMETER) {
+  if (operation_mode != OPERATION_MODE_THERMOMETER && operation_mode != OPERATION_MODE_NISETRACER) {
     Serial.print("Connecting to WiFi AP");
 #ifdef ARDUINO_ARCH_ESP8266
     WiFi.forceSleepWake();
@@ -670,6 +670,7 @@ void loop_normal()
 
   if (last_message_sent > last_message_received && current_time - last_message_sent >= MESSAGE_TIMEOUT) {
     Serial.println("Message timeout. Disconnecting.");
+    last_message_sent = 0L;
     disconnect();
   }
 

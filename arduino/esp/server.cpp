@@ -14,7 +14,9 @@
 
 static WiFiServer* server;
 static WiFiClient client;
+
 static String nodename;
+static int sleep_seconds = 0;
 
 static String receive_buffer;
 
@@ -35,7 +37,8 @@ static void process_message(const char* message)
   // else
   const char* pt = message + 5;
 
-  String pv, load, batt, temp, pw, pw1, pw2;
+  float piv;
+  String piw,batt,load, temp, pw, pw1, pw2;
 
   while (*pt) {
     const char* ptcolon = strchr(pt, ':');
@@ -53,7 +56,8 @@ static void process_message(const char* message)
     pt = (*ptdelim != '\0') ? ptdelim + 1 : ptdelim;
 
     if (strcmp(key, "nodename") == 0) nodename = value;
-    else if (strcmp(key, "piw") == 0) pv = value;
+    else if (strcmp(key, "piv") == 0) piv = atof(value);
+    else if (strcmp(key, "piw") == 0) piw = value;
     else if (strcmp(key, "load") == 0) load = value;
     else if (strcmp(key, "bv") == 0) batt = value;
     else if (strcmp(key, "temp") == 0) temp = value;
@@ -68,14 +72,19 @@ static void process_message(const char* message)
     display.print("NODE ");
     display.println(nodename);
     display.print(
-      String("PV   ") + pv + "W\n"
+      String("PV   ") + piw + "W\n"
         + "LOAD " + load + "W\n"
         + "BATT " + batt + "V\n" +
         + "TEMP " + temp + "deg.\n" +
         + "PW   " + pw + '\n'
-        + "PW1  " + pw1 + '\n'
-        + "PW2  " + pw2 + '\n');
+        + "PW1  " + pw1 + '\n');
+    sleep_seconds = piv < 10.0? 60 : 0;
+    if (sleep_seconds) {
+      display.println("(SLEEP)");
+    }
     display.display();
+  } else {
+    sleep_seconds = 0;
   }
 }
 
@@ -119,9 +128,23 @@ void setup_server()
 
 void loop_server()
 {
-  if (!client) client = server->available();
-  if (client && client.connected()) {
-    if (receive_message(client, receive_buffer, process_message) > 0) {
+#ifdef ARDUINO_ARCH_ESP8266
+  MDNS.update();
+#endif
+  if (!client) {
+    client = server->available();
+    if (client) {
+      Serial.println("Client connected");
+      receive_buffer = "";
+    }
+  }
+  if (!client) return;
+  if (receive_message(client, receive_buffer, process_message) > 0) {
+    if (sleep_seconds) {
+      client.write("OK\tsleep:");
+      client.print(sleep_seconds);
+      client.write('\n');
+    } else {
       client.write("OK\n");
     }
   }
