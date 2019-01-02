@@ -48,6 +48,7 @@ const uint16_t DEFAULT_PORT = 29574; // default server port number
 #include "nisetracer.h"
 #include "edogawa_master.h"
 #include "thermometer.h"
+#include "ammeter.h"
 #include "crc.h"
 
 #include "globals.h"
@@ -482,7 +483,7 @@ void setup() {
     Serial.println("mV/Cecelsius degree/2V");
   } // operation_mode == OPERATION_MODE_NORMAL
 
-  if (operation_mode != OPERATION_MODE_THERMOMETER && operation_mode != OPERATION_MODE_NISETRACER) {
+  if (operation_mode != OPERATION_MODE_THERMOMETER && operation_mode != OPERATION_MODE_NISETRACER && operation_mode != OPERATION_MODE_AMMETER) {
     Serial.print("Connecting to WiFi AP");
 #ifdef ARDUINO_ARCH_ESP8266
     WiFi.forceSleepWake();
@@ -573,6 +574,8 @@ void setup() {
     setup_edogawa_master();
   } else if (operation_mode == OPERATION_MODE_THERMOMETER) {
     setup_thermometer();
+  } else if (operation_mode == OPERATION_MODE_AMMETER) {
+    setup_ammeter();
   }
 }
 
@@ -767,6 +770,9 @@ void loop()
       break;
     case OPERATION_MODE_THERMOMETER:
       loop_thermometer();
+      break;
+    case OPERATION_MODE_AMMETER:
+      loop_ammeter();
       break;
     default:
       break;
