@@ -30,7 +30,7 @@ void loop_ammeter()
     ina219_started = start_ina219();
   }
 
-  if (ina219_statred) {
+  if (ina219_started) {
     float shuntvoltage = ina219.getShuntVoltage_mV();
     float busvoltage = ina219.getBusVoltage_V();
     float current_mA = ina219.getCurrent_mA();
