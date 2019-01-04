@@ -1,10 +1,13 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import sys,io,datetime,argparse,socket
+import sys,os,io,datetime,argparse,socket
 import matplotlib.pyplot,matplotlib.dates
 
 import database
+
+if os.environ.get('DISPLAY','') == '':
+    matplotlib.use('Agg')
 
 def load_data(hostname, date_str = None):
     with database.Connection() as cur:
