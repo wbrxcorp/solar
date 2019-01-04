@@ -3,12 +3,11 @@
 
 import sys,io,datetime,argparse,socket
 import matplotlib.pyplot,matplotlib.dates
-import MySQLdb
+
+import database
 
 def load_data(hostname, date_str = None):
-    conn = MySQLdb.connect(db="solar")
-    cur = conn.cursor()
-    try:
+    with database.Connection() as cur:
         if date_str is None:
             cur.execute("select convert(current_date(), datetime), convert(current_date(), datetime) + interval 1 day")
         else:
@@ -25,9 +24,6 @@ def load_data(hostname, date_str = None):
         cur.execute("select data1.t,data1.piv,avg(data2.piv),data1.pia,avg(data2.pia),data1.piw,avg(data2.piw),data1.pov,avg(data2.pov),data1.poa,avg(data2.poa),data1.loadw,avg(data2.loadw),data1.temp,avg(data2.temp),data1.kwh,data1.lkwh from data1,data2 where data2.t between data1.t - interval 5 minute and data1.t group by data1.t,data1.piv,data1.pia,data1.piw,data1.pov,data1.poa,data1.loadw,data1.temp,data1.kwh,data1.lkwh order by data1.t")
 
         return (starttime, endtime, [(row[0],row[1:]) for row in cur])
-    finally:
-        cur.close()
-        conn.close()
 
 def generate_graph(hostname, date_str = None, pov_ymin = 10.5, pov_ymax = 15.0):
     (starttime, endtime, data) = load_data(hostname, date_str)
