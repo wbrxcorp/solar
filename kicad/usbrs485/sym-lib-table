@@ -1,0 +1,9 @@
+(sym_lib_table
+  (lib (name Interface_USB)(type Legacy)(uri ${KICAD_SYMBOL_DIR}/Interface_USB.lib)(options "")(descr ""))
+  (lib (name Connector)(type Legacy)(uri ${KICAD_SYMBOL_DIR}/Connector.lib)(options "")(descr ""))
+  (lib (name Transistor_BJT)(type Legacy)(uri ${KICAD_SYMBOL_DIR}/Transistor_BJT.lib)(options "")(descr ""))
+  (lib (name Device)(type Legacy)(uri ${KICAD_SYMBOL_DIR}/Device.lib)(options "")(descr ""))
+  (lib (name Connector_Generic)(type Legacy)(uri ${KICAD_SYMBOL_DIR}/Connector_Generic.lib)(options "")(descr ""))
+  (lib (name power)(type Legacy)(uri ${KICAD_SYMBOL_DIR}/power.lib)(options "")(descr ""))
+  (lib (name Interface_UART)(type Legacy)(uri ${KICAD_SYMBOL_DIR}/Interface_UART.lib)(options "")(descr ""))
+)
