@@ -727,7 +727,8 @@ void loop_normal()
       + "\tpw:" + values.pw
       + "\tbtcv:" + btcv
       + "\tpw1:" + (pw1? 1 : 0)
-      + "\tpw2:" + (pw2? 1 : 0);
+      + "\tpw2:" + (pw2? 1 : 0)
+      + "\trssi:" + (WiFi.RSSI());
   } else {
     display.print("!Controller disconnected!");
 

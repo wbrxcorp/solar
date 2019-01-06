@@ -1,13 +1,19 @@
 #include <Arduino.h>
 #include <EEPROM.h>
 #include <FS.h>
-#ifdef ARDUINO_ARCH_ESP32
+
+#if defined(ARDUINO_ARCH_ESP8266)
+#include <ESP8266WiFi.h>
+#elif defined(ARDUINO_ARCH_ESP32)
+#include <WiFi.h>
 #include <SPIFFS.h>
 #endif
+
 #include "command_line.h"
 #include "globals.h"
 #include "crc.h"
 #include "epsolar.h"
+
 
 static EPSolar epsolar(modbus);
 
@@ -485,6 +491,18 @@ bool partitions(const LineParser& lineparser)
   return true;
 }
 
+bool rssi(const LineParser& lineparser)
+{
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("WiFi not connected.");
+    return true;
+  }
+  // else
+  Serial.print("RSSI:");
+  Serial.println(WiFi.RSSI());
+  return true;
+}
+
 bool process_command_line(const char* line) // true = go to next line,  false = go to next loop
 {
   LineParser lineparser(line);
@@ -515,6 +533,7 @@ bool process_command_line(const char* line) // true = go to next line,  false = 
     { "ratedvoltagecode", ratedvoltagecode },
     { "ls", ls },
     { "partitions", partitions},
+    { "rssi", rssi },
     { NULL, NULL }
   };
 
