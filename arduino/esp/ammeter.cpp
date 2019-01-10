@@ -2,6 +2,8 @@
 #include <Wire.h>
 #include <Adafruit_INA219.h>
 
+#include "globals.h"
+
 static Adafruit_INA219 ina219(INA219_ADDRESS);
 static bool ina219_started = false;
 
@@ -43,7 +45,37 @@ void loop_ammeter()
     Serial.print("Current:       "); Serial.print(current_mA); Serial.println(" mA");
     Serial.print("Power:         "); Serial.print(power_mW); Serial.println(" mW");
     Serial.println("");
+
+    display.clearDisplay();
+    display.setTextSize(2);
+    display.setCursor(0,0);
+
+    char loadvoltage_str[10];
+    dtostrf((double)loadvoltage, 7, 2, loadvoltage_str);
+    strcat(loadvoltage_str, " V");
+    display.println(loadvoltage_str);
+
+    char current_str[10];
+    if (current_mA > 1000.0) {
+      dtostrf((double)current_mA / 1000.0, 7, 2, current_str);
+      strcat(current_str, " A");
+    } else {
+      dtostrf((double)current_mA, 7, 2, current_str);
+      strcat(current_str, "mA");
+    }
+    display.println(current_str);
+
+    char power_str[10];
+    if (power_mW > 1000.0) {
+      dtostrf((double)power_mW / 1000.0, 7, 2, power_str);
+      strcat(power_str, " W");
+    } else {
+      dtostrf((double)power_mW, 7, 2, power_str);
+      strcat(power_str, "mW");
+    }
+    display.println(power_str);
+    display.display();
   }
 
-  delay(2000);
+  delay(1000);
 }
