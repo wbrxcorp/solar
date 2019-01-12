@@ -1,4 +1,9 @@
-//#include <Arduino.h>
+#if defined(ARDUINO_ARCH_ESP8266)
+#include <ESP8266WiFi.h>
+#elif defined(ARDUINO_ARCH_ESP32)
+#include <WiFi.h>
+#endif
+
 #include <Wire.h>
 #include <Adafruit_INA219.h>
 
@@ -12,17 +17,23 @@ static bool start_ina219()
   Wire.beginTransmission(INA219_ADDRESS);
   if (Wire.endTransmission() != 0) {
     Serial.println("INA219 at address 0x40 not found!");
+    display.turnOff();
     return false;
   }
   // else
   ina219.begin();
   Serial.println("INA219 started.");
+  display.turnOn();
   return true;
 }
 
 void setup_ammeter()
 {
-  Wire.begin();
+  WiFi.mode(WIFI_OFF);
+#ifdef ARDUINO_ARCH_ESP32
+  btStop();
+#endif
+
   ina219_started = start_ina219();
 }
 
@@ -77,5 +88,5 @@ void loop_ammeter()
     display.display();
   }
 
-  delay(1000);
+  //delay(1000);
 }
