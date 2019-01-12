@@ -1,11 +1,9 @@
 #include <Arduino.h>
 
-#ifdef ARDUINO_ARCH_ESP8266
+#if defined(ARDUINO_ARCH_ESP8266)
 #include <ESP8266WiFi.h>
-#endif
-
-#ifdef ARDUINO_ARCH_ESP32
-#include <esp_wifi.h>
+#elif defined(ARDUINO_ARCH_ESP32)
+#include <WiFi.h>
 #endif
 
 #include "globals.h"
@@ -16,12 +14,17 @@ inline static uint16_t LOWORD(uint32_t dword) { return (uint16_t)(dword & 0xffff
 
 void setup_nisetracer()
 {
-    Serial.println("Setup nisetracer");
-    modbus.enter_slave();
+  WiFi.mode(WIFI_OFF);
+#ifdef ARDUINO_ARCH_ESP32
+  btStop();
+#endif
 
-    display.clearDisplay();
-    display.fillRect(64, 0, 127, 63, 1);
-    display.display();
+  Serial.println("Setup nisetracer");
+  modbus.enter_slave();
+
+  display.clearDisplay();
+  display.fillRect(64, 0, 127, 63, 1);
+  display.display();
 }
 
 static uint16_t get_data(uint16_t addr)
