@@ -51,6 +51,7 @@ const uint16_t DEFAULT_PORT = 29574; // default server port number
 #include "edogawa_master.h"
 #include "thermometer.h"
 #include "ammeter.h"
+#include "slave.h"
 #include "crc.h"
 
 #include "globals.h"
@@ -276,6 +277,10 @@ void setup() {
   Serial.print("Build date: ");
   Serial.println(__DATE__ " " __TIME__);
 
+  Serial.print("CPU Freq: ");
+  Serial.print(F_CPU / 1000000L);
+  Serial.println("MHz");
+
 #ifdef ARDUINO_ARCH_ESP8266
   const rst_info *prst = ESP.getResetInfoPtr();
   reset_reason = prst->reason;
@@ -389,7 +394,7 @@ void setup() {
   #if defined(ARDUINO_ARCH_ESP8266)
     modbus.begin(RS485_COMM_SOCKET, RS485_DE_SOCKET, RS485_RE_SOCKET, EPSOLAR_COMM_SPEED, MODBUS_TIMEOUT_MS);
   #elif defined(ARDUINO_ARCH_ESP32)
-    modbus.begin(UART_NUM_1, RS485_TX_SOCKET, RS485_RX_SOCKET, RS485_DE_SOCKET, RS485_RE_SOCKET, EPSOLAR_COMM_SPEED, MODBUS_TIMEOUT_MS);
+    modbus.begin(UART_NUM_2, RS485_TX_SOCKET, RS485_RX_SOCKET, RS485_DE_SOCKET, RS485_RE_SOCKET, EPSOLAR_COMM_SPEED, MODBUS_TIMEOUT_MS);
   #endif
   #if defined(PW1_SW_SOCKET) && defined(PW1_LED_SOCKET)
     edogawaUnit1.begin(PW1_SW_SOCKET, PW1_LED_SOCKET);
@@ -578,6 +583,8 @@ void setup() {
     setup_thermometer();
   } else if (operation_mode == OPERATION_MODE_AMMETER) {
     setup_ammeter();
+  } else if (operation_mode == OPERATION_MODE_SLAVE) {
+    setup_slave();
   }
 }
 
@@ -776,6 +783,9 @@ void loop()
       break;
     case OPERATION_MODE_AMMETER:
       loop_ammeter();
+      break;
+    case OPERATION_MODE_SLAVE:
+      loop_slave();
       break;
     default:
       break;
