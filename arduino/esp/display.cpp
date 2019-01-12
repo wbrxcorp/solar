@@ -169,3 +169,12 @@ void Display::turnOff()
   const uint8_t cmd = 0xAE; // Display OFF
   send_commands(i2caddr, &cmd, 1);
 }
+
+void Display::setContrast(uint8_t value)
+{
+  if (value > 0xCF) value = 0xCF;
+  const uint8_t command_sequence[] = {
+    0x81/*set contrast*/, value
+  };
+  send_commands(i2caddr, command_sequence, sizeof(command_sequence));
+}

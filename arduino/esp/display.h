@@ -21,6 +21,8 @@ public:
 
   void turnOn();
   void turnOff();
+
+  void setContrast(uint8_t value);
 };
 
 #endif /* __DISPLAY_H__ */
