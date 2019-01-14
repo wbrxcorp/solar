@@ -390,18 +390,18 @@ void setup() {
   display.println(config.ssid);
   display.display();
 
-  if (operation_mode == OPERATION_MODE_NORMAL || operation_mode == OPERATION_MODE_NISETRACER) {
-  #if defined(ARDUINO_ARCH_ESP8266)
+  if (operation_mode == OPERATION_MODE_NORMAL || operation_mode == OPERATION_MODE_NISETRACER || operation_mode == OPERATION_MODE_SLAVE) {
+#if defined(ARDUINO_ARCH_ESP8266)
     modbus.begin(RS485_COMM_SOCKET, RS485_DE_SOCKET, RS485_RE_SOCKET, EPSOLAR_COMM_SPEED, MODBUS_TIMEOUT_MS);
-  #elif defined(ARDUINO_ARCH_ESP32)
+#elif defined(ARDUINO_ARCH_ESP32)
     modbus.begin(UART_NUM_2, RS485_TX_SOCKET, RS485_RX_SOCKET, RS485_DE_SOCKET, RS485_RE_SOCKET, EPSOLAR_COMM_SPEED, MODBUS_TIMEOUT_MS);
-  #endif
-  #if defined(PW1_SW_SOCKET) && defined(PW1_LED_SOCKET)
+#endif
+#if defined(PW1_SW_SOCKET) && defined(PW1_LED_SOCKET)
     edogawaUnit1.begin(PW1_SW_SOCKET, PW1_LED_SOCKET);
-  #endif
-  #if defined(PW2_SW_SOCKET) && defined(PW2_LED_SOCKET)
+#endif
+#if defined(PW2_SW_SOCKET) && defined(PW2_LED_SOCKET)
     edogawaUnit2.begin(PW2_SW_SOCKET, PW2_LED_SOCKET);
-  #endif
+#endif
   }
 
   if (operation_mode == OPERATION_MODE_NORMAL) {
@@ -490,7 +490,7 @@ void setup() {
     Serial.println("mV/Cecelsius degree/2V");
   } // operation_mode == OPERATION_MODE_NORMAL
 
-  if (operation_mode != OPERATION_MODE_THERMOMETER && operation_mode != OPERATION_MODE_NISETRACER && operation_mode != OPERATION_MODE_AMMETER) {
+  if (operation_mode != OPERATION_MODE_THERMOMETER && operation_mode != OPERATION_MODE_NISETRACER && operation_mode != OPERATION_MODE_AMMETER && operation_mode != OPERATION_MODE_SLAVE) {
     Serial.print("Connecting to WiFi AP");
 #ifdef ARDUINO_ARCH_ESP8266
     WiFi.forceSleepWake();

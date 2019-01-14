@@ -27,8 +27,13 @@ class RS485Modbus {
   uart_port_t uartNum;
 #endif
   int rtrPin;
-  uint32_t m_bitTime;
-  uint32_t modbusTimeout;
+
+  uint32_t speed;
+//  uint32_t m_bitTime;
+  uint16_t modbusTimeoutInMs;
+
+//  int modbusTimeoutInMs;
+//  uint32_t modbusTimeout;
   bool slave;
 public:
   RS485Modbus() :
@@ -39,9 +44,9 @@ public:
 #endif
     rtrPin(-1), slave(false) {;}
 #if defined(ARDUINO_ARCH_ESP8266)
-  void begin(int _commPin, int _rtsPin, int _rtrPin/*-1 not to use*/, long speed, int _modbusTimeout);
+  void begin(int _commPin, int _rtsPin, int _rtrPin/*-1 not to use*/, uint32_t speed, int _modbusTimeout);
 #elif defined(ARDUINO_ARCH_ESP32)
-  void begin(uart_port_t _uartNum, int txPin, int rxPin, int rtsPin, int _rtrPin/*-1 not to use*/, long speed, int _modbusTimeout);
+  void begin(uart_port_t _uartNum, int txPin, int rxPin, int rtsPin, int _rtrPin/*-1 not to use*/, uint32_t speed, int _modbusTimeout);
 #endif
   void enter_slave();
   void send_modbus_message(const uint8_t* message, size_t size);
