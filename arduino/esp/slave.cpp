@@ -5,7 +5,6 @@
 
 #include "globals.h"
 
-static const uint8_t slave_id = 2;
 static long last_display_time = 0;
 static TaskHandle_t backgroundTask;
 
@@ -28,7 +27,7 @@ static void background(void *pvParams)
   while (true) {
     int message_size = modbus.receive_modbus_message(modbus_message);
     if (message_size < 1) continue;
-    if (modbus_message[0] != slave_id) {
+    if (modbus_message[0] != config.slave_id) {
       Serial.print("modbus: Not for me (");
       Serial.print((int)message_size);
       Serial.println(" bytes)");
@@ -49,9 +48,7 @@ static void background(void *pvParams)
 void setup_slave()
 {
   WiFi.mode(WIFI_OFF);
-#ifdef ARDUINO_ARCH_ESP32
   btStop();
-#endif
 
   mutex = xSemaphoreCreateMutex();
   xTaskCreatePinnedToCore(background, "background", 4096, NULL, 5, &backgroundTask, 0);

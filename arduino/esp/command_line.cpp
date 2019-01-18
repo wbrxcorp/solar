@@ -503,6 +503,29 @@ bool rssi(const LineParser& lineparser)
   return true;
 }
 
+bool slaveid(const LineParser& lineparser)
+{
+  if (lineparser.get_count() < 2) {
+    Serial.print("Current slave ID is ");
+    Serial.print((int)config.slave_id);
+    Serial.println('.');
+    return true;
+  }
+  // else
+  int slave_id = atoi(lineparser[1]);
+  if (slave_id < 1 || slave_id > 247) {
+    Serial.println("Slave ID must be 1-247.");
+    return true;
+  }
+  // else
+  config.slave_id = (uint8_t)slave_id;
+  Serial.print("Slave ID set to ");
+  Serial.print(slave_id);
+  Serial.println(". save and reboot the system to take effects.");
+  return true;
+}
+
+
 bool process_command_line(const char* line) // true = go to next line,  false = go to next loop
 {
   LineParser lineparser(line);
@@ -534,6 +557,7 @@ bool process_command_line(const char* line) // true = go to next line,  false = 
     { "ls", ls },
     { "partitions", partitions},
     { "rssi", rssi },
+    { "slaveid", slaveid },
     { NULL, NULL }
   };
 

@@ -43,6 +43,7 @@
 const char* DEFAULT_NODENAME = "kennel01";
 const char* DEFAULT_SERVERNAME = "_solar._tcp";
 const uint16_t DEFAULT_PORT = 29574; // default server port number
+const uint8_t DEFAULT_SLAVE_ID = 2;
 
 #include "network.h"
 #include "command_line.h"
@@ -331,6 +332,7 @@ void setup() {
     strcpy(config.key, "YOUR_WPA_KEY");
     strcpy(config.servername, DEFAULT_SERVERNAME);
     config.port = DEFAULT_PORT;
+    config.slave_id = DEFAULT_SLAVE_ID;
     operation_mode = OPERATION_MODE_COMMAND_LINE_ONLY;
 
     display.clearDisplay();

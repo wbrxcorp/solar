@@ -22,6 +22,7 @@ typedef struct strCONFIG {
   char key[64];
   char servername[48];
   uint16_t port;
+  uint8_t slave_id;
   uint16_t crc;
 } CONFIG;
 
