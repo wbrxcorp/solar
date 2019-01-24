@@ -1,0 +1,180 @@
+EESchema Schematic File Version 4
+LIBS:rj12-54601-breakout-cache
+EELAYER 26 0
+EELAYER END
+$Descr A4 11693 8268
+encoding utf-8
+Sheet 1 1
+Title ""
+Date ""
+Rev ""
+Comp ""
+Comment1 ""
+Comment2 ""
+Comment3 ""
+Comment4 ""
+$EndDescr
+$Comp
+L Connector:RJ12 U1
+U 1 1 5B9329F5
+P 3400 5200
+F 0 "U1" H 3400 5750 60  0000 L CNN
+F 1 "RJ12" H 3350 4800 60  0000 L CNN
+F 2 "Connector_RJ:RJ12_Amphenol_54601" H 3450 5200 60  0001 C CNN
+F 3 "" H 3450 5200 60  0001 C CNN
+	1    3400 5200
+	1    0    0    1   
+$EndComp
+$Comp
+L Connector_Generic:Conn_01x03 J1
+U 1 1 5B932CE2
+P 6000 5100
+F 0 "J1" H 6080 5092 50  0000 L CNN
+F 1 "Conn_01x03" H 6080 5001 50  0000 L CNN
+F 2 "Connector_PinHeader_2.54mm:PinHeader_1x03_P2.54mm_Vertical" H 6000 5100 50  0001 C CNN
+F 3 "~" H 6000 5100 50  0001 C CNN
+	1    6000 5100
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	3800 5200 4850 5200
+$Comp
+L power:GND #PWR0101
+U 1 1 5C00AFBF
+P 4600 5600
+F 0 "#PWR0101" H 4600 5350 50  0001 C CNN
+F 1 "GND" H 4605 5427 50  0000 C CNN
+F 2 "" H 4600 5600 50  0001 C CNN
+F 3 "" H 4600 5600 50  0001 C CNN
+	1    4600 5600
+	1    0    0    -1  
+$EndComp
+$Comp
+L power:VCC #PWR0102
+U 1 1 5C00B115
+P 4200 4750
+F 0 "#PWR0102" H 4200 4600 50  0001 C CNN
+F 1 "VCC" H 4217 4923 50  0000 C CNN
+F 2 "" H 4200 4750 50  0001 C CNN
+F 3 "" H 4200 4750 50  0001 C CNN
+	1    4200 4750
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	4850 5100 4200 5100
+Wire Wire Line
+	4600 5400 3800 5400
+Wire Wire Line
+	4600 5400 4600 5600
+Wire Wire Line
+	5800 5400 4600 5400
+Connection ~ 4600 5400
+Wire Wire Line
+	3800 5300 4900 5300
+Wire Wire Line
+	4200 4750 4200 5100
+Connection ~ 4200 5100
+Wire Wire Line
+	4200 5100 3800 5100
+Wire Wire Line
+	3800 5000 4850 5000
+Wire Wire Line
+	3800 5500 4900 5500
+Text Label 4550 5000 0    50   ~ 0
+RESET
+Text Label 4550 5100 0    50   ~ 0
+VCC
+Text Label 4550 5200 0    50   ~ 0
+TXD
+Text Label 4550 5300 0    50   ~ 0
+RXD
+Text Label 4200 5500 0    50   ~ 0
+IO0
+$Comp
+L Connector_Generic:Conn_01x03 J2
+U 1 1 5C49E98C
+P 6000 5500
+F 0 "J2" H 6080 5492 50  0000 L CNN
+F 1 "Conn_01x03" H 6080 5401 50  0000 L CNN
+F 2 "Connector_PinHeader_2.54mm:PinHeader_1x03_P2.54mm_Vertical" H 6000 5500 50  0001 C CNN
+F 3 "~" H 6000 5500 50  0001 C CNN
+	1    6000 5500
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	5800 5000 5450 5000
+Wire Wire Line
+	5800 5100 5450 5100
+Wire Wire Line
+	5800 5200 5450 5200
+Text Label 5450 5000 0    50   ~ 0
+VCC
+Text Label 5450 5100 0    50   ~ 0
+RESET
+Text Label 5450 5200 0    50   ~ 0
+IO0
+Wire Wire Line
+	5800 5500 5450 5500
+Text Label 5450 5500 0    50   ~ 0
+RXD
+Wire Wire Line
+	5800 5600 5450 5600
+Text Label 5450 5600 0    50   ~ 0
+TXD
+$Comp
+L Switch:SW_Push SW1
+U 1 1 5C49F25E
+P 4100 6300
+F 0 "SW1" H 4100 6585 50  0000 C CNN
+F 1 "SW_Push" H 4100 6494 50  0000 C CNN
+F 2 "tact:tactile_switch_smd_4x3mm_2p" H 4100 6500 50  0001 C CNN
+F 3 "" H 4100 6500 50  0001 C CNN
+	1    4100 6300
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	3900 6300 3700 6300
+Text Label 3700 6300 0    50   ~ 0
+IO0
+Wire Wire Line
+	4300 6300 4450 6300
+$Comp
+L power:GND #PWR0103
+U 1 1 5C49F915
+P 4450 6300
+F 0 "#PWR0103" H 4450 6050 50  0001 C CNN
+F 1 "GND" H 4455 6127 50  0000 C CNN
+F 2 "" H 4450 6300 50  0001 C CNN
+F 3 "" H 4450 6300 50  0001 C CNN
+	1    4450 6300
+	1    0    0    -1  
+$EndComp
+$Comp
+L Switch:SW_Push SW2
+U 1 1 5C49F9D5
+P 5550 6300
+F 0 "SW2" H 5550 6585 50  0000 C CNN
+F 1 "SW_Push" H 5550 6494 50  0000 C CNN
+F 2 "tact:tactile_switch_smd_4x3mm_2p" H 5550 6500 50  0001 C CNN
+F 3 "" H 5550 6500 50  0001 C CNN
+	1    5550 6300
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	5350 6300 5150 6300
+Text Label 5150 6300 0    50   ~ 0
+RESET
+Wire Wire Line
+	5750 6300 5900 6300
+$Comp
+L power:GND #PWR0104
+U 1 1 5C49F9DE
+P 5900 6300
+F 0 "#PWR0104" H 5900 6050 50  0001 C CNN
+F 1 "GND" H 5905 6127 50  0000 C CNN
+F 2 "" H 5900 6300 50  0001 C CNN
+F 3 "" H 5900 6300 50  0001 C CNN
+	1    5900 6300
+	1    0    0    -1  
+$EndComp
+$EndSCHEMATC
