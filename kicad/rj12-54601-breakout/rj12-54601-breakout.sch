@@ -61,7 +61,7 @@ F 3 "" H 4200 4750 50  0001 C CNN
 	1    0    0    -1  
 $EndComp
 Wire Wire Line
-	4850 5100 4200 5100
+	5000 5100 4200 5100
 Wire Wire Line
 	4600 5400 3800 5400
 Wire Wire Line
@@ -177,4 +177,64 @@ F 3 "" H 5900 6300 50  0001 C CNN
 	1    5900 6300
 	1    0    0    -1  
 $EndComp
+$Comp
+L Connector:USB_B_Micro J3
+U 1 1 5C4E521C
+P 3450 3050
+F 0 "J3" H 3505 3517 50  0000 C CNN
+F 1 "USB_B_Micro" H 3505 3426 50  0000 C CNN
+F 2 "Connector_USB:USB_Micro-B_Amphenol_10103594-0001LF_Horizontal" H 3600 3000 50  0001 C CNN
+F 3 "~" H 3600 3000 50  0001 C CNN
+	1    3450 3050
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	5000 5100 5000 2850
+Wire Wire Line
+	5000 2850 3750 2850
+Wire Wire Line
+	3350 3450 3450 3450
+$Comp
+L power:GND #PWR0105
+U 1 1 5C4E5AE0
+P 3450 3450
+F 0 "#PWR0105" H 3450 3200 50  0001 C CNN
+F 1 "GND" H 3455 3277 50  0000 C CNN
+F 2 "" H 3450 3450 50  0001 C CNN
+F 3 "" H 3450 3450 50  0001 C CNN
+	1    3450 3450
+	1    0    0    -1  
+$EndComp
+Connection ~ 3450 3450
+NoConn ~ 3750 3250
+$Comp
+L Connector:Conn_01x01_Female J4
+U 1 1 5C4E57E0
+P 4100 3050
+F 0 "J4" H 4127 3076 50  0000 L CNN
+F 1 "Conn_01x01_Female" H 4127 2985 50  0000 L CNN
+F 2 "Connector_PinHeader_2.54mm:PinHeader_1x01_P2.54mm_Vertical" H 4100 3050 50  0001 C CNN
+F 3 "~" H 4100 3050 50  0001 C CNN
+	1    4100 3050
+	1    0    0    -1  
+$EndComp
+$Comp
+L Connector:Conn_01x01_Female J5
+U 1 1 5C4E588D
+P 4100 3150
+F 0 "J5" H 4127 3176 50  0000 L CNN
+F 1 "Conn_01x01_Female" H 4127 3085 50  0000 L CNN
+F 2 "Connector_PinHeader_2.54mm:PinHeader_1x01_P2.54mm_Vertical" H 4100 3150 50  0001 C CNN
+F 3 "~" H 4100 3150 50  0001 C CNN
+	1    4100 3150
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	3750 3050 3900 3050
+Wire Wire Line
+	3750 3150 3900 3150
+Text Label 3750 3050 0    50   ~ 0
+D+
+Text Label 3750 3150 0    50   ~ 0
+D-
 $EndSCHEMATC

@@ -1,4 +1,5 @@
 (fp_lib_table
   (lib (name Connector_PinHeader_2.54mm)(type KiCad)(uri ${KISYSMOD}/Connector_PinHeader_2.54mm.pretty)(options "")(descr ""))
   (lib (name tact)(type KiCad)(uri ${KIPRJMOD}/tact.pretty)(options "")(descr ""))
+  (lib (name Connector_USB)(type KiCad)(uri ${KISYSMOD}/Connector_USB.pretty)(options "")(descr ""))
 )
