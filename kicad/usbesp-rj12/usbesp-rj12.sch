@@ -20,7 +20,7 @@ U 1 1 5BA66B76
 P 3700 3500
 F 0 "J1" H 3755 3967 50  0000 C CNN
 F 1 "USB_B_Micro" H 3755 3876 50  0000 C CNN
-F 2 "Connector_USB:USB_Micro-B_Amphenol_10103594-0001LF_Horizontal" H 3850 3450 50  0001 C CNN
+F 2 "lib:USB_Micro-B_Horizontal" H 3850 3450 50  0001 C CNN
 F 3 "~" H 3850 3450 50  0001 C CNN
 	1    3700 3500
 	1    0    0    -1  
@@ -350,4 +350,48 @@ Wire Wire Line
 	4850 3000 5400 3000
 Wire Wire Line
 	7650 5600 8350 5600
+$Comp
+L Connector_Generic:Conn_01x06 J3
+U 1 1 5C6C1F08
+P 9400 2250
+F 0 "J3" H 9480 2242 50  0000 L CNN
+F 1 "Conn_01x06" H 9480 2151 50  0000 L CNN
+F 2 "Connector_PinHeader_2.00mm:PinHeader_1x06_P2.00mm_Vertical" H 9400 2250 50  0001 C CNN
+F 3 "~" H 9400 2250 50  0001 C CNN
+	1    9400 2250
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	9200 2050 8700 2050
+Wire Wire Line
+	9200 2150 8700 2150
+Wire Wire Line
+	9200 2250 8700 2250
+Wire Wire Line
+	9200 2350 8700 2350
+Wire Wire Line
+	9200 2450 8400 2450
+Wire Wire Line
+	9200 2550 8700 2550
+Text Label 8700 2050 0    50   ~ 0
+RESET
+Text Label 8700 2150 0    50   ~ 0
+VBUS
+Text Label 8700 2250 0    50   ~ 0
+TXD
+Text Label 8700 2350 0    50   ~ 0
+RXD
+Text Label 8700 2550 0    50   ~ 0
+IO0
+$Comp
+L power:GND #PWR0104
+U 1 1 5C6C9E18
+P 8400 2450
+F 0 "#PWR0104" H 8400 2200 50  0001 C CNN
+F 1 "GND" H 8405 2277 50  0000 C CNN
+F 2 "" H 8400 2450 50  0001 C CNN
+F 3 "" H 8400 2450 50  0001 C CNN
+	1    8400 2450
+	1    0    0    -1  
+$EndComp
 $EndSCHEMATC
