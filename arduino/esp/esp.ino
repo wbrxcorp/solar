@@ -62,10 +62,10 @@ static EPSolar epsolar(modbus);
 
 String cmdline_buffer;
 
-unsigned long last_message_sent = 0;
-unsigned long last_message_received = 0;
-unsigned long last_checked = 0;
-unsigned long last_reported = 0;
+unsigned long last_message_sent = 0L;
+unsigned long last_message_received = 0L;
+unsigned long last_checked = 0L;
+unsigned long last_reported = 0L;
 char session_id[48] = "";
 int reset_reason = REASON_DEFAULT_RST;
 
@@ -693,7 +693,7 @@ void loop_normal()
     connect();
   }
 
-  if (current_time - last_checked <= CHECK_INTERVAL) {
+  if (last_checked > 0L && current_time - last_checked <= CHECK_INTERVAL) {
     delay(100);
     return;
   }
@@ -747,7 +747,7 @@ void loop_normal()
   display.display();
 
   last_checked = current_time;
-  if (current_time - last_reported <= REPORT_INTERVAL || last_message_received < last_message_sent) return;
+  if (last_reported > 0L && (current_time - last_reported <= REPORT_INTERVAL || last_message_received < last_message_sent)) return;
 
   // else
   if (session_id[0]) {
