@@ -17,7 +17,12 @@
 #define TFT_YELLOW     0xFFE0
 #define	TFT_ORANGE     0xFC00
 
-#define TFT_SPI_DEFAULT_FREQ 40000000 ///< Default SPI data clock frequency
+// Default SPI data clock frequency
+#if (F_CPU >= 80000000)
+  #define TFT_SPI_DEFAULT_FREQ 80000000
+#else
+  #define TFT_SPI_DEFAULT_FREQ F_CPU * 2 / 3
+#endif
 
 class TFT : public Adafruit_GFX {
   SPIClass *_spi;
