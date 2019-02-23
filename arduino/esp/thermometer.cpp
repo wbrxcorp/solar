@@ -35,13 +35,16 @@ void load_background_image()
   Serial.println("Loading background image from SPIFFS...");
   SPIFFS.begin();
   File f = SPIFFS.open("/background.bmp", "r");
+  bool loaded = false;
   if (f) {
-    if (tft.showBitmapFile(f)) {
-      Serial.println("background.bmp loaded");
-    }
+    loaded = tft.showBitmapFile(f);
     f.close();
+  }
+
+  if (loaded) {
+    Serial.println("background.bmp loaded");
   } else {
-    Serial.println("No background.bmp");
+    Serial.println("background.bmp not loaded");
     tft.fillScreen(TFT_WHITE);
   }
   SPIFFS.end();
@@ -115,14 +118,18 @@ void thermometer_print_values(float temperature, float humidity, uint16_t pressu
   if (ccs811_present && ccs.available()) {
     float temp = ccs.calculateTemperature();
     if(!ccs.readData()){
-      Serial.print("eCO2: ");
-      float eCO2 = ccs.geteCO2();
-      Serial.print(eCO2);
+      // eCO2
+      sprintf(buf, "%4d", (int)ccs.geteCO2());
+      tft.setCursor(10, 188);
+      tft.setTextColor(TFT_ORANGE, TFT_WHITE);
+      tft.print(buf);
 
+      // TVOC
       Serial.print(" ppm, TVOC: ");
       float TVOC = ccs.getTVOC();
       Serial.print(TVOC);
 
+      // CCS811's temperature
       Serial.print(" ppb   Temp:");
       Serial.println(temp);
     }
