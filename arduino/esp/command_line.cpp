@@ -525,6 +525,22 @@ bool slaveid(const LineParser& lineparser)
   return true;
 }
 
+bool tftrotation(const LineParser& lineparser)
+{
+  if (lineparser.get_count() < 2) {
+    Serial.print("Current TFT rotation is ");
+    Serial.print((int)config.tft_rotation);
+    Serial.println('.');
+    return true;
+  }
+  // else
+  int tft_rotation = atoi(lineparser[1]) % 4;
+  config.tft_rotation = (uint8_t)tft_rotation;
+  Serial.print("TFT rotation set to ");
+  Serial.print(tft_rotation);
+  Serial.println(". save and reboot the system to take effects.");
+  return true;
+}
 
 bool process_command_line(const char* line) // true = go to next line,  false = go to next loop
 {
@@ -558,6 +574,7 @@ bool process_command_line(const char* line) // true = go to next line,  false = 
     { "partitions", partitions},
     { "rssi", rssi },
     { "slaveid", slaveid },
+    { "tftrotation", tftrotation },
     { NULL, NULL }
   };
 

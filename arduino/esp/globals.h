@@ -23,6 +23,7 @@ typedef struct strCONFIG {
   char servername[48];
   uint16_t port;
   uint8_t slave_id;
+  uint8_t tft_rotation;
   uint16_t crc;
 } CONFIG;
 
@@ -34,6 +35,9 @@ extern TFT tft;
 
 #include <Adafruit_BME280.h>
 extern Adafruit_BME280 bme; // I2C
+
+#include <Adafruit_CCS811.h>
+extern Adafruit_CCS811 ccs;
 
 extern CONFIG config;
 

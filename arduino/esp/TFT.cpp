@@ -673,8 +673,11 @@ bool TFT::showBitmapFile(Stream& f)
     uint32_t colormask_r,colormask_g,colormask_b;
   } bmpheader;
 
-  if (f.readBytes((char*)&bmpheader, sizeof(bmpheader)) != sizeof(bmpheader)) {
-    Serial.println("Bitmap file too short");
+  size_t bytes = f.readBytes((char*)&bmpheader, sizeof(bmpheader));
+  if (bytes != sizeof(bmpheader)) {
+    Serial.print("Bitmap file too short(");
+    Serial.print((int)bytes);
+    Serial.println(" bytes read).");
     return false;
   }
   // else

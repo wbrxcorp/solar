@@ -6,14 +6,17 @@
 #endif
 #include <FS.h>
 
-#include <Adafruit_BME280.h>
 #include "globals.h"
 
 #define BME280_I2C_ADDRESS 0x76 // GYBMEP
+#define CCS811_I2C_ADDRESS 0x5A
+
+static bool ccs811_present = false;
 
 void early_setup_thermometer()
 {
   WiFi.mode(WIFI_OFF);
+  tft.setRotation(config.tft_rotation);
 #if defined(ARDUINO_ARCH_ESP8266)
   tft.begin((int8_t)0, (int8_t)15);
 #elif defined(ARDUINO_ARCH_ESP32)
@@ -29,6 +32,7 @@ void early_setup_thermometer()
 // esptool.py --chip esp32 --baud 460800 --port /dev/ttyUSB0 write_flash 0x291000 /tmp/esp32.spiffs
 void load_background_image()
 {
+  Serial.println("Loading background image from SPIFFS...");
   SPIFFS.begin();
   File f = SPIFFS.open("/background.bmp", "r");
   if (f) {
@@ -62,6 +66,15 @@ void setup_thermometer()
     esp_deep_sleep_start();
 #endif
     delay(1000);
+  }
+
+  if (ccs.begin(CCS811_I2C_ADDRESS)) {
+    ccs811_present = true;
+    while(!ccs.available());
+    float temp = ccs.calculateTemperature();
+    ccs.setTempOffset(temp - 25.0);
+  } else {
+    Serial.println("Could not find a CCS811 sensor.");
   }
 }
 
@@ -98,6 +111,22 @@ void thermometer_print_values(float temperature, float humidity, uint16_t pressu
   tft.setCursor(10, 155);
   tft.setTextColor(TFT_GREEN, TFT_WHITE);
   tft.print(buf);
+
+  if (ccs811_present && ccs.available()) {
+    float temp = ccs.calculateTemperature();
+    if(!ccs.readData()){
+      Serial.print("eCO2: ");
+      float eCO2 = ccs.geteCO2();
+      Serial.print(eCO2);
+
+      Serial.print(" ppm, TVOC: ");
+      float TVOC = ccs.getTVOC();
+      Serial.print(TVOC);
+
+      Serial.print(" ppb   Temp:");
+      Serial.println(temp);
+    }
+  }
 
 }
 

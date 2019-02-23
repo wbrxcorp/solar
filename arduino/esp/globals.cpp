@@ -14,3 +14,4 @@ TFT tft;
 bool debug_mode = false;
 
 Adafruit_BME280 bme; // I2C
+Adafruit_CCS811 ccs;
