@@ -18,8 +18,8 @@
 #define	TFT_ORANGE     0xFC00
 
 // Default SPI data clock frequency
-#if (F_CPU >= 80000000)
-  #define TFT_SPI_DEFAULT_FREQ 80000000
+#if (F_CPU > 90000000)
+  #define TFT_SPI_DEFAULT_FREQ 60000000
 #else
   #define TFT_SPI_DEFAULT_FREQ F_CPU * 2 / 3
 #endif
