@@ -11,7 +11,10 @@
 #define BME280_I2C_ADDRESS 0x76 // GYBMEP
 #define CCS811_I2C_ADDRESS 0x5A
 
+static unsigned long last_update = 0;
 static bool ccs811_present = false;
+
+static const uint16_t interval = 1000;
 
 void early_setup_thermometer()
 {
@@ -114,31 +117,42 @@ void thermometer_print_values(float temperature, float humidity, uint16_t pressu
   tft.setCursor(10, 155);
   tft.setTextColor(TFT_GREEN, TFT_WHITE);
   tft.print(buf);
+}
 
-  if (ccs811_present && ccs.available()) {
-    float temp = ccs.calculateTemperature();
-    if(!ccs.readData()){
-      // eCO2
-      sprintf(buf, "%4d", (int)ccs.geteCO2());
-      tft.setCursor(10, 188);
-      tft.setTextColor(TFT_ORANGE, TFT_WHITE);
-      tft.print(buf);
+void gasmeter_print_values(uint16_t co2, float tvoc, float temperature)
+{
+  char buf[16];
 
-      // TVOC
-      Serial.print(" ppm, TVOC: ");
-      float TVOC = ccs.getTVOC();
-      Serial.print(TVOC);
+  // eCO2
+  sprintf(buf, "%4d", (int)co2);
+  tft.setCursor(10, 188);
+  tft.setTextColor(TFT_ORANGE, TFT_WHITE);
+  tft.print(buf);
 
-      // CCS811's temperature
-      Serial.print(" ppb   Temp:");
-      Serial.println(temp);
-    }
-  }
+  // TVOC
+  Serial.print(" ppm, TVOC: ");
+  Serial.print(tvoc);
 
+  // CCS811's temperature
+  Serial.print(" ppb   Temp:");
+  Serial.println(temperature);
 }
 
 void loop_thermometer()
 {
-  thermometer_print_values(bme.readTemperature(), bme.readHumidity(), (uint16_t)(bme.readPressure() / 100.0F));
-  delay(1000);
+  unsigned long current_time = millis();
+  if (current_time < last_update + interval) return;
+
+  float temperature = bme.readTemperature();
+  float humidity =  bme.readHumidity();
+  thermometer_print_values(temperature, humidity, (uint16_t)(bme.readPressure() / 100.0F));
+  if (ccs811_present && ccs.available()) {
+    ccs.setEnvironmentalData((uint8_t)humidity, temperature);
+
+    float temp = ccs.calculateTemperature();
+    if(!ccs.readData()){
+      gasmeter_print_values((uint16_t)ccs.geteCO2(), ccs.getTVOC(), temp);
+    }
+  }
+  last_update = current_time;
 }
