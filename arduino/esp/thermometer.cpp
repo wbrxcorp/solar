@@ -143,15 +143,19 @@ void loop_thermometer()
   unsigned long current_time = millis();
   if (current_time < last_update + interval) return;
 
+  // else
+
   float temperature = bme.readTemperature();
   float humidity =  bme.readHumidity();
   thermometer_print_values(temperature, humidity, (uint16_t)(bme.readPressure() / 100.0F));
-  if (ccs811_present && ccs.available()) {
-    ccs.setEnvironmentalData((uint8_t)humidity, temperature);
 
-    float temp = ccs.calculateTemperature();
-    if(!ccs.readData()){
-      gasmeter_print_values((uint16_t)ccs.geteCO2(), ccs.getTVOC(), temp);
+  if (ccs811_present) {
+    ccs.setEnvironmentalData((uint8_t)humidity, temperature);
+    if (ccs.available()) {
+      float temp = ccs.calculateTemperature();
+      if(!ccs.readData()){
+        gasmeter_print_values((uint16_t)ccs.geteCO2(), ccs.getTVOC(), temp);
+      }
     }
   }
   last_update = current_time;
