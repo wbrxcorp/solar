@@ -284,10 +284,15 @@ void setup() {
   Serial.println("MHz");
 
 #ifdef ARDUINO_ARCH_ESP8266
+  Serial.println("NONOS SDK version: ");
+  Serial.println(system_get_sdk_version());
+
   const rst_info *prst = ESP.getResetInfoPtr();
   reset_reason = prst->reason;
 #endif
 #ifdef ARDUINO_ARCH_ESP32
+  Serial.println("ESP-IDF version: ");
+  Serial.println(esp_get_idf_version());
   reset_reason = rtc_get_reset_reason(xPortGetCoreID());
 #endif
 
@@ -499,6 +504,11 @@ void setup() {
 #ifdef ARDUINO_ARCH_ESP8266
     WiFi.forceSleepWake();
 #endif
+/*
+#ifdef ARDUINO_ARCH_ESP32
+    esp_wifi_set_max_tx_power(-128);
+#endif
+*/
     WiFi.disconnect();
     WiFi.mode(WIFI_STA);
     WiFi.setAutoReconnect(true);
