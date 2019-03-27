@@ -19,7 +19,7 @@
 
 // Default SPI data clock frequency
 #if (F_CPU > 90000000)
-  #define TFT_SPI_DEFAULT_FREQ 60000000
+  #define TFT_SPI_DEFAULT_FREQ 65000000
 #else
   #define TFT_SPI_DEFAULT_FREQ F_CPU * 2 / 3
 #endif
