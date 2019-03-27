@@ -284,14 +284,14 @@ void setup() {
   Serial.println("MHz");
 
 #ifdef ARDUINO_ARCH_ESP8266
-  Serial.println("NONOS SDK version: ");
+  Serial.print("NONOS SDK version: ");
   Serial.println(system_get_sdk_version());
 
   const rst_info *prst = ESP.getResetInfoPtr();
   reset_reason = prst->reason;
 #endif
 #ifdef ARDUINO_ARCH_ESP32
-  Serial.println("ESP-IDF version: ");
+  Serial.print("ESP-IDF version: ");
   Serial.println(esp_get_idf_version());
   reset_reason = rtc_get_reset_reason(xPortGetCoreID());
 #endif
