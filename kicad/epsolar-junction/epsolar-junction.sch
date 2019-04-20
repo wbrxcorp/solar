@@ -85,8 +85,8 @@ F 3 "~" H 4950 4250 50  0001 C CNN
 	1    0    0    -1  
 $EndComp
 Wire Wire Line
-	4750 1650 4250 1650
-Text Label 4250 1650 0    50   ~ 0
+	4750 1750 4250 1750
+Text Label 4250 1750 0    50   ~ 0
 LOADPLUS
 Wire Wire Line
 	4750 3500 4250 3500
@@ -94,14 +94,11 @@ Wire Wire Line
 	4250 3500 4250 3900
 Wire Wire Line
 	4250 3900 4750 3900
-Connection ~ 4250 3500
 Wire Wire Line
 	4250 3900 4250 4350
 Wire Wire Line
 	4250 4350 4750 4350
 Connection ~ 4250 3900
-Wire Wire Line
-	4750 1750 3950 1750
 $Comp
 L power:GND #PWR0101
 U 1 1 5CBAFEF6
@@ -115,7 +112,6 @@ F 3 "" H 3950 4550 50  0001 C CNN
 $EndComp
 Wire Wire Line
 	4750 3400 3950 3400
-Connection ~ 3950 3400
 Wire Wire Line
 	3950 3400 3950 3800
 Wire Wire Line
@@ -458,10 +454,6 @@ Text Label 5650 5850 0    50   ~ 0
 D+
 Text Label 5650 5950 0    50   ~ 0
 D-
-Wire Wire Line
-	4250 1650 4250 3500
-Wire Wire Line
-	3950 1750 3950 3400
 Text Label 6700 2250 0    50   ~ 0
 GPIO
 $Comp
@@ -546,4 +538,12 @@ Wire Wire Line
 Connection ~ 9350 3000
 Text Label 3000 5600 0    50   ~ 0
 A
+Wire Wire Line
+	4750 1650 3950 1650
+Wire Wire Line
+	3950 1650 3950 3400
+Connection ~ 3950 3400
+Wire Wire Line
+	4250 1750 4250 3500
+Connection ~ 4250 3500
 $EndSCHEMATC
