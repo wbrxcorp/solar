@@ -1452,7 +1452,7 @@
   )
   (gr_line (start 144.78 97.79) (end 144.78 123.19) (layer B.SilkS) (width 0.15))
   (gr_line (start 134.62 97.79) (end 134.62 123.19) (layer B.SilkS) (width 0.15))
-  (gr_text "60A MAX" (at 139.7 134.62) (layer F.SilkS) (tstamp 5CBB2112)
+  (gr_text LOAD (at 139.7 134.62) (layer F.SilkS) (tstamp 5CBB2112)
     (effects (font (size 1 1) (thickness 0.15)))
   )
   (gr_text LOAD (at 139.065 86.995) (layer F.SilkS)
