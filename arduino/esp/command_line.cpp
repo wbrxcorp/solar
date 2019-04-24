@@ -7,6 +7,7 @@
 #elif defined(ARDUINO_ARCH_ESP32)
 #include <WiFi.h>
 #include <SPIFFS.h>
+#include <esp_partition.h>
 #endif
 
 #include "command_line.h"
@@ -192,17 +193,18 @@ bool save(const LineParser& lineparser)
   for (size_t i = 0; i < sizeof(config) - sizeof(config.crc); i++) {
     config.crc = update_crc(config.crc, p[i]);
   }
+  Serial.print("Config checksum: ");
+  Serial.println((int)config.crc);
   Serial.print("Writing config to EEPROM...");
-#if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266)
   EEPROM.begin(sizeof(config));
-#endif
   EEPROM.put(0, config);
-#if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266)
-  EEPROM.commit();
+  if (EEPROM.commit()) {
+    Serial.println("Done.");
+  } else {
+    Serial.println("ERROR!(EEPROM.commit() returned false");
+  }
   EEPROM.end();
-#endif
 
-  Serial.println("Done.");
   return true;
 }
 
