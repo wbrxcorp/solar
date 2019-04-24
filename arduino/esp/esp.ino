@@ -539,6 +539,19 @@ void setup() {
           delay(10);
 #endif
           break;
+        } else if (millis() - startTime > 60000/* 1minute */) {
+          Serial.println("WiFi connection timeout. Sleeping 60 seconds...");
+          display.turnOff(); // Display OFF
+#if defined(ARDUINO_ARCH_ESP8266)
+          ESP.deepSleep(60 * 1000L * 1000L , WAKE_RF_DEFAULT);
+#elif defined(ARDUINO_ARCH_ESP32)
+          esp_sleep_enable_timer_wakeup(60 * 1000L * 1000L);
+          esp_deep_sleep_start();
+#else
+          Serial.println("Sleep is not implemented for this architecture");
+#endif
+          delay(1000);
+          continue;
         }
         display.setCursor(0, display.getCursorY());
         display.print("Connecting WiFi...");
