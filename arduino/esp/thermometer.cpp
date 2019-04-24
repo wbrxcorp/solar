@@ -31,6 +31,7 @@ void early_setup_thermometer()
 #if defined(ARDUINO_ARCH_ESP8266)
   tft.begin((int8_t)0, (int8_t)15);
 #elif defined(ARDUINO_ARCH_ESP32)
+  //tft.setDataMode(SPI_MODE0);
   tft.begin((int8_t)5, (int8_t)0);
 #endif
 }
@@ -163,44 +164,62 @@ void thermometer_print_values(float temperature, float humidity, uint16_t pressu
   sprintf(buf, "%2.1f", temperature);
   char* decimal_part = strchr(buf, '.');
 
+  tft.setTextColor(TFT_RED, TFT_WHITE);
+  tft.setTextSize(4);
+  tft.setCursor(130, 18);
   if (decimal_part) {
     // decimal part first
-    tft.setTextColor(TFT_RED, TFT_WHITE);
-    tft.setTextSize(3);
-    tft.setCursor(108, 20);
     tft.print(decimal_part);
-
     *decimal_part = '\0';
   }
+  const uint8_t x = tft.getCursorX(), y = tft.getCursorY();
+  for (int i = 4; i <= 7; i++) {
+    tft.drawCircle(x + 8, y + 6, i, TFT_RED);
+  }
+  tft.setCursor(x + 18, y);
+  tft.print("C");
 
-  tft.setTextSize(8);
+  tft.setTextSize(10);
   tft.setCursor(10, 16);
-  tft.print(buf);
+  tft.print(buf + (strlen(buf) - 2));
 
   // humidity
-  sprintf(buf, "%2.1f", humidity);
-  tft.setTextSize(3);
-  tft.setCursor(13, 122);
+  sprintf(buf, "%2.1f%%", humidity);
+
   tft.setTextColor(TFT_BLUE, TFT_WHITE);
+  tft.setTextSize(3);
+  tft.setCursor(138, 62);
   tft.print(buf);
 
   // pressure
-  sprintf(buf, "%4d", pressure);
-  tft.setTextSize(3);
-  tft.setCursor(10, 155);
+  sprintf(buf, "%4d hPa", pressure);
+  tft.setTextSize(4);
+  tft.setCursor(30, 110);
   tft.setTextColor(TFT_GREEN, TFT_WHITE);
   tft.print(buf);
 }
 
-void gasmeter_print_values(uint16_t co2, float tvoc, float temperature)
+void gasmeter_print_values(int16_t co2, float tvoc, float temperature)
 {
   char buf[16];
 
-  // eCO2
-  sprintf(buf, "%4d", (int)co2);
-  tft.setCursor(10, 188);
-  tft.setTextColor(TFT_ORANGE, TFT_WHITE);
-  tft.print(buf);
+  if (co2 >= 0) {
+    // eCO2
+    sprintf(buf, "%4d", (int)co2);
+    tft.setCursor(10, 168);
+    tft.setTextSize(7);
+    tft.setTextColor(TFT_BLACK, TFT_WHITE);
+    tft.print(buf);
+    tft.setTextSize(3);
+    tft.print("ppm");
+  } else {
+    // CCS811 error
+    sprintf(buf, "Err:%02x", -co2);
+    tft.setCursor(10, 168);
+    tft.setTextSize(7);
+    tft.setTextColor(TFT_BLACK, TFT_WHITE);
+    tft.print(buf);
+  }
 
   // TVOC
   Serial.print(" ppm, TVOC: ");
@@ -224,14 +243,22 @@ void loop_thermometer()
     ccs.setEnvironmentalData((uint8_t)humidity, temperature);
     if (ccs.available()) {
       float temp = ccs.calculateTemperature();
-      if(!ccs.readData()){
-        uint16_t eCO2 = ccs.geteCO2();
+      uint8_t result = ccs.readData();
+      if(result == 0/*success*/){
+        int16_t eCO2 = ccs.geteCO2();
 #ifdef ARDUINO_ARCH_ESP32
         xSemaphoreTake(mutex, portMAX_DELAY);
         eCO2_shared = eCO2;
         xSemaphoreGive(mutex);
 #endif
         gasmeter_print_values(eCO2, ccs.getTVOC(), temp);
+      } else { // fail
+#ifdef ARDUINO_ARCH_ESP32
+        xSemaphoreTake(mutex, portMAX_DELAY);
+        eCO2_shared = 0;
+        xSemaphoreGive(mutex);
+#endif
+        gasmeter_print_values(-result, 0, temp);
       }
     }
   }
