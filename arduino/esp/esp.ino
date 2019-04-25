@@ -316,14 +316,6 @@ void setup() {
   // clear everything in rtcData when invalid
   if (!rtcData.valid) memset(&rtcData, 0, sizeof(rtcData));
 
-  // check for INA219
-  Wire.beginTransmission(INA219_ADDRESS);
-  if (Wire.endTransmission() == 0) {
-    Serial.println("INA219 current sensor found.");
-    ina219.begin();
-    ina219_started = true;
-  }
-
   // read config from EEPROM
   Serial.write("Loading config from EEPROM...");
   EEPROM.begin(sizeof(config));
@@ -507,6 +499,15 @@ void setup() {
     Serial.print("Temperature compensation coefficient: ");
     Serial.print((int)rtcData.temperature_compensation_coefficient);
     Serial.println("mV/Cecelsius degree/2V");
+
+    // check for INA219
+    Wire.beginTransmission(INA219_ADDRESS);
+    if (Wire.endTransmission() == 0) {
+      Serial.println("INA219 current sensor found.");
+      ina219.begin();
+      ina219_started = true;
+    }
+
   } // operation_mode == OPERATION_MODE_NORMAL
 
   if (operation_mode != OPERATION_MODE_THERMOMETER && operation_mode != OPERATION_MODE_NISETRACER && operation_mode != OPERATION_MODE_AMMETER && operation_mode != OPERATION_MODE_SLAVE) {
