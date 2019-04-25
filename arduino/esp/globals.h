@@ -39,6 +39,9 @@ extern Adafruit_BME280 bme; // I2C
 #include <Adafruit_CCS811.h>
 extern Adafruit_CCS811 ccs;
 
+#include <Adafruit_INA219.h>
+extern Adafruit_INA219 ina219;
+
 extern CONFIG config;
 
 #include "edogawa_unit.h"

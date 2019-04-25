@@ -4,12 +4,8 @@
 #include <WiFi.h>
 #endif
 
-#include <Wire.h>
-#include <Adafruit_INA219.h>
-
 #include "globals.h"
 
-static Adafruit_INA219 ina219(INA219_ADDRESS);
 static bool ina219_started = false;
 
 static bool start_ina219()

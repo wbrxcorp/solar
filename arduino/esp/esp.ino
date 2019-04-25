@@ -63,12 +63,14 @@ static EPSolar epsolar(modbus);
 
 String cmdline_buffer;
 
-unsigned long last_message_sent = 0L;
-unsigned long last_message_received = 0L;
-unsigned long last_checked = 0L;
-unsigned long last_reported = 0L;
-char session_id[48] = "";
-int reset_reason = REASON_DEFAULT_RST;
+static unsigned long last_message_sent = 0L;
+static unsigned long last_message_received = 0L;
+static unsigned long last_checked = 0L;
+static unsigned long last_reported = 0L;
+static char session_id[48] = "";
+static int reset_reason = REASON_DEFAULT_RST;
+
+static bool ina219_started = false;
 
 typedef struct strEPSolarValues {
   float piv,pia,bv,poa;
@@ -313,6 +315,14 @@ void setup() {
 
   // clear everything in rtcData when invalid
   if (!rtcData.valid) memset(&rtcData, 0, sizeof(rtcData));
+
+  // check for INA219
+  Wire.beginTransmission(INA219_ADDRESS);
+  if (Wire.endTransmission() == 0) {
+    Serial.println("INA219 current sensor found.");
+    ina219.begin();
+    ina219_started = true;
+  }
 
   // read config from EEPROM
   Serial.write("Loading config from EEPROM...");
@@ -740,8 +750,7 @@ void loop_normal()
       + "BATT " + values.bv + "V\n" +
       + "TEMP " + values.temp + "deg.\n" +
       + "PW   " + (values.pw? "ON" : "OFF") + '\n'
-      + "PW1  " + (pw1? "ON" : "OFF") + '\n'
-      + "PW2  " + (pw2? "ON" : "OFF") + '\n';
+      + "PW1  " + (pw1? "ON" : "OFF") + '\n';
     display.print(message);
 
     float btcv = 0.0f;
@@ -763,6 +772,14 @@ void loop_normal()
       + "\tpw1:" + (pw1? 1 : 0)
       + "\tpw2:" + (pw2? 1 : 0)
       + "\trssi:" + (WiFi.RSSI());
+
+      if (ina219_started) {
+        float aiw = ina219.getPower_mW() / 1000.0;
+        message += String("\taia:") + ina219.getCurrent_mA() / 1000.0
+          + "\taiw:" + aiw
+          + "\taiv:" + ina219.getBusVoltage_V() + ina219.getShuntVoltage_mV() / 1000.0;
+        display.print(String("AUX  ") + aiw + "W\n");
+      }
   } else {
     display.print("!Controller disconnected!");
 

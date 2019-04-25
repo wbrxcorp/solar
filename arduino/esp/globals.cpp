@@ -15,3 +15,4 @@ bool debug_mode = false;
 
 Adafruit_BME280 bme; // I2C
 Adafruit_CCS811 ccs;
+Adafruit_INA219 ina219(INA219_ADDRESS);
