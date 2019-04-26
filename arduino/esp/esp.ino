@@ -252,7 +252,15 @@ void connect(const char* additional_init_params = NULL)
       break;
     }
     // else
-    Serial.print("Connection failed. Performing retry (");
+    Serial.print("Connection failed. ");
+    if (retry_delay >= 60) { // already tried >= 60sec
+      Serial.println("System will restart after 60 seconds.");
+      restart(60);
+      return; // not reaching here
+    }
+
+    // else
+    Serial.print("Performing retry (");
     Serial.print(retry_delay);
     Serial.println("sec)...");
     delay(retry_delay * 1000);
@@ -266,6 +274,20 @@ void preinit() {
   ESP8266WiFiClass::preinitWiFiOff();
 }
 #endif
+
+static void restart(uint8_t delay_secods)
+{
+  display.turnOff(); // Display OFF
+#if defined(ARDUINO_ARCH_ESP8266)
+  ESP.deepSleep(delay_secods * 1000L * 1000L , WAKE_RF_DEFAULT);
+#elif defined(ARDUINO_ARCH_ESP32)
+  esp_sleep_enable_timer_wakeup(delay_secods * 1000L * 1000L);
+  esp_deep_sleep_start();
+#else
+  Serial.println("Sleep is not implemented for this architecture");
+#endif
+  delay(1000);
+}
 
 void setup() {
   Serial.begin(115200);
@@ -552,17 +574,8 @@ void setup() {
           break;
         } else if (millis() - startTime > 60000/* 1minute */) {
           Serial.println("WiFi connection timeout. Sleeping 60 seconds...");
-          display.turnOff(); // Display OFF
-#if defined(ARDUINO_ARCH_ESP8266)
-          ESP.deepSleep(60 * 1000L * 1000L , WAKE_RF_DEFAULT);
-#elif defined(ARDUINO_ARCH_ESP32)
-          esp_sleep_enable_timer_wakeup(60 * 1000L * 1000L);
-          esp_deep_sleep_start();
-#else
-          Serial.println("Sleep is not implemented for this architecture");
-#endif
-          delay(1000);
-          continue;
+          restart(60);
+          continue; // not reaching here
         }
         display.setCursor(0, display.getCursorY());
         display.print("Connecting WiFi...");
