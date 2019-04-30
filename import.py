@@ -14,6 +14,7 @@ create table data(
 	kwh float,
 	lkwh float
 );
+create index t_idx using btree on data(t);
 
 alter table data add column hostname varchar(32) not null default 'motion' FIRST;
 alter table data drop primary key,add primary key(hostname,t), change column hostname hostname varchar(32) not null;
