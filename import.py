@@ -43,6 +43,15 @@ create table bv_conditions(
 	gt float,
 	primary key(nodename,`key`,int_value)
 );
+
+create table conditions(
+	nodename varchar(64) not null,
+	`key` varchar(16) not null,
+	expression text,
+	primary key(nodename,`key`)
+);
+-- replace into conditions(nodename,`key`,expression) values('kennel04','pw1','1 if pw1==0 and piw>100 and pov>14.2 else 0 if pw1==1 and pov<12.0 else None');
+
 '''
 
 hostname = 'motion'

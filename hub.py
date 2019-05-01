@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-import sys,socket,threading,traceback,datetime,time,uuid
+import sys,socket,threading,traceback,datetime,time,uuid,numbers
 import database
 
 PORT = 29574
@@ -35,14 +35,24 @@ def process_data(nodename, data):
 
         bv_compensation = float(data["btcv"]) if "btcv" in data else 0.0
 
-        cur.execute("select avg(pov),avg(pov)-%s from data where hostname=%s and t > now() - interval 1 minute", (bv_compensation, nodename, ))
-        bv,compensated_bv = cur.fetchone()
-        if bv is not None:
+        cur.execute("select avg(pov) as bv,avg(pov)-%s as cbv,avg(piw) as piw,avg(loadw) as loadw,avg(temp) as temp from data where hostname=%s and t > now() - interval 1 minute", (bv_compensation, nodename, ))
+        row = cur.fetchone()
+        if row is not None:
+            bv,compensated_bv,piw,loadw,temp = row
             cur.execute("select `key`,int_value from bv_conditions where nodename=%s and (gt is null or gt < %s) and (lt is null or lt > %s)", (nodename, compensated_bv, bv))
             for row in cur:
                 key,int_value = row
                 if key in data and int_value != int(data[key]):
                     response_data[key] = int_value
+
+            cur.execute("select `key`,expression from conditions where nodename=%s", (nodename, ))
+            for row in cur:
+                key,expression = row
+                try:
+                    value = eval(expression, {}, {"pw1":pw1,"piw":piw,"bv":compensated_bv,"pov":compensated_bv,"loadw":loadw,"temp":temp})
+                    if isinstance(value,numbers.Number): response_data[key] = value
+                except:
+                    print "Error evaluating xpression '%s'." % expression
 
         cur.execute("select id,`key`,int_value from schedule where nodename=%s and (t is null or t <= now())", (nodename,))
         for row in cur:
