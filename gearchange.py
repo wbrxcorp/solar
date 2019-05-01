@@ -11,11 +11,11 @@ def on_connect(client, userdata, flags, response_code):
 
 def do_gearchange_if_necessary(client):
   with database.Connection() as cur:
-    cur.execute("select hostname,avg(piw) as piw,avg(pov) as pov,avg(loadw) as loadw from data where t > now() - interval 1 minute group by hostname")
+    cur.execute("select hostname,avg(piw) as piw,avg(pov) as pov,avg(loadw) as loadw,avg(temp) as temp from data where t > now() - interval 1 minute group by hostname")
     for row in cur:
-      nodename,piw,pov,loadw = row
-      if pov > 14.5 or (piw > loadw and pov > 14.0): client.publish("gearchange-%s" % nodename, "up")
-      elif pov < 13.0: client.publish("gearchange-%s" % nodename, "down")
+      nodename,piw,pov,loadw,temp = row
+      if (pov > 14.4 or (piw > loadw and pov > 14.0)) and temp < 40.0: client.publish("gearchange-%s" % nodename, "up")
+      elif pov < 13.0 or temp > 42.0: client.publish("gearchange-%s" % nodename, "down")
 
 if __name__ == '__main__':
   client = mqtt.Client(protocol=mqtt.MQTTv311)
