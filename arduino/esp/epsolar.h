@@ -80,6 +80,13 @@ public:
     return (float)getIntValue(offset) / 100.0f;
   }
 
+  uint8_t getPercentageValue(size_t offset) const {
+    uint16_t value = getIntValue(offset);
+    if (value > 100) value = 100;
+    if (value < 0) value = 0;
+    return (uint8_t) value;
+  }
+
   double getDoubleValue(size_t offset) const {
     if (offset > _size - 4) return 0.0;
     return (double)MKDWORD(MKWORD(_data[offset + 2], _data[offset + 3]), MKWORD(_data[offset], _data[offset + 1])) / 100.0;

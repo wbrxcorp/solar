@@ -81,6 +81,7 @@ typedef struct strEPSolarValues {
   double lkwh;
   double kwh;
   int pw;
+  uint8_t soc;
 } EPSolarValues;
 
 struct {
@@ -694,6 +695,9 @@ bool getEPSolarValues(EPSolarValues& values)
   values.load = reg.getDoubleValue(0);
   values.temp = reg.getFloatValue(4);
 
+  if (!epsolar.get_register(0x311a, 1, reg)) return false;
+  values.soc = reg.getPercentageValue(0);
+
   if (!epsolar.get_register(0x3201, 1, reg)) return false; // Charging equipment status
   //else
   values.cs = (reg.getWordValue(0) >> 2) & 0x0003;
@@ -785,7 +789,9 @@ void loop_normal()
       + "\tbtcv:" + btcv
       + "\tpw1:" + (pw1? 1 : 0)
       + "\tpw2:" + (pw2? 1 : 0)
-      + "\trssi:" + (WiFi.RSSI());
+      + "\trssi:" + (WiFi.RSSI())
+      + "\tcs:" + values.cs
+      + "\tsoc:" + (int)values.soc;
 
       if (ina219_started) {
         float aiw = ina219.getPower_mW() / 1000.0;

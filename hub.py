@@ -26,8 +26,9 @@ def process_data(nodename, data):
         piw = float(data["piw"])
         pw1 = int(data["pw1"]) if "pw1" in data else None
         load = float(data["load"]) if "load" in data else None
+        soc = int(data["soc"]) if "soc" in data else None
         if last_data_time is None or datetime.datetime.now() - last_data_time >= datetime.timedelta(minutes=1) or last_piv > 0.0 or piv > 0.0 or pov != last_pov:
-            cur.execute("replace into data(hostname,t,piv,pia,piw,pov,poa,loadw,temp,kwh,lkwh) values(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)", (nodename,now_str, piv,float(data["pia"]),piw,pov,float(data["poa"]),load,float(data["temp"]),float(data["kwh"]),float(data["lkwh"])))
+            cur.execute("replace into data(hostname,t,piv,pia,piw,pov,poa,loadw,temp,kwh,lkwh,soc) values(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)", (nodename,now_str, piv,float(data["pia"]),piw,pov,float(data["poa"]),load,float(data["temp"]),float(data["kwh"]),float(data["lkwh"]),soc))
             saved = True
 
         if piv <= pov and (pw1 is None or pw1 == 0) and (load is None or load < 0.01):
@@ -49,7 +50,7 @@ def process_data(nodename, data):
             for row in cur:
                 key,expression = row
                 try:
-                    value = eval(expression, {}, {"pw1":pw1,"piw":piw,"bv":compensated_bv,"pov":compensated_bv,"loadw":loadw,"temp":temp})
+                    value = eval(expression, {}, {"pw1":pw1,"piw":piw,"bv":compensated_bv,"pov":compensated_bv,"loadw":loadw,"temp":temp,"soc":soc})
                     if isinstance(value,numbers.Number): response_data[key] = value
                 except:
                     print "Error evaluating xpression '%s'." % expression
@@ -104,7 +105,8 @@ def process_connection(conn, addr):
                         if "cs" not in data: data["cs"] = 0
                         if "btcv" not in data: data["btcv"] = 0.0
                         if "rssi" not in data: data["rssi"] = 0
-                        print "%s\t%s\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t#%d\t%d\t%.2f\t%d\t%d" % (nodename,now_str,piv,float(data["pia"]),float(data["piw"]),float(data["bv"]),float(data["poa"]),float(data["load"]),float(data["temp"]),float(data["kwh"]),float(data["lkwh"]),int(data["pw"]),int(data["pw1"]),float(data["btcv"]),int(data["cs"]),int(data["rssi"]))
+                        if "soc" not in data: data["soc"] = 0
+                        print "%s\t%s\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t#%d\t%d\t%.2f\t%d\t%d\t%d" % (nodename,now_str,piv,float(data["pia"]),float(data["piw"]),float(data["bv"]),float(data["poa"]),float(data["load"]),float(data["temp"]),float(data["kwh"]),float(data["lkwh"]),int(data["pw"]),int(data["pw1"]),float(data["btcv"]),int(data["cs"]),int(data["rssi"]),float(data["soc"]))
             elif data_splitted[0] == "INIT":
                 parsed_data = parse_data(data_splitted[1:])
                 if "nodename" in parsed_data:
