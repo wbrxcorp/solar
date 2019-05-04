@@ -27,8 +27,11 @@ def process_data(nodename, data):
         pw1 = int(data["pw1"]) if "pw1" in data else None
         load = float(data["load"]) if "load" in data else None
         soc = int(data["soc"]) if "soc" in data else None
+        aiw = float(data["aiw"]) if "aiw" in data else None
+        aiv = float(data["aiv"]) if "aiv" in data else None
+        aia = float(data["aia"]) if "aia" in data else None
         if last_data_time is None or datetime.datetime.now() - last_data_time >= datetime.timedelta(minutes=1) or last_piv > 0.0 or piv > 0.0 or pov != last_pov:
-            cur.execute("replace into data(hostname,t,piv,pia,piw,pov,poa,loadw,temp,kwh,lkwh,soc) values(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)", (nodename,now_str, piv,float(data["pia"]),piw,pov,float(data["poa"]),load,float(data["temp"]),float(data["kwh"]),float(data["lkwh"]),soc))
+            cur.execute("replace into data(hostname,t,piv,pia,piw,pov,poa,loadw,temp,kwh,lkwh,soc,aiv,aia,aiw) values(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)", (nodename,now_str, piv,float(data["pia"]),piw,pov,float(data["poa"]),load,float(data["temp"]),float(data["kwh"]),float(data["lkwh"]),soc,aiv,aia,aiw))
             saved = True
 
         if piv <= pov and (pw1 is None or pw1 == 0) and (load is None or load < 0.01):
@@ -36,10 +39,10 @@ def process_data(nodename, data):
 
         bv_compensation = float(data["btcv"]) if "btcv" in data else 0.0
 
-        cur.execute("select avg(pov) as bv,avg(pov)-%s as cbv,avg(piw) as piw,avg(loadw) as loadw,avg(temp) as temp from data where hostname=%s and t > now() - interval 1 minute", (bv_compensation, nodename, ))
+        cur.execute("select avg(pov) as bv,avg(pov)-%s as cbv,avg(piw) as piw,avg(loadw) as loadw,avg(temp) as temp,avg(aiw) as aiw from data where hostname=%s and t > now() - interval 1 minute", (bv_compensation, nodename, ))
         row = cur.fetchone()
         if row is not None:
-            bv,compensated_bv,piw,loadw,temp = row
+            bv,compensated_bv,piw,loadw,temp,aiw = row
             cur.execute("select `key`,int_value from bv_conditions where nodename=%s and (gt is null or gt < %s) and (lt is null or lt > %s)", (nodename, compensated_bv, bv))
             for row in cur:
                 key,int_value = row
@@ -50,7 +53,7 @@ def process_data(nodename, data):
             for row in cur:
                 key,expression = row
                 try:
-                    value = eval(expression, {}, {"pw1":pw1,"piw":piw,"bv":compensated_bv,"pov":compensated_bv,"loadw":loadw,"temp":temp,"soc":soc})
+                    value = eval(expression, {}, {"pw1":pw1,"piw":piw,"bv":compensated_bv,"pov":compensated_bv,"loadw":loadw,"temp":temp,"soc":soc,"aiw":aiw})
                     if isinstance(value,numbers.Number): response_data[key] = value
                 except:
                     print "Error evaluating xpression '%s'." % expression
@@ -106,7 +109,8 @@ def process_connection(conn, addr):
                         if "btcv" not in data: data["btcv"] = 0.0
                         if "rssi" not in data: data["rssi"] = 0
                         if "soc" not in data: data["soc"] = 0
-                        print "%s\t%s\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t#%d\t%d\t%.2f\t%d\t%d\t%d" % (nodename,now_str,piv,float(data["pia"]),float(data["piw"]),float(data["bv"]),float(data["poa"]),float(data["load"]),float(data["temp"]),float(data["kwh"]),float(data["lkwh"]),int(data["pw"]),int(data["pw1"]),float(data["btcv"]),int(data["cs"]),int(data["rssi"]),float(data["soc"]))
+                        if "aiw" not in data: data["aiw"] = 0
+                        print "%s\t%s\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t#%d\t%d\t%.2f\t%d\t%d\t%d\t%.2f" % (nodename,now_str,piv,float(data["pia"]),float(data["piw"]),float(data["bv"]),float(data["poa"]),float(data["load"]),float(data["temp"]),float(data["kwh"]),float(data["lkwh"]),int(data["pw"]),int(data["pw1"]),float(data["btcv"]),int(data["cs"]),int(data["rssi"]),float(data["soc"]),float(data["aiw"]))
             elif data_splitted[0] == "INIT":
                 parsed_data = parse_data(data_splitted[1:])
                 if "nodename" in parsed_data:
