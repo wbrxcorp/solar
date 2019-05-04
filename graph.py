@@ -49,7 +49,7 @@ def generate_graph(hostname, date_str = None, pov_ymin = 10.5, pov_ymax = 15.0):
     hrs = list(data[0][0].replace(hour=hr,minute=0,second=0) for hr in [0,6,12,18])
     hrs.append(hrs[0] + datetime.timedelta(days=1))
 
-    for sp in [piw,kwh,temp]:
+    for sp in [piw,bv,kwh,temp]:
         sp.axvline(hrs[2],linestyle="-", color="grey")
         sp.axvspan(hrs[0],hrs[1],facecolor="lightgrey", edgecolor="none")
         sp.axvspan(hrs[3],hrs[4],facecolor="lightgrey", edgecolor="none")
@@ -73,19 +73,15 @@ def generate_graph(hostname, date_str = None, pov_ymin = 10.5, pov_ymax = 15.0):
     bv.grid(True)
     bv.axhline(12.0, linestyle="--", color="green")
     bv.axhline(11.1, linestyle="--", color="red")
-    bv.plot(x, [row[1][6] for row in data], label=u"5秒間隔", linewidth=0.5, zorder=2)
-    bv.plot(x, [row[1][7] for row in data], label=u"5分平均", linewidth=2,color="r", zorder=3)
+    bv.plot(x, [row[1][6] for row in data], label=u"5秒間隔", linewidth=0.5)
+    bv.plot(x, [row[1][7] for row in data], label=u"5分平均", linewidth=2,color="r")
 
     soc = bv.twinx()
-    bv.set_zorder(soc.get_zorder()+1)
-    bv.patch.set_visible(False)
     soc.set_ylabel("SoC(%)")
     soc.set_ylim(0, 100)
-    soc.axvline(hrs[2],linestyle="-", color="grey")
-    soc.axvspan(hrs[0],hrs[1],facecolor="lightgrey", edgecolor="none",zorder=1)
-    soc.axvspan(hrs[3],hrs[4],facecolor="lightgrey", edgecolor="none",zorder=1)
-    #soc.plot(x, [row[1][16] for row in data], linewidth=1,color="g")
-    soc.fill_between(x, [row[1][16] for row in data], linewidth=1,color="g",zorder=2,alpha=0.1)
+    soc.xaxis.set_major_locator(xloc)
+    soc.xaxis.set_major_formatter(xfmt)
+    soc.fill_between(x, [row[1][16] for row in data if row[1][16] is not None], linewidth=1,color="g",zorder=2,alpha=0.1,label="SoC")
 
     bv.legend(loc="best")
 
