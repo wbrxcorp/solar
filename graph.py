@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2
 # -*- coding: utf-8 -*-
 
 import sys,os,io,datetime,argparse,socket
@@ -18,13 +18,13 @@ def load_data(hostname, date_str = None):
 
         starttime, endtime = cur.fetchone()
 
-        cur.execute("create temporary table data1(t datetime,piv float,pia float,piw float,pov float,poa float,loadw float,temp float,kwh float,lkwh float) engine memory")
-        cur.execute("create temporary table data2(t datetime,piv float,pia float,piw float,pov float,poa float,loadw float,temp float,kwh float,lkwh float) engine memory")
-        cur.execute("insert into data1(t,piv,pia,piw,pov,poa,loadw,temp,kwh,lkwh) select t,piv,pia,piw,pov,poa,loadw,temp,kwh,lkwh from data where hostname = %s and data.t >= %s and data.t < %s", (hostname, starttime, endtime))
-        cur.execute("insert into data2(t,piv,pia,piw,pov,poa,loadw,temp,kwh,lkwh) select t,piv,pia,piw,pov,poa,loadw,temp,kwh,lkwh from data where hostname = %s and data.t >= %s - interval 5 minute and data.t < %s", (hostname, starttime, endtime))
+        cur.execute("create temporary table data1(t datetime,piv float,pia float,piw float,pov float,poa float,loadw float,temp float,kwh float,lkwh float,soc float) engine memory")
+        cur.execute("create temporary table data2(t datetime,piv float,pia float,piw float,pov float,poa float,loadw float,temp float,kwh float,lkwh float,soc float) engine memory")
+        cur.execute("insert into data1(t,piv,pia,piw,pov,poa,loadw,temp,kwh,lkwh,soc) select t,piv,pia,piw,pov,poa,loadw,temp,kwh,lkwh,soc from data where hostname = %s and data.t >= %s and data.t < %s", (hostname, starttime, endtime))
+        cur.execute("insert into data2(t,piv,pia,piw,pov,poa,loadw,temp,kwh,lkwh,soc) select t,piv,pia,piw,pov,poa,loadw,temp,kwh,lkwh,soc from data where hostname = %s and data.t >= %s - interval 5 minute and data.t < %s", (hostname, starttime, endtime))
         cur.execute("create index idx_t on data2(t) using btree")
 
-        cur.execute("select data1.t,data1.piv,avg(data2.piv),data1.pia,avg(data2.pia),data1.piw,avg(data2.piw),data1.pov,avg(data2.pov),data1.poa,avg(data2.poa),data1.loadw,avg(data2.loadw),data1.temp,avg(data2.temp),data1.kwh,data1.lkwh from data1,data2 where data2.t between data1.t - interval 5 minute and data1.t group by data1.t,data1.piv,data1.pia,data1.piw,data1.pov,data1.poa,data1.loadw,data1.temp,data1.kwh,data1.lkwh order by data1.t")
+        cur.execute("select data1.t,data1.piv,avg(data2.piv),data1.pia,avg(data2.pia),data1.piw,avg(data2.piw),data1.pov,avg(data2.pov),data1.poa,avg(data2.poa),data1.loadw,avg(data2.loadw),data1.temp,avg(data2.temp),data1.kwh,data1.lkwh,data1.soc from data1,data2 where data2.t between data1.t - interval 5 minute and data1.t group by data1.t,data1.piv,data1.pia,data1.piw,data1.pov,data1.poa,data1.loadw,data1.temp,data1.kwh,data1.lkwh,data1.soc order by data1.t")
 
         return (starttime, endtime, [(row[0],row[1:]) for row in cur])
 
@@ -49,7 +49,7 @@ def generate_graph(hostname, date_str = None, pov_ymin = 10.5, pov_ymax = 15.0):
     hrs = list(data[0][0].replace(hour=hr,minute=0,second=0) for hr in [0,6,12,18])
     hrs.append(hrs[0] + datetime.timedelta(days=1))
 
-    for sp in [piw,bv,kwh,temp]:
+    for sp in [piw,kwh,temp]:
         sp.axvline(hrs[2],linestyle="-", color="grey")
         sp.axvspan(hrs[0],hrs[1],facecolor="lightgrey", edgecolor="none")
         sp.axvspan(hrs[3],hrs[4],facecolor="lightgrey", edgecolor="none")
@@ -73,8 +73,20 @@ def generate_graph(hostname, date_str = None, pov_ymin = 10.5, pov_ymax = 15.0):
     bv.grid(True)
     bv.axhline(12.0, linestyle="--", color="green")
     bv.axhline(11.1, linestyle="--", color="red")
-    bv.plot(x, [row[1][6] for row in data], label=u"5秒間隔", linewidth=0.5)
-    bv.plot(x, [row[1][7] for row in data], label=u"5分平均", linewidth=2,color="r")
+    bv.plot(x, [row[1][6] for row in data], label=u"5秒間隔", linewidth=0.5, zorder=2)
+    bv.plot(x, [row[1][7] for row in data], label=u"5分平均", linewidth=2,color="r", zorder=3)
+
+    soc = bv.twinx()
+    bv.set_zorder(soc.get_zorder()+1)
+    bv.patch.set_visible(False)
+    soc.set_ylabel("SoC(%)")
+    soc.set_ylim(0, 100)
+    soc.axvline(hrs[2],linestyle="-", color="grey")
+    soc.axvspan(hrs[0],hrs[1],facecolor="lightgrey", edgecolor="none",zorder=1)
+    soc.axvspan(hrs[3],hrs[4],facecolor="lightgrey", edgecolor="none",zorder=1)
+    #soc.plot(x, [row[1][16] for row in data], linewidth=1,color="g")
+    soc.fill_between(x, [row[1][16] for row in data], linewidth=1,color="g",zorder=2,alpha=0.1)
+
     bv.legend(loc="best")
 
     kwh.set_ylabel(u"当日の電力量(kWh)")
