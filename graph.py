@@ -81,7 +81,7 @@ def generate_graph(hostname, date_str = None, pov_ymin = 10.5, pov_ymax = 15.0):
     soc.set_ylim(0, 100)
     soc.xaxis.set_major_locator(xloc)
     soc.xaxis.set_major_formatter(xfmt)
-    soc.fill_between(x, [row[1][16] for row in data if row[1][16] is not None], linewidth=1,color="g",zorder=2,alpha=0.1,label="SoC")
+    soc.fill_between(x, [row[1][16] if row[1][16] is not None else 0 for row in data], linewidth=1,color="g",zorder=2,alpha=0.1,label="SoC")
 
     bv.legend(loc="best")
 
