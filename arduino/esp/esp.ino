@@ -35,7 +35,7 @@
 
 #define DISPLAY_I2C_ADDRESS 0x3c
 
-#define CHECK_INTERVAL 5000
+#define CHECK_INTERVAL 1000
 #define REPORT_INTERVAL 5000
 #define MESSAGE_TIMEOUT 10000
 #define COMMAND_LINE_ONLY_MODE_WAIT_SECONDS 3
@@ -54,6 +54,7 @@ const uint8_t DEFAULT_TFT_ROTATION = 2;
 #include "thermometer.h"
 #include "ammeter.h"
 #include "slave.h"
+#include "watchdog.h"
 #include "crc.h"
 
 #include "globals.h"
@@ -67,6 +68,7 @@ static unsigned long last_message_sent = 0L;
 static unsigned long last_message_received = 0L;
 static unsigned long last_checked = 0L;
 static unsigned long last_reported = 0L;
+static float last_bv = 0.0f;
 static char session_id[48] = "";
 static int reset_reason = REASON_DEFAULT_RST;
 
@@ -533,7 +535,7 @@ void setup() {
 
   } // operation_mode == OPERATION_MODE_NORMAL
 
-  if (operation_mode != OPERATION_MODE_THERMOMETER && operation_mode != OPERATION_MODE_NISETRACER && operation_mode != OPERATION_MODE_AMMETER && operation_mode != OPERATION_MODE_SLAVE) {
+  if (operation_mode != OPERATION_MODE_THERMOMETER && operation_mode != OPERATION_MODE_NISETRACER && operation_mode != OPERATION_MODE_AMMETER && operation_mode != OPERATION_MODE_SLAVE && operation_mode != OPERATION_MODE_WATCHDOG) {
     Serial.print("Connecting to WiFi AP");
 #ifdef ARDUINO_ARCH_ESP8266
     WiFi.forceSleepWake();
@@ -637,6 +639,8 @@ void setup() {
     setup_ammeter();
   } else if (operation_mode == OPERATION_MODE_SLAVE) {
     setup_slave();
+  } else if (operation_mode == OPERATION_MODE_WATCHDOG) {
+    setup_watchdog();
   }
 }
 
@@ -809,7 +813,10 @@ void loop_normal()
   display.display();
 
   last_checked = current_time;
-  if (last_reported > 0L && (current_time - last_reported <= REPORT_INTERVAL || last_message_received < last_message_sent)) return;
+  if (last_message_received < last_message_sent) return;
+  // else
+  if (last_reported > 0L && (current_time - last_reported <= REPORT_INTERVAL)
+    && fabs(last_bv - values.bv) < last_bv * 0.01) return;
 
   // else
   if (session_id[0]) {
@@ -820,6 +827,7 @@ void loop_normal()
   message += "\tnodename:";
   message += config.nodename;
   send_message(message.c_str());
+  last_bv = values.bv;
   last_message_sent = last_reported = current_time;
 }
 
@@ -850,6 +858,9 @@ void loop()
       break;
     case OPERATION_MODE_SLAVE:
       loop_slave();
+      break;
+    case OPERATION_MODE_WATCHDOG:
+      loop_watchdog();
       break;
     default:
       break;

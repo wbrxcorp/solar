@@ -13,7 +13,8 @@ extern uint8_t operation_mode;
 #define OPERATION_MODE_THERMOMETER 6
 #define OPERATION_MODE_AMMETER 7
 #define OPERATION_MODE_SLAVE 8
-#define OPERATION_MODE_MAX 8
+#define OPERATION_MODE_WATCHDOG 9
+#define OPERATION_MODE_MAX 9
 
 typedef struct strCONFIG {
   uint8_t default_operation_mode;
