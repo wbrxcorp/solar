@@ -18,13 +18,13 @@ def load_data(hostname, date_str = None):
 
         starttime, endtime = cur.fetchone()
 
-        cur.execute("create temporary table data1(t datetime,piv float,pia float,piw float,pov float,poa float,loadw float,temp float,kwh float,lkwh float,soc float) engine memory")
-        cur.execute("create temporary table data2(t datetime,piv float,pia float,piw float,pov float,poa float,loadw float,temp float,kwh float,lkwh float,soc float) engine memory")
-        cur.execute("insert into data1(t,piv,pia,piw,pov,poa,loadw,temp,kwh,lkwh,soc) select t,piv,pia,piw,pov,poa,loadw,temp,kwh,lkwh,soc from data where hostname = %s and data.t >= %s and data.t < %s", (hostname, starttime, endtime))
-        cur.execute("insert into data2(t,piv,pia,piw,pov,poa,loadw,temp,kwh,lkwh,soc) select t,piv,pia,piw,pov,poa,loadw,temp,kwh,lkwh,soc from data where hostname = %s and data.t >= %s - interval 5 minute and data.t < %s", (hostname, starttime, endtime))
+        cur.execute("create temporary table data1(t datetime,piv float,pia float,piw float,pov float,poa float,loadw float,temp float,kwh float,lkwh float,soc float,aiw float) engine memory")
+        cur.execute("create temporary table data2(t datetime,piv float,pia float,piw float,pov float,poa float,loadw float,temp float) engine memory")
+        cur.execute("insert into data1(t,piv,pia,piw,pov,poa,loadw,temp,kwh,lkwh,soc,aiw) select t,piv,pia,piw,pov,poa,loadw,temp,kwh,lkwh,soc,aiw from data where hostname = %s and data.t >= %s and data.t < %s", (hostname, starttime, endtime))
+        cur.execute("insert into data2(t,piv,pia,piw,pov,poa,loadw,temp) select t,piv,pia,piw,pov,poa,loadw,temp from data where hostname = %s and data.t >= %s - interval 5 minute and data.t < %s", (hostname, starttime, endtime))
         cur.execute("create index idx_t on data2(t) using btree")
 
-        cur.execute("select data1.t,data1.piv,avg(data2.piv),data1.pia,avg(data2.pia),data1.piw,avg(data2.piw),data1.pov,avg(data2.pov),data1.poa,avg(data2.poa),data1.loadw,avg(data2.loadw),data1.temp,avg(data2.temp),data1.kwh,data1.lkwh,data1.soc from data1,data2 where data2.t between data1.t - interval 5 minute and data1.t group by data1.t,data1.piv,data1.pia,data1.piw,data1.pov,data1.poa,data1.loadw,data1.temp,data1.kwh,data1.lkwh,data1.soc order by data1.t")
+        cur.execute("select data1.t,data1.piv,avg(data2.piv),data1.pia,avg(data2.pia),data1.piw,avg(data2.piw),data1.pov,avg(data2.pov),data1.poa,avg(data2.poa),data1.loadw,avg(data2.loadw),data1.temp,avg(data2.temp),kwh,lkwh,soc,aiw from data1,data2 where data2.t between data1.t - interval 5 minute and data1.t group by data1.t,data1.piv,data1.pia,data1.piw,data1.pov,data1.poa,data1.loadw,data1.temp,kwh,lkwh,soc,aiw order by data1.t")
 
         return (starttime, endtime, [(row[0],row[1:]) for row in cur])
 
@@ -62,9 +62,19 @@ def generate_graph(hostname, date_str = None, pov_ymin = 10.5, pov_ymax = 15.0):
     #piw.set_ylim(0, 150)
     #piw.tick_params(labelsize=8)
     piw.grid(True)
-    piw.plot(x, [row[1][4] for row in data], label=u"発電(5秒間隔)", linewidth=0.5)
-    piw.plot(x, [row[1][5] for row in data], label=u"発電(5分平均)", linewidth=2,color="g")
-    piw.plot(x, [row[1][11] for row in data], label=u"消費(5分平均)", linewidth=2,color="r")
+    piw.plot(x, [row[1][4] for row in data], label=u"発電(5秒間隔)", linewidth=0.5,zorder=1)
+    piw.plot(x, [row[1][5] for row in data], label=u"発電(5分平均)", linewidth=2,color="g",zorder=3)
+    piw.plot(x, [row[1][11] for row in data], label=u"消費(5分平均)", linewidth=2,color="r",zorder=4)
+
+    aiw = [row[1][17] for row in data]
+    aiw_present = False
+    for i in range(0, len(aiw)):
+        if aiw[i] == None:
+            aiw[i] = 0.0
+        else:
+            aiw_present = True
+
+    if aiw_present: piw.step(x, aiw, label=u"AUX(5秒間隔)", color="y",linewidth=0.5,alpha=0.5,zorder=2)
     piw.legend()
 
     bv.set_ylabel(u"バッテリー電圧(V)")
