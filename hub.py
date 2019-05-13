@@ -24,6 +24,7 @@ def process_data(nodename, data):
         piv = float(data["piv"])
         pov = float(data["bv"])
         piw = float(data["piw"])
+        pw = int(data["pw"]) if "pw" in data else None
         pw1 = int(data["pw1"]) if "pw1" in data else None
         load = float(data["load"]) if "load" in data else None
         soc = int(data["soc"]) if "soc" in data else None
@@ -53,7 +54,7 @@ def process_data(nodename, data):
             for row in cur:
                 key,expression = row
                 try:
-                    value = eval(expression, {}, {"pw1":pw1,"piw":piw,"bv":compensated_bv,"pov":compensated_bv,"loadw":loadw,"temp":temp,"soc":soc,"aiw":aiw})
+                    value = eval(expression, {}, {"pw":pw,"pw1":pw1,"piw":piw,"bv":compensated_bv,"pov":compensated_bv,"loadw":loadw,"temp":temp,"soc":soc,"aiw":aiw})
                     if isinstance(value,numbers.Number): response_data[key] = value
                 except:
                     print "Error evaluating xpression '%s'." % expression
