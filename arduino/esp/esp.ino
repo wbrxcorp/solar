@@ -801,7 +801,7 @@ void loop_normal()
         float aiw = ina219.getPower_mW() / 1000.0;
         message += String("\taia:") + ina219.getCurrent_mA() / 1000.0
           + "\taiw:" + aiw
-          + "\taiv:" + ina219.getBusVoltage_V() + ina219.getShuntVoltage_mV() / 1000.0;
+          + "\taiv:" + (ina219.getBusVoltage_V() + ina219.getShuntVoltage_mV() / 1000.0);
         display.print(String("AUX  ") + aiw + "W\n");
       }
   } else {
