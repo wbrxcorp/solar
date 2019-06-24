@@ -28,7 +28,7 @@ def load_data(hostname, date_str = None):
 
         return (starttime, endtime, [(row[0],row[1:]) for row in cur])
 
-def generate_graph(hostname, date_str = None, pov_ymin = 10.5, pov_ymax = 15.0):
+def generate_graph(hostname, date_str = None, pov_ymin = None, pov_ymax = None):
     (starttime, endtime, data) = load_data(hostname, date_str)
     if len(data) == 0:
         print "No data."
@@ -77,12 +77,19 @@ def generate_graph(hostname, date_str = None, pov_ymin = 10.5, pov_ymax = 15.0):
     if aiw_present: piw.step(x, aiw, label=u"AUX(5秒間隔)", color="y",linewidth=0.5,alpha=0.5,zorder=2)
     piw.legend()
 
+    if pov_ymin is None: pov_ymin = 10.5
+    if pov_ymax is None: pov_ymax = 15.0
+
+    pov_multiplier = 2 if data[-1][1][6] > 18.0 else 1
+    pov_ymin *= pov_multiplier
+    pov_ymax *=	pov_multiplier
+
     bv.set_ylabel(u"バッテリー電圧(V)")
     bv.set_ylim(pov_ymin, pov_ymax)
     #bv.tick_params(labelsize=8)
     bv.grid(True)
-    bv.axhline(12.0, linestyle="--", color="green")
-    bv.axhline(11.1, linestyle="--", color="red")
+    bv.axhline(12.0 * pov_multiplier, linestyle="--", color="green")
+    bv.axhline(11.1 * pov_multiplier, linestyle="--", color="red")
     bv.plot(x, [row[1][6] for row in data], label=u"5秒間隔", linewidth=0.5)
     bv.plot(x, [row[1][7] for row in data], label=u"5分平均", linewidth=2,color="r")
 
