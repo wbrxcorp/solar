@@ -1,5 +1,6 @@
 EESchema Schematic File Version 4
-EELAYER 26 0
+LIBS:rigpower-cache
+EELAYER 29 0
 EELAYER END
 $Descr A4 11693 8268
 encoding utf-8
@@ -37,8 +38,6 @@ F 3 "~" H 4950 2050 50  0001 C CNN
 	1    4950 2050
 	1    0    0    -1  
 $EndComp
-NoConn ~ 4750 2050
-NoConn ~ 4750 2150
 $Comp
 L Connector_Generic:Conn_01x02 J3
 U 1 1 5CA5978F
@@ -58,7 +57,7 @@ U 1 1 5CA59797
 P 4950 2900
 F 0 "J4" H 5030 2892 50  0000 L CNN
 F 1 "Conn_01x02" H 5030 2801 50  0000 L CNN
-F 2 "lib:TerminalBlock_P10.16mm" H 4950 2900 50  0001 C CNN
+F 2 "lib:TerminalBlock_P9.5mm" H 4950 2900 50  0001 C CNN
 F 3 "~" H 4950 2900 50  0001 C CNN
 	1    4950 2900
 	1    0    0    -1  
@@ -71,11 +70,26 @@ U 1 1 5CA597C1
 P 4950 3350
 F 0 "J5" H 5030 3342 50  0000 L CNN
 F 1 "Conn_01x02" H 5030 3251 50  0000 L CNN
-F 2 "lib:TerminalBlock_P10.16mm" H 4950 3350 50  0001 C CNN
+F 2 "lib:TerminalBlock_P9.5mm" H 4950 3350 50  0001 C CNN
 F 3 "~" H 4950 3350 50  0001 C CNN
 	1    4950 3350
 	1    0    0    -1  
 $EndComp
 NoConn ~ 4750 3350
 NoConn ~ 4750 3450
+$Comp
+L Connector_Generic:Conn_01x02 J6
+U 1 1 5D123D0B
+P 4250 2050
+F 0 "J6" H 4330 2042 50  0000 L CNN
+F 1 "Conn_01x02" H 4330 1951 50  0000 L CNN
+F 2 "TerminalBlock:TerminalBlock_bornier-2_P5.08mm" H 4250 2050 50  0001 C CNN
+F 3 "~" H 4250 2050 50  0001 C CNN
+	1    4250 2050
+	-1   0    0    -1  
+$EndComp
+Wire Wire Line
+	4450 2050 4750 2050
+Wire Wire Line
+	4450 2150 4750 2150
 $EndSCHEMATC
