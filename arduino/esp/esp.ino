@@ -138,9 +138,49 @@ static void process_message(const char* message)
       time = atol(value);
     } else if (strcmp(key, "bt") == 0 && reset_reason != REASON_DEEP_SLEEP_AWAKE) {
       int battery_type = atoi(value);
-      epsolar.put_register(0x9000/*Battery type*/, (uint16_t)battery_type);
-      Serial.print("Battery type saved: ");
-      Serial.println(battery_type);
+      if (battery_type > 0 && battery_type <= 3) {
+        epsolar.put_register(0x9000/*Battery type*/, (uint16_t)battery_type);
+        Serial.print("Battery type saved: ");
+        Serial.println(battery_type);
+      } else if (battery_type == 4/*3S / 6S*/) {
+        const char* num_serial = "3S";
+        // 9003-900e
+        uint16_t data[12] = {
+          1360, // High Volt.disconnect
+          1275, // Charging limit voltage
+          1275, // Over voltage reconnect
+          1260, // Equalization voltage
+          1260, // Boost voltage
+          1180, // Float voltage
+          1122, // Boost reconnect voltage
+          1070, // Low voltage reconnect
+          1037, // Under voltage recover
+          1002, // Under voltage warning
+          944, // Low voltage disconnect
+          900, // Discharging limit voltage
+        };
+        if (rtcData.battery_rated_voltage > 17.0) { // 6S for 24V system
+          for (int i = 0; i < sizeof(data) / sizeof(data[0]); i++) {
+            data[i] *= 2;
+          }
+          num_serial = "6S";
+        }
+        if (epsolar.put_register(0x9000/*Battery type*/, 0/*user*/)) {
+          delay(100);
+          if (epsolar.put_registers(0x9003, data, sizeof(data) / sizeof(data[0]))) {
+            Serial.print("Battery type saved: ");
+            Serial.println(num_serial);
+          } else {
+            Serial.print("User setting error for ");
+            Serial.println(num_serial);
+          }
+        } else {
+          Serial.println("Unable to set to user-defined mode");
+        }
+      } else {
+        Serial.print("Invalid battery type: ");
+        Serial.println(battery_type);
+      }
     } else if (strcmp(key, "bc") == 0 && reset_reason != REASON_DEEP_SLEEP_AWAKE) {
       int battery_capacity= atoi(value);
       epsolar.put_register(0x9001/*Battery capacity*/, (uint16_t)battery_capacity);
@@ -469,11 +509,19 @@ void setup() {
         sprintf(buf, "RTC: %lu %06lu", (uint32_t)(rtc / 1000000L), (uint32_t)(rtc % 1000000LL));
         Serial.println(buf);
         if (epsolar.get_register(0x9000/*battery type, battery capacity*/, 2, reg)) {
-          const char* battery_type_str[] = { "User Defined", "Sealed", "GEL", "Flooded" };
+          const char* battery_type_str[] = { "User Defined", "Sealed", "GEL", "Flooded/LiFePO4/7S" };
           int battery_type = reg.getIntValue(0);
           int battery_capacity = reg.getIntValue(2);
           sprintf(buf, "Battery type: %d(%s), %dAh", battery_type, battery_type_str[battery_type], battery_capacity);
           Serial.println(buf);
+          if (battery_type == 0/*User defined*/ && epsolar.get_register(0x9003/* battery user settings */, 12, reg)) {
+            sprintf(buf, "Boost Charging Voltage: %.2fV", reg.getFloatValue(8)/* * multiplier*/);
+            Serial.println(buf);
+            sprintf(buf, "Float Charging Voltage: %.2fV", reg.getFloatValue(10)/* * multiplier*/);
+            Serial.println(buf);
+            sprintf(buf, "Low Voltage Disconnect: %.2fV", reg.getFloatValue(20)/* * multiplier*/);
+            Serial.println(buf);
+          }
           if (epsolar.get_register(0x311d/*Battery real rated voltage*/, 1, reg)) {
             rtcData.battery_rated_voltage = (uint8_t)reg.getFloatValue(0);
             if (epsolar.get_register(0x9002/*Temperature compensation coefficient*/, 1, reg)) {
