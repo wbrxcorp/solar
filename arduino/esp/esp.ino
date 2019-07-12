@@ -151,7 +151,7 @@ static void process_message(const char* message)
           1275, // Over voltage reconnect
           1260, // Equalization voltage
           1260, // Boost voltage
-          1180, // Float voltage
+          1260, // Float voltage
           1122, // Boost reconnect voltage
           1070, // Low voltage reconnect
           1037, // Under voltage recover
@@ -173,6 +173,31 @@ static void process_message(const char* message)
           } else {
             Serial.print("User setting error for ");
             Serial.println(num_serial);
+          }
+        } else {
+          Serial.println("Unable to set to user-defined mode");
+        }
+      } else if (battery_type == 5/*7S*/) {
+        uint16_t data[12] = {
+          3100, // High Volt.disconnect
+          2960, // Charging limit voltage
+          2975, // Over voltage reconnect
+          2940, // Equalization voltage
+          2940, // Boost voltage
+          2940, // Float voltage
+          2618, // Boost reconnect voltage
+          2496, // Low voltage reconnect
+          2420, // Under voltage recover
+          2338, // Under voltage warning
+          2200, // Low voltage disconnect
+          2100, // Discharging limit voltage
+        };
+        if (epsolar.put_register(0x9000/*Battery type*/, 0/*user*/)) {
+          delay(100);
+          if (epsolar.put_registers(0x9003, data, sizeof(data) / sizeof(data[0]))) {
+            Serial.println("Battery type saved: 7S");
+          } else {
+            Serial.println("User setting error for 7S");
           }
         } else {
           Serial.println("Unable to set to user-defined mode");
@@ -509,7 +534,7 @@ void setup() {
         sprintf(buf, "RTC: %lu %06lu", (uint32_t)(rtc / 1000000L), (uint32_t)(rtc % 1000000LL));
         Serial.println(buf);
         if (epsolar.get_register(0x9000/*battery type, battery capacity*/, 2, reg)) {
-          const char* battery_type_str[] = { "User Defined", "Sealed", "GEL", "Flooded/LiFePO4/7S" };
+          const char* battery_type_str[] = { "User Defined", "Sealed", "GEL", "Flooded/LiFePO4" };
           int battery_type = reg.getIntValue(0);
           int battery_capacity = reg.getIntValue(2);
           sprintf(buf, "Battery type: %d(%s), %dAh", battery_type, battery_type_str[battery_type], battery_capacity);
@@ -526,10 +551,6 @@ void setup() {
             rtcData.battery_rated_voltage = (uint8_t)reg.getFloatValue(0);
             if (epsolar.get_register(0x9002/*Temperature compensation coefficient*/, 1, reg)) {
               rtcData.temperature_compensation_coefficient = (uint8_t)reg.getFloatValue(0);
-              if (epsolar.get_register(0x0006/*Force the load on/off*/, 1, reg)) {
-                sprintf(buf, "Force the load on/off: %s", reg.getBoolValue(0)? "on" : "off(used for test)");
-                Serial.println(buf);
-              }
             }
           }
         }
@@ -556,9 +577,6 @@ void setup() {
         }
         if (epsolar.put_register(0x906a/*Default load on/off in manual mode*/, (uint16_t)1)) {
           Serial.println("Default load on/off in manual mode set to 1(on)");
-        }
-        if (epsolar.put_register(0x0006/*Force the load on/off*/, (uint16_t)0xff00)) {
-          Serial.println("Force the load on/off set to 'on'");
         }
       } else {
         Serial.println("Getting charge controller settings failed!");
