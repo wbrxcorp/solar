@@ -28,7 +28,7 @@ def load_data(hostname, date_str = None):
 
         return (starttime, endtime, [(row[0],row[1:]) for row in cur])
 
-def generate_graph(hostname, date_str = None, pov_ymin = None, pov_ymax = None):
+def generate_graph(hostname, date_str = None, pov_ymin = None, pov_ymax = None, pov_middle = None, pov_low = None):
     (starttime, endtime, data) = load_data(hostname, date_str)
     if len(data) == 0:
         print "No data."
@@ -79,6 +79,8 @@ def generate_graph(hostname, date_str = None, pov_ymin = None, pov_ymax = None):
 
     if pov_ymin is None: pov_ymin = 10.5
     if pov_ymax is None: pov_ymax = 15.0
+    if pov_middle is None: pov_middle = 12.0
+    if pov_low is None: pov_low = 11.1
 
     pov_multiplier = 2 if data[-1][1][6] > 18.0 else 1
     pov_ymin *= pov_multiplier
@@ -88,8 +90,8 @@ def generate_graph(hostname, date_str = None, pov_ymin = None, pov_ymax = None):
     bv.set_ylim(pov_ymin, pov_ymax)
     #bv.tick_params(labelsize=8)
     bv.grid(True)
-    bv.axhline(12.0 * pov_multiplier, linestyle="--", color="green")
-    bv.axhline(11.1 * pov_multiplier, linestyle="--", color="red")
+    bv.axhline(pov_middle * pov_multiplier, linestyle="--", color="green")
+    bv.axhline(pov_low * pov_multiplier, linestyle="--", color="red")
     bv.plot(x, [row[1][6] for row in data], label=u"5秒間隔", linewidth=0.5)
     bv.plot(x, [row[1][7] for row in data], label=u"5分平均", linewidth=2,color="r")
 
@@ -130,7 +132,14 @@ if __name__ == '__main__':
     parser.add_argument("-n", "--nodename", type = str, dest = "nodename", default=socket.gethostname())
     args = parser.parse_args()
 
-    graph = generate_graph(args.nodename, args.date)
+    pov_ymin, pov_ymax, pov_middle, pov_low = (None, None, None, None)
+    with database.Connection() as cur:
+        cur.execute("select battery_type from nodes where nodename=%s", (args.nodename,))
+        row = cur.fetchone()
+        if row is not None and row[0] == 4: # 3S/6S
+            pov_ymin, pov_ymax, pov_middle, pov_low = (9.0, 13.0, 12.0, 9.44)
+
+    graph = generate_graph(args.nodename, args.date, pov_ymin, pov_ymax, pov_middle, pov_low)
     if graph is not None:
         with open(args.output, "w") as f:
             f.write(graph)

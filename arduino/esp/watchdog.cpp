@@ -22,13 +22,16 @@ uint16_t first_watch_sec = 300;
 uint16_t watch_interval_sec = 3600;
 uint16_t print_message_interval_sec = 5;
 
-int relay_pin = 13;
+const int relay_pins[] = { 2, 13 };
+const size_t num_relay_pins = sizeof(relay_pins) / sizeof(relay_pins[0]);
 
 void setup_watchdog()
 {
   Serial.println("Setup Watchdog");
-  pinMode(relay_pin, OUTPUT);
-  digitalWrite(relay_pin, LOW);
+  for (int i = 0; i < num_relay_pins; i++) {
+    pinMode(relay_pins[i], OUTPUT);
+    digitalWrite(relay_pins[i], LOW);
+  }
 
   last_watch = millis() - (watch_interval_sec - first_watch_sec) * 1000L;
 }
@@ -45,9 +48,13 @@ static bool ping(const char* host)
 
 static void bite()
 {
-  digitalWrite(relay_pin, HIGH);
+  for (int i = 0; i < num_relay_pins; i++) {
+    digitalWrite(relay_pins[i], HIGH);
+  }
   delay(3000);
-  digitalWrite(relay_pin, LOW);
+  for (int i = 0; i < num_relay_pins; i++) {
+    digitalWrite(relay_pins[i], LOW);
+  }
 }
 
 static void watch()
