@@ -317,7 +317,7 @@
   )
 
   (gr_line (start 144.78 79.375) (end 144.78 104.14) (layer B.SilkS) (width 2) (tstamp 5D2DE790))
-  (gr_line (start 148.59 69.85) (end 148.59 88.9) (layer B.SilkS) (width 2) (tstamp 5D2DE77F))
+  (gr_line (start 148.59 69.85) (end 148.59 87.63) (layer B.SilkS) (width 2) (tstamp 5D2DE77F))
   (gr_line (start 154.94 95.25) (end 151.13 99.06) (layer B.SilkS) (width 2) (tstamp 5D2DE757))
   (gr_line (start 154.94 69.85) (end 154.94 94.615) (layer B.SilkS) (width 2) (tstamp 5D2DE74E))
   (gr_line (start 158.115 113.03) (end 150.495 120.015) (layer B.SilkS) (width 2))
