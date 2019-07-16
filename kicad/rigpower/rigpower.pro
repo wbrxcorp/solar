@@ -1,4 +1,4 @@
-update=2019年06月25日 19時43分10秒
+update=2019年07月16日 23時50分59秒
 version=1
 last_client=kicad
 [general]
@@ -17,7 +17,7 @@ version=1
 PageLayoutDescrFile=
 LastNetListRead=rigpower.net
 CopperLayerCount=2
-BoardThickness=1
+BoardThickness=1.6
 AllowMicroVias=0
 AllowBlindVias=0
 RequireCourtyardDefinitions=0
