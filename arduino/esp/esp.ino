@@ -146,12 +146,12 @@ static void process_message(const char* message)
         const char* num_serial = "3S";
         // 9003-900e
         uint16_t data[12] = {
-          1360, // High Volt.disconnect
-          1275, // Charging limit voltage
-          1275, // Over voltage reconnect
-          1260, // Equalization voltage
-          1260, // Boost voltage
-          1260, // Float voltage
+          1270, // High Volt.disconnect
+          1260, // Charging limit voltage
+          1255, // Over voltage reconnect
+          1250, // Equalization voltage (a bit lower than 12.60)
+          1250, // Boost voltage (a bit lower than 12.60)
+          1250, // Float voltage (a bit lower than 12.60)
           1122, // Boost reconnect voltage
           1070, // Low voltage reconnect
           1037, // Under voltage recover
@@ -179,12 +179,12 @@ static void process_message(const char* message)
         }
       } else if (battery_type == 5/*7S*/) {
         uint16_t data[12] = {
-          3100, // High Volt.disconnect
-          2960, // Charging limit voltage
-          2975, // Over voltage reconnect
-          2940, // Equalization voltage
-          2940, // Boost voltage
-          2940, // Float voltage
+          2960, // High Volt.disconnect
+          2940, // Charging limit voltage
+          2920, // Over voltage reconnect
+          2910, // Equalization voltage (a bit lower than 29.4)
+          2910, // Boost voltage (a bit lower than 29.4)
+          2910, // Float voltage (a bit lower than 29.4)
           2618, // Boost reconnect voltage
           2496, // Low voltage reconnect
           2420, // Under voltage recover
@@ -269,12 +269,7 @@ static void process_message(const char* message)
     display.turnOff(); // Display OFF
 
     rtcData.valid = 1;
-    rtcData.crc = 0xffff;
-    for (size_t i = 0; i < sizeof(rtcData) - sizeof(rtcData.crc); i++) {
-      rtcData.crc = update_crc(rtcData.crc, ((uint8_t*)&rtcData)[i]);
-    }
-    ESP.rtcUserMemoryWrite(0, (uint32_t*)&rtcData, sizeof(rtcData));
-    ESP.deepSleep(sleep_sec * 1000L * 1000L , WAKE_RF_DEFAULT);
+    restart(sleep_sec);
     delay(1000);
 #else
     Serial.println("Sleep is not implemented for this architecture yet");
@@ -346,7 +341,15 @@ void preinit() {
 static void restart(uint8_t delay_secods)
 {
   display.turnOff(); // Display OFF
+
+  // calc crc data
+  rtcData.crc = 0xffff;
+  for (size_t i = 0; i < sizeof(rtcData) - sizeof(rtcData.crc); i++) {
+    rtcData.crc = update_crc(rtcData.crc, ((uint8_t*)&rtcData)[i]);
+  }
+
 #if defined(ARDUINO_ARCH_ESP8266)
+  ESP.rtcUserMemoryWrite(0, (uint32_t*)&rtcData, sizeof(rtcData));
   ESP.deepSleep(delay_secods * 1000L * 1000L , WAKE_RF_DEFAULT);
 #elif defined(ARDUINO_ARCH_ESP32)
   esp_sleep_enable_timer_wakeup(delay_secods * 1000L * 1000L);
