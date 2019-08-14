@@ -147,6 +147,7 @@ bool connect(const char* nodename, const char* servername, uint16_t port)
 
 void disconnect()
 {
+  tcp_client.flush();
   tcp_client.stop();
   receive_buffer = "";
 }

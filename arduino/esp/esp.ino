@@ -39,6 +39,8 @@
 #define REPORT_INTERVAL 5000
 #define MESSAGE_TIMEOUT 10000
 #define COMMAND_LINE_ONLY_MODE_WAIT_SECONDS 3
+#define LOW_BATTERY_SLEEP_SECONDS (60 * 5)
+#define MAX_POSTPONE_COUNT 12
 
 const char* DEFAULT_NODENAME = "kennel01";
 const char* DEFAULT_SERVERNAME = "_solar._tcp";
@@ -71,6 +73,7 @@ static unsigned long last_reported = 0L;
 static float last_bv = 0.0f;
 static char session_id[48] = "";
 static int reset_reason = REASON_DEFAULT_RST;
+static uint8_t battery_voltage_status = 0x00; // 0x3200-D3-D0: 0=Normal, 1=Overvolt, 2=Undelvolt, 3=Low volt Disconnect, 4=Fault
 
 static bool ina219_started = false;
 
@@ -98,10 +101,31 @@ struct {
   char server_addr[46]; // maximum IPv6 string length is 45 characters
   uint16_t server_port;
   // --- 58
-  uint16_t crc;
+  uint16_t postpone_count;
   // --- 60
+  char pad[2];
+  // --- 62
+  uint16_t crc;
   // size have to be multiple of 4
 } rtcData;
+
+static void set_battery_voltage_status(uint8_t value)
+{
+  battery_voltage_status = value;
+}
+
+static bool is_battery_low()
+{
+  return battery_voltage_status == 0x03/*low voltage disconnect*/ || battery_voltage_status == 0x04/*fault*/;
+}
+
+static const char* get_battery_voltage_status_string()
+{
+  static const char* status_string[] = {
+    "Normal","Overvolt","Undervolt","Low Volt Disconnect","Fault"
+  };
+  return (battery_voltage_status < 5? status_string[battery_voltage_status] : "Unknown");
+}
 
 static void process_message(const char* message)
 {
@@ -112,7 +136,7 @@ static void process_message(const char* message)
   // else
   const char* pt = message + 3;
   int32_t date = -1, time = -1;
-  int sleep_sec = 0;
+  uint16_t sleep_sec = 0;
 
   while (*pt) {
     const char* ptcolon = strchr(pt, ':');
@@ -242,7 +266,7 @@ static void process_message(const char* message)
         }
       }
     } else if (strcmp(key, "sleep") == 0 && isdigit(value[0])) {
-        sleep_sec = atoi(value);
+        sleep_sec = (int16_t)atoi(value);
     }
   }
 
@@ -266,11 +290,9 @@ static void process_message(const char* message)
   if (sleep_sec > 0) {
 #ifdef ARDUINO_ARCH_ESP8266
     disconnect();  // disconnect from server
-    display.turnOff(); // Display OFF
 
     rtcData.valid = 1;
     restart(sleep_sec);
-    delay(1000);
 #else
     Serial.println("Sleep is not implemented for this architecture yet");
 #endif
@@ -338,7 +360,7 @@ void preinit() {
 }
 #endif
 
-static void restart(uint8_t delay_secods)
+static void restart(uint16_t delay_seconds)
 {
   display.turnOff(); // Display OFF
 
@@ -350,9 +372,9 @@ static void restart(uint8_t delay_secods)
 
 #if defined(ARDUINO_ARCH_ESP8266)
   ESP.rtcUserMemoryWrite(0, (uint32_t*)&rtcData, sizeof(rtcData));
-  ESP.deepSleep(delay_secods * 1000L * 1000L , WAKE_RF_DEFAULT);
+  ESP.deepSleep(delay_seconds * 1000L * 1000L , WAKE_RF_DEFAULT);
 #elif defined(ARDUINO_ARCH_ESP32)
-  esp_sleep_enable_timer_wakeup(delay_secods * 1000L * 1000L);
+  esp_sleep_enable_timer_wakeup(delay_seconds * 1000L * 1000L);
   esp_deep_sleep_start();
 #else
   Serial.println("Sleep is not implemented for this architecture");
@@ -509,6 +531,27 @@ void setup() {
   }
 
   if (operation_mode == OPERATION_MODE_NORMAL) {
+    EPSolarTracerInputRegister reg;
+    if (epsolar.get_register(0x3200, 1, reg)) {
+      set_battery_voltage_status((uint8_t)(reg.getWordValue(0) & 0x000f));
+      Serial.print("Battery voltage status: ");
+      Serial.println(get_battery_voltage_status_string());
+    } else {
+      Serial.println("Getting battery voltage status info failed!");
+    }
+
+    if (rtcData.valid && is_battery_low()) {
+      rtcData.postpone_count += 1;
+      if (rtcData.postpone_count <= MAX_POSTPONE_COUNT) {
+        Serial.print("Postpone sending data due to low battery. Count=");
+        Serial.println((int)rtcData.postpone_count);
+        restart(LOW_BATTERY_SLEEP_SECONDS);
+        return;
+      }
+      // else
+      rtcData.postpone_count = 0;
+    }
+
     if (!rtcData.valid) {
       EPSolarTracerDeviceInfo info;
       if (epsolar.get_device_info(info)) {
@@ -530,7 +573,6 @@ void setup() {
         Serial.println("Getting charge controller device info failed!");
       }
 
-      EPSolarTracerInputRegister reg;
       if (epsolar.get_register(0x9013/*Real Time Clock*/, 3, reg, 3)) {
         uint64_t rtc = reg.getRTCValue(0);
         char buf[128];
@@ -556,30 +598,30 @@ void setup() {
               rtcData.temperature_compensation_coefficient = (uint8_t)reg.getFloatValue(0);
             }
           }
-        }
 
-        // lifpo4:
-        //  9000=0(User)
-        //  9002=0
-        //  9003=15.68
-        //  9004=14.6
-        //  9005=14.6
-        //  9006=14.4
-        //  9007=14.4
-        //  9008=13.6
-        //  9009=13.2
-        //  900a=12.4
-        //  900b=12.2
-        //  900c=12.0
-        //  900d=11.0
-        //  900e=10.8
-        //  9067=1(12V) or 2(24V)
+          // lifpo4:
+          //  9000=0(User)
+          //  9002=0
+          //  9003=15.68
+          //  9004=14.6
+          //  9005=14.6
+          //  9006=14.4
+          //  9007=14.4
+          //  9008=13.6
+          //  9009=13.2
+          //  900a=12.4
+          //  900b=12.2
+          //  900c=12.0
+          //  900d=11.0
+          //  900e=10.8
+          //  9067=1(12V) or 2(24V)
 
-        if (epsolar.put_register(0x903d/*Load controlling mode*/, (uint16_t)0)) {
-          Serial.println("Load controlling mode set to 0(Manual)");
-        }
-        if (epsolar.put_register(0x906a/*Default load on/off in manual mode*/, (uint16_t)1)) {
-          Serial.println("Default load on/off in manual mode set to 1(on)");
+          if (epsolar.put_register(0x903d/*Load controlling mode*/, (uint16_t)0)) {
+            Serial.println("Load controlling mode set to 0(Manual)");
+          }
+          if (epsolar.put_register(0x906a/*Default load on/off in manual mode*/, (uint16_t)1)) {
+            Serial.println("Default load on/off in manual mode set to 1(on)");
+          }
         }
       } else {
         Serial.println("Getting charge controller settings failed!");
@@ -645,8 +687,13 @@ void setup() {
 #endif
           break;
         } else if (millis() - startTime > 60000/* 1minute */) {
-          Serial.println("WiFi connection timeout. Sleeping 60 seconds...");
-          restart(60);
+          if (is_battery_low()) {
+            Serial.println("WiFi connection timeout. Due to low battery, next attempt will be after a while.");
+            restart(LOW_BATTERY_SLEEP_SECONDS * MAX_POSTPONE_COUNT);
+          } else {
+            Serial.println("WiFi connection timeout. Sleeping 60 seconds...");
+            restart(60);
+          }
           continue; // not reaching here
         }
         display.setCursor(0, display.getCursorY());
@@ -664,6 +711,7 @@ void setup() {
       }
 
       if (WiFi.status() == WL_CONNECTED) break;
+      else rtcData.valid = 0;
     }
 
     // save WiFi AP info to rtc data
@@ -898,6 +946,14 @@ void loop_normal()
   send_message(message.c_str());
   last_bv = values.bv;
   last_message_sent = last_reported = current_time;
+
+  if (is_battery_low()) {
+    disconnect();  // disconnect from server
+    rtcData.postpone_count = 1;
+    rtcData.valid = 1;
+    Serial.println("Sleep awhile due to low battery.");
+    restart(LOW_BATTERY_SLEEP_SECONDS);
+  }
 }
 
 void loop()
