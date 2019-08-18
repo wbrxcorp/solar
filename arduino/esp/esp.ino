@@ -170,18 +170,18 @@ static void process_message(const char* message)
         const char* num_serial = "3S";
         // 9003-900e
         uint16_t data[12] = {
-          1270, // High Volt.disconnect
-          1260, // Charging limit voltage
-          1255, // Over voltage reconnect
-          1250, // Equalization voltage (a bit lower than 12.60)
-          1250, // Boost voltage (a bit lower than 12.60)
-          1250, // Float voltage (a bit lower than 12.60)
-          1122, // Boost reconnect voltage
-          1070, // Low voltage reconnect
-          1037, // Under voltage recover
-          1002, // Under voltage warning
-          944, // Low voltage disconnect
-          900, // Discharging limit voltage
+          1450, // High Volt.disconnect
+          1280, // Charging limit voltage
+          1280, // Over voltage reconnect
+          1280, // Equalization voltage
+          1280, // Boost voltage
+          1260, // Float voltage
+          1200, // Boost reconnect voltage
+          1110, // Low voltage reconnect
+          1130, // Under voltage recover
+          1110, // Under voltage warning
+          960, // Low voltage disconnect
+          950, // Discharging limit voltage
         };
         if (rtcData.battery_rated_voltage > 17.0) { // 6S for 24V system
           for (int i = 0; i < sizeof(data) / sizeof(data[0]); i++) {
