@@ -513,7 +513,7 @@ Wire Wire Line
 Text Label 1000 4150 0    50   ~ 0
 IO15
 Text Label 1000 4050 0    50   ~ 0
-IO2
+!RE
 Wire Wire Line
 	1450 3950 900  3950
 Wire Wire Line
@@ -527,7 +527,7 @@ Wire Wire Line
 Text Label 2650 2000 0    50   ~ 0
 IO15
 Text Label 2650 2100 0    50   ~ 0
-IO2
+!RE
 Wire Wire Line
 	2650 2100 2950 2100
 $Comp

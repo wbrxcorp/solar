@@ -1,4 +1,4 @@
-update=2019年08月19日 16時53分52秒
+update=2019年08月19日 18時34分45秒
 version=1
 last_client=kicad
 [general]
@@ -25,7 +25,7 @@ ERC_TestSimilarLabels=1
 [pcbnew]
 version=1
 PageLayoutDescrFile=
-LastNetListRead=epsolar-junction.net
+LastNetListRead=epsolar-ext-conn.net
 CopperLayerCount=2
 BoardThickness=1.6
 AllowMicroVias=0
@@ -247,17 +247,6 @@ dPairWidth=0.2
 dPairGap=0.25
 dPairViaGap=0.25
 [pcbnew/Netclasses/1]
-Name=LOAD
-Clearance=0.2
-TrackWidth=2
-ViaDiameter=0.8
-ViaDrill=0.4
-uViaDiameter=0.3
-uViaDrill=0.1
-dPairWidth=0.2
-dPairGap=0.25
-dPairViaGap=0.25
-[pcbnew/Netclasses/2]
 Name=Power
 Clearance=0.2
 TrackWidth=1
@@ -268,7 +257,7 @@ uViaDrill=0.1
 dPairWidth=0.2
 dPairGap=0.25
 dPairViaGap=0.25
-[pcbnew/Netclasses/3]
+[pcbnew/Netclasses/2]
 Name=VBUS
 Clearance=0.2
 TrackWidth=0.5
