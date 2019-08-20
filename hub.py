@@ -31,11 +31,13 @@ def process_data(nodename, data):
         aiw = float(data["aiw"]) if "aiw" in data else None
         aiv = float(data["aiv"]) if "aiv" in data else None
         aia = float(data["aia"]) if "aia" in data else None
+        gpio = int(data["gpio"]) if "gpio" in data else None
         if last_data_time is None or datetime.datetime.now() - last_data_time >= datetime.timedelta(minutes=1) or last_piv > 0.0 or piv > 0.0 or pov != last_pov:
             cur.execute("replace into data(hostname,t,piv,pia,piw,pov,poa,loadw,temp,kwh,lkwh,soc,aiv,aia,aiw) values(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)", (nodename,now_str, piv,float(data["pia"]),piw,pov,float(data["poa"]),load,float(data["temp"]),float(data["kwh"]),float(data["lkwh"]),soc,aiv,aia,aiw))
             saved = True
 
-        if piv <= pov and (pw1 is None or pw1 == 0) and (load is None or load < 0.01):
+        if soc == 0: response_data["sleep"] = 255
+        elif piw < 0.5 and (load is None or load < 0.01):
             response_data["sleep"] = 60
 
         bv_compensation = float(data["btcv"]) if "btcv" in data else 0.0
@@ -54,7 +56,7 @@ def process_data(nodename, data):
             for row in cur:
                 key,expression = row
                 try:
-                    value = eval(expression, {}, {"pw":pw,"pw1":pw1,"piw":piw,"bv":compensated_bv,"pov":compensated_bv,"loadw":loadw,"temp":temp,"soc":soc,"aiw":aiw})
+                    value = eval(expression, {}, {"pw":pw,"pw1":pw1,"piw":piw,"bv":compensated_bv,"pov":compensated_bv,"loadw":loadw,"temp":temp,"soc":soc,"aiw":aiw,"gpio":gpio})
                     if isinstance(value,numbers.Number): response_data[key] = value
                 except:
                     print "Error evaluating xpression '%s'." % expression
@@ -69,14 +71,16 @@ def process_data(nodename, data):
 
 def get_node_config(nodename):
     with database.Connection() as cur:
-        cur.execute("select battery_type,battery_capacity from nodes where nodename=%s", (nodename,))
+        cur.execute("select battery_type,battery_capacity,gpio from nodes where nodename=%s", (nodename,))
         row = cur.fetchone()
         if row is None: return None
         # else
-        battery_type, battery_capacity = row
-        # battery_type : Battery type(1=Sealed,2=Gel,3=Flooded)
+        battery_type, battery_capacity, gpio = row
+        # battery_type : Battery type(1=Sealed,2=Gel,3=Flooded,4=3S/6S,5=7S)
         # battery_capacity : Battery capacity in Ah
-        return {"bt":int(battery_type), "bc":int(battery_capacity)}
+        config = {"bt":int(battery_type), "bc":int(battery_capacity)}
+        if gpio is not None: config["gpio"] = 1 if gpio else 0
+        return config
 
 def process_connection(conn, addr):
     print "# New connection from %s" % addr[0]
@@ -111,7 +115,8 @@ def process_connection(conn, addr):
                         if "rssi" not in data: data["rssi"] = 0
                         if "soc" not in data: data["soc"] = 0
                         if "aiw" not in data: data["aiw"] = 0
-                        print "%s\t%s\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t#%d\t%d\t%.2f\t%d\t%d\t%d\t%.2f" % (nodename,now_str,piv,float(data["pia"]),float(data["piw"]),float(data["bv"]),float(data["poa"]),float(data["load"]),float(data["temp"]),float(data["kwh"]),float(data["lkwh"]),int(data["pw"]),int(data["pw1"]),float(data["btcv"]),int(data["cs"]),int(data["rssi"]),float(data["soc"]),float(data["aiw"]))
+                        if "gpio" not in data: data["gpio"] = 0
+                        print "%s\t%s\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t#%d\t%d\t%.2f\t%d\t%d\t%d\t%.2f\t%d" % (nodename,now_str,piv,float(data["pia"]),float(data["piw"]),float(data["bv"]),float(data["poa"]),float(data["load"]),float(data["temp"]),float(data["kwh"]),float(data["lkwh"]),int(data["pw"]),int(data["pw1"]),float(data["btcv"]),int(data["cs"]),int(data["rssi"]),float(data["soc"]),float(data["aiw"]),int(data["gpio"]))
             elif data_splitted[0] == "INIT":
                 parsed_data = parse_data(data_splitted[1:])
                 if "nodename" in parsed_data:

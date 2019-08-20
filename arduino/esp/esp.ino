@@ -23,6 +23,8 @@
 
   #define PW1_SW_SOCKET 14    // ESP8266 IO14 D1 mini D5
   #define PW1_LED_SOCKET 12   // ESP8266 IO12 D1 mini D6
+
+  #define GPIO_SOCKET 13
 #elif defined(ARDUINO_ARCH_ESP32)
   #define RS485_TX_SOCKET 17
   #define RS485_RX_SOCKET 16
@@ -31,6 +33,8 @@
 
   #define PW1_SW_SOCKET 18
   #define PW1_LED_SOCKET 19
+
+  #define GPIO_SOCKET 23
 #endif
 
 #define DISPLAY_I2C_ADDRESS 0x3c
@@ -74,6 +78,8 @@ static float last_bv = 0.0f;
 static char session_id[48] = "";
 static int reset_reason = REASON_DEFAULT_RST;
 static uint8_t battery_voltage_status = 0x00; // 0x3200-D3-D0: 0=Normal, 1=Overvolt, 2=Undelvolt, 3=Low volt Disconnect, 4=Fault
+static bool gpio_output_mode = false;
+static bool gpio_output_value = false;
 
 static bool ina219_started = false;
 
@@ -267,6 +273,13 @@ static void process_message(const char* message)
       }
     } else if (strcmp(key, "sleep") == 0 && isdigit(value[0])) {
         sleep_sec = (int16_t)atoi(value);
+    } else if (strcmp(key, "gpio") == 0 && (value[0] == '0' || value[0] == '1') && value[1] == '\0') {
+      if (!gpio_output_mode) {
+        gpio_output_mode = true;
+        pinMode(GPIO_SOCKET, OUTPUT);
+      }
+      gpio_output_value = value[0] == '0' ? 0 : 1;
+      digitalWrite(GPIO_SOCKET, gpio_output_value? HIGH : LOW);
     }
   }
 
@@ -531,6 +544,8 @@ void setup() {
   }
 
   if (operation_mode == OPERATION_MODE_NORMAL) {
+    pinMode(GPIO_SOCKET, gpio_output_mode? OUTPUT : INPUT);
+
     EPSolarTracerInputRegister reg;
     if (epsolar.get_register(0x3200, 1, reg)) {
       set_battery_voltage_status((uint8_t)(reg.getWordValue(0) & 0x000f));
@@ -912,7 +927,8 @@ void loop_normal()
       + "\tpw2:" + (pw2? 1 : 0)
       + "\trssi:" + (WiFi.RSSI())
       + "\tcs:" + values.cs
-      + "\tsoc:" + (int)values.soc;
+      + "\tsoc:" + (int)values.soc
+      + "\tgpio:" + (gpio_output_mode? (gpio_output_value? 1 : 0) : (digitalRead(GPIO_SOCKET) == HIGH? 1: 0));
 
       if (ina219_started) {
         float aiw = ina219.getPower_mW() / 1000.0;

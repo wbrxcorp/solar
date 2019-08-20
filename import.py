@@ -26,6 +26,7 @@ create table nodes(
 	battery_type int,
 	battery_capacity int
 );
+alter table nodes add column gpio bool;
 
 create table schedule(
 	id serial primary key,
