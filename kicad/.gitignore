@@ -2,6 +2,7 @@
 *.bck
 *-cache.lib
 *.kicad_pcb-bak
+*.sch-bak
 *.gtl
 *.g2
 *.g3
