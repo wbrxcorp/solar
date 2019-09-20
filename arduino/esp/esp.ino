@@ -172,22 +172,26 @@ static void process_message(const char* message)
         epsolar.put_register(0x9000/*Battery type*/, (uint16_t)battery_type);
         Serial.print("Battery type saved: ");
         Serial.println(battery_type);
+        delay(100);
+        epsolar.put_register(0x9002/*Temperature compensation coefficient*/, 300);
+        Serial.println("Temperature compensation coefficient set to 3mV/C/2V");
       } else if (battery_type == 4/*3S / 6S*/) {
         const char* num_serial = "3S";
         // 9003-900e
-        uint16_t data[12] = {
-          1300, // High Volt.disconnect
-          1280, // Charging limit voltage
-          1260, // Over voltage reconnect
-          1260, // Equalization voltage
-          1260, // Boost voltage
-          1260, // Float voltage
-          1200, // Boost reconnect voltage
-          1100, // Low voltage reconnect
-          1130, // Under voltage recover
-          1110, // Under voltage warning
-          980, // Low voltage disconnect
-          960, // Discharging limit voltage
+        uint16_t data[13] = {
+          0, // Temperature compensation coefficient
+          1341, // High Volt.disconnect
+          1250, // Charging limit voltage
+          1250, // Over voltage reconnect
+          1240, // Equalization voltage
+          1240, // Boost voltage
+          1180, // Float voltage
+          1120, // Boost reconnect voltage
+          1040, // Low voltage reconnect
+          1020, // Under voltage recover
+          1000, // Under voltage warning
+          920, // Low voltage disconnect
+          900, // Discharging limit voltage
         };
         if (rtcData.battery_rated_voltage > 17.0) { // 6S for 24V system
           for (int i = 0; i < sizeof(data) / sizeof(data[0]); i++) {
@@ -197,7 +201,7 @@ static void process_message(const char* message)
         }
         if (epsolar.put_register(0x9000/*Battery type*/, 0/*user*/)) {
           delay(100);
-          if (epsolar.put_registers(0x9003, data, sizeof(data) / sizeof(data[0]))) {
+          if (epsolar.put_registers(0x9002, data, sizeof(data) / sizeof(data[0]))) {
             Serial.print("Battery type saved: ");
             Serial.println(num_serial);
           } else {
@@ -208,23 +212,24 @@ static void process_message(const char* message)
           Serial.println("Unable to set to user-defined mode");
         }
       } else if (battery_type == 5/*7S*/) {
-        uint16_t data[12] = {
-          2960, // High Volt.disconnect
-          2940, // Charging limit voltage
-          2930, // Over voltage reconnect
-          2920, // Equalization voltage (a bit lower than 29.4)
-          2920, // Boost voltage (a bit lower than 29.4)
-          2920, // Float voltage (a bit lower than 29.4)
-          2880, // Boost reconnect voltage
-          2500, // Low voltage reconnect
-          2420, // Under voltage recover
-          2338, // Under voltage warning
-          2280, // Low voltage disconnect
-          2200, // Discharging limit voltage
+        uint16_t data[13] = {
+          0, // Temperature compensation coefficient
+          3129, // High Volt.disconnect
+          2916, // Charging limit voltage
+          2916, // Over voltage reconnect
+          2893, // Equalization voltage (a bit lower than 29.4)
+          2893, // Boost voltage (a bit lower than 29.4)
+          2753, // Float voltage (a bit lower than 29.4)
+          2613, // Boost reconnect voltage
+          2426, // Low voltage reconnect
+          2380, // Under voltage recover
+          2333, // Under voltage warning
+          2146, // Low voltage disconnect
+          2100, // Discharging limit voltage
         };
         if (epsolar.put_register(0x9000/*Battery type*/, 0/*user*/)) {
           delay(100);
-          if (epsolar.put_registers(0x9003, data, sizeof(data) / sizeof(data[0]))) {
+          if (epsolar.put_registers(0x9002, data, sizeof(data) / sizeof(data[0]))) {
             Serial.println("Battery type saved: 7S");
           } else {
             Serial.println("User setting error for 7S");
@@ -613,23 +618,6 @@ void setup() {
               rtcData.temperature_compensation_coefficient = (uint8_t)reg.getFloatValue(0);
             }
           }
-
-          // lifpo4:
-          //  9000=0(User)
-          //  9002=0
-          //  9003=15.68
-          //  9004=14.6
-          //  9005=14.6
-          //  9006=14.4
-          //  9007=14.4
-          //  9008=13.6
-          //  9009=13.2
-          //  900a=12.4
-          //  900b=12.2
-          //  900c=12.0
-          //  900d=11.0
-          //  900e=10.8
-          //  9067=1(12V) or 2(24V)
 
           if (epsolar.put_register(0x903d/*Load controlling mode*/, (uint16_t)0)) {
             Serial.println("Load controlling mode set to 0(Manual)");
