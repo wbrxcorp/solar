@@ -168,13 +168,18 @@ static void process_message(const char* message)
       time = atol(value);
     } else if (strcmp(key, "bt") == 0 && reset_reason != REASON_DEEP_SLEEP_AWAKE) {
       int battery_type = atoi(value);
-      if (battery_type > 0 && battery_type <= 3) {
-        epsolar.put_register(0x9000/*Battery type*/, (uint16_t)battery_type);
+      if ((battery_type > 0 && battery_type <= 3) || battery_type == 6/*LiFePO4*/) {
+        epsolar.put_register(0x9000/*Battery type*/, (uint16_t)(battery_type == 6/*LiFePO4 pretends flooded battery*/? 3 : battery_type));
         Serial.print("Battery type saved: ");
         Serial.println(battery_type);
         delay(100);
-        epsolar.put_register(0x9002/*Temperature compensation coefficient*/, 300);
-        Serial.println("Temperature compensation coefficient set to 3mV/C/2V");
+        if (battery_type == 6/*LiFePO4 doesn't need this feature*/) {
+          epsolar.put_register(0x9002/*Temperature compensation coefficient*/, 0);
+          Serial.println("Temperature compensation coefficient disabled");
+        } else {
+          epsolar.put_register(0x9002/*Temperature compensation coefficient*/, 300);
+          Serial.println("Temperature compensation coefficient set to 3mV/C/2V");
+        }
       } else if (battery_type == 4/*3S / 6S*/ || battery_type == 5/*7S*/) {
         // 9002-900e
         uint16_t data[13] = {
