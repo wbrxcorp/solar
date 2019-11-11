@@ -32,6 +32,7 @@ def process_data(nodename, data):
         aiv = float(data["aiv"]) if "aiv" in data else None
         aia = float(data["aia"]) if "aia" in data else None
         gpio = int(data["gpio"]) if "gpio" in data else None
+        cs = int(data["cs"]) if "cs" in data else None
         if last_data_time is None or datetime.datetime.now() - last_data_time >= datetime.timedelta(minutes=1) or last_piv > 0.0 or piv > 0.0 or pov != last_pov:
             cur.execute("replace into data(hostname,t,piv,pia,piw,pov,poa,loadw,temp,kwh,lkwh,soc,aiv,aia,aiw) values(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)", (nodename,now_str, piv,float(data["pia"]),piw,pov,float(data["poa"]),load,float(data["temp"]),float(data["kwh"]),float(data["lkwh"]),soc,aiv,aia,aiw))
             saved = True
@@ -56,8 +57,10 @@ def process_data(nodename, data):
             for row in cur:
                 key,expression = row
                 try:
-                    value = eval(expression, {}, {"pw":pw,"pw1":pw1,"piw":piw,"bv":compensated_bv,"pov":compensated_bv,"loadw":loadw,"temp":temp,"soc":soc,"aiw":aiw,"gpio":gpio})
-                    if isinstance(value,numbers.Number): response_data[key] = value
+                    value = eval(expression, {}, {"pw":pw,"pw1":pw1,"piw":piw,"bv":compensated_bv,"pov":compensated_bv,"loadw":loadw,"temp":temp,"soc":soc,"aiw":aiw,"gpio":gpio,"cs":cs})
+                    if isinstance(value,numbers.Number):
+                        response_data[key] = value
+                        print "#%s: set %s to %d" % (nodename, key, value)
                 except:
                     print "Error evaluating xpression '%s'." % expression
 
