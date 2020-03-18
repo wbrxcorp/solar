@@ -115,10 +115,13 @@ bool connect(const char* nodename, const char* servername, uint16_t port)
     }
 #elif ARDUINO_ARCH_ESP8266
     if (start_mdns_if_not_yet()) {
-      if (MDNS.queryService((const char*)(servicename + 1), "tcp") > 0) {
-        IPAddress addr = MDNS.IP(0);
-        uint16_t port = MDNS.port(0);
-        Serial.print("Found. Connecting to ");
+      uint32_t rst = MDNS.queryService((const char*)(servicename + 1), "tcp");
+      if (rst > 0) {
+        Serial.print((int)rst);
+        Serial.print(" Found. ");
+        IPAddress addr = MDNS.answerIP(0);
+        uint16_t port = MDNS.answerPort(0);
+        Serial.print("Connecting to ");
         Serial.print(addr);
         Serial.print(':');
         Serial.print(port);
