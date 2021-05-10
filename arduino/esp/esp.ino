@@ -1,5 +1,5 @@
 // ESP8266(2M1M or 4M1M)
-// arduino --upload --board esp8266com:esp8266:generic:xtal=80,FlashMode=qio,FlashFreq=40,ip=lm2f,ResetMethod=nodemcu,eesz=2M1M,baud=460800 --port /dev/ttyUSB0 .
+// arduino --upload --board esp8266com:esp8266:generic:xtal=80,FlashMode=qio,FlashFreq=40,ip=lm2f,ResetMethod=nodemcu,eesz=2M1M,mmu=3232,baud=460800 --port /dev/ttyUSB0 .
 // ESP32
 // arduino --upload --board espressif:esp32:esp32:FlashFreq=40,UploadSpeed=921600 --port /dev/ttyUSB0 .
 #include <EEPROM.h>
