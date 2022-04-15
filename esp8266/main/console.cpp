@@ -78,7 +78,6 @@ static int save(int argc, char** argv)
     return config::save()? 0 : 1;
 }
 
-
 namespace console {
 
 void setup()

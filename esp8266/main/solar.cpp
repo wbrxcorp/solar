@@ -87,14 +87,51 @@ void real_main()
 
     bool cmdline_only_mode = false;
     if (config::load()) {
-        printf("nodename   : %s\n", config::nodename);
-        printf("ssid       : %s\n", config::wifi.sta.ssid);
+        printf("nodename    : %s\n", config::nodename);
+        printf("ssid        : %s\n", config::wifi.sta.ssid);
     } else {
         puts("\nnodename, ssid, password not initialized. Entering command line only mode.");
         cmdline_only_mode = true;
     }
 
-    if (!cmdline_only_mode) cmdline_only_mode = wait_for_escape_key();
+    auto reset_reason = esp_reset_reason();
+
+    if (reset_reason != ESP_RST_DEEPSLEEP) {
+        modbus::DeviceInfo modbus_device_info;
+        if (modbus::get_basic_device_info(modbus_device_info)) {
+            printf("Vendor      : %s\n", modbus_device_info.get_vendor_name());
+            printf("Product     : %s\n", modbus_device_info.get_product_code());
+            printf("Revision    : %s\n", modbus_device_info.get_revision());
+        }
+    }
+
+    epsolar::Settings settings;
+    if (epsolar::read_settings(settings)) {
+        printf("Battery type: %d(%s), %dAh\n", settings.battery_type, settings.battery_type_str(),
+          settings.battery_capacity);
+        if (settings.battery_type == 0/*User defined*/) {
+            printf("  Boost Charging Voltage: %.2fV", settings.boost_voltage/* * multiplier*/);
+            printf("  Float Charging Voltage: %.2fV", settings.float_voltage/* * multiplier*/);
+            printf("  Low Voltage Disconnect: %.2fV", settings.low_voltage_disconnect/* * multiplier*/);
+        }
+
+        printf("Battery real rated voltage: %dV\n", (int)settings.battery_rated_voltage);
+        printf("Temperature compensation coefficient: %dmV/Cecelsius degree/2V\n", (int)settings.temperature_compensation_coefficient);
+    } else {
+        ESP_LOGE(TAG, "Reading battery settings from charge controller failed.");
+    }
+
+    if (modbus::write_query(1, 6, 0x903d/*Load controlling mode*/, (uint16_t)0)) {
+        puts("Load controlling mode set to 0(Manual)");
+    } else ESP_LOGE(TAG, "Error setting load controlling mode(0x903d)");
+    if (modbus::write_query(1, 6, 0x906a/*Default load on/off in manual mode*/, (uint16_t)1)) {
+        puts("Default load on/off in manual mode set to 1(on)");
+    } else ESP_LOGE(TAG, "Error setting default load on/off in manual modee(0x906a)");
+
+    if (!cmdline_only_mode && reset_reason != ESP_RST_DEEPSLEEP) {
+        cmdline_only_mode = wait_for_escape_key();
+    }
+
     if (!cmdline_only_mode) {
         wifi::start();
         ESP_ERROR_CHECK( mdns_init() );
@@ -117,6 +154,7 @@ void real_main()
 }
 
 extern "C" { void app_main() {
+    esp_set_cpu_freq(ESP_CPU_FREQ_160M);
     ESP_ERROR_CHECK(uart_driver_install(UART_NUM_0, 256, 0, 0, NULL, 0));
     ESP_ERROR_CHECK(uart_set_baudrate(UART_NUM_0, 115200));
     puts("");

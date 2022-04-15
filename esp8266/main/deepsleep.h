@@ -6,6 +6,7 @@
 
 namespace deepsleep {
     void sleep_and_restart();
+    void sleep_and_restart(int second);
     void reset_sleep_duration();
 }
 

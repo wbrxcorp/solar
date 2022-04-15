@@ -18,6 +18,11 @@ void sleep_and_restart()
     esp_deep_sleep(sleep_duration * 1000L/*milli*/ * 1000L/*micro*/);
 }
 
+void sleep_and_restart(int second)
+{
+    esp_deep_sleep(second * 1000L/*milli*/ * 1000L/*micro*/);
+}
+
 void reset_sleep_duration()
 {
     sleep_duration = 1;

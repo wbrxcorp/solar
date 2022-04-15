@@ -120,7 +120,6 @@ bool read_query(uint8_t slave_id, uint8_t function_code/*1, 3, 4*/,
   uint8_t message[] = {slave_id, function_code, HIBYTE(addr), LOBYTE(addr), HIBYTE(num), 
     LOBYTE(num), 0x00, 0x00 };
   put_crc(message, sizeof(message) - 2);
-  bool rst = false;
 
   for (int i = 0; i < max_retry; i++) {
     LOCK;
@@ -155,38 +154,59 @@ bool read_query(uint8_t slave_id, uint8_t function_code/*1, 3, 4*/,
     }
     //else
     response.setData(data + 3/*hdr*/, data_size);
-    rst = true;
-    break;
+    return true;
   }
 
-  return rst;
+  return false;
 }
 
-bool write_query(uint8_t slave_id, uint8_t function_code/*5, 6*/,
-  uint16_t addr, uint16_t data)
+bool write_query(uint8_t slave_id, uint8_t function_code/*5, 6*/, uint16_t addr, uint16_t data, int max_retry)
 {
-#if 0
-  uint8_t slave_id = 0x01, function_code = 0x06; // Preset Single Register(06)
-  if (addr < 0x2000) function_code = 0x05; // Force Single Coil
-  byte message[] = {slave_id, function_code, HIBYTE(addr), LOBYTE(addr), HIBYTE(data), LOBYTE(data), 0x00, 0x00 };
+  uint8_t message[] = {slave_id, function_code, HIBYTE(addr), LOBYTE(addr), HIBYTE(data), LOBYTE(data), 0x00, 0x00 };
   put_crc(message, sizeof(message) - 2);
 
-  modbus.send_modbus_message(message, sizeof(message));
-
-  if (!receive_modbus_output_response(slave_id, function_code)) return false;
-  //else
-#endif
-  return true;
+  for (int i = 0; i < max_retry; i++) {
+    LOCK;
+    modbus::send_message(message, sizeof(message));
+    uint8_t data[MAX_MESSAGE_LENGTH];
+    int message_size = modbus::receive_message(data);
+    UNLOCK;
+    if (message_size < 0) continue;
+    //else
+    if (message_size < 3/*hdr*/ + 2/*crc*/) {
+      ESP_LOGE(TAG, "Response message too short(%d octets)", message_size);
+      continue;
+    }
+    //else
+    if (data[0] != slave_id) {
+      ESP_LOGE(TAG, "Rresponse slave id mismatch. expected=0x%02x,actual=0x%02x.",
+        (int)slave_id, (int)data[0]);
+      continue;
+    }
+    //else
+    if (data[1] == 0x83/*Error*/) {
+      ESP_LOGE(TAG,"Slave returned error response(0x83). %s",
+        exception_codes[data[2]]);
+      continue;
+    }
+    //else
+    if (data[1] != function_code) {
+      ESP_LOGE(TAG,"Response function code mismatch. expected=0x%02x,actual=0x%02x.",
+        (int)function_code, (int)data[1]);
+        continue;
+    }
+    //else
+    return true;
+  }
+  return false;
 }
 
-bool write_query(uint8_t slave_id, uint8_t function_code/*0x10*/,
-  uint16_t addr, const uint16_t* data, uint16_t num)
+bool write_query(uint8_t slave_id, uint16_t addr, const uint16_t* data, uint16_t num, int max_retry)
 {
-#if 0
   uint8_t data_size_in_bytes = (uint8_t)(sizeof(*data) * num);
   size_t message_size = 9/*slave address, func code, start addr(H+L), num(H+L), length in bytes, ... , crc(L/H)*/ + data_size_in_bytes;
   uint8_t message[message_size];
-  uint8_t slave_id = 0x01, function_code = 0x10; // Preset Multiple Registers(16, 0x10)
+  uint8_t function_code = 0x10; // Preset Multiple Registers(16, 0x10)
   message[0] = slave_id;
   message[1] = function_code;
   message[2] = HIBYTE(addr);
@@ -200,12 +220,90 @@ bool write_query(uint8_t slave_id, uint8_t function_code/*0x10*/,
   }
   put_crc(message, message_size - 2);
 
-  //print_bytes(message, sizeof(message));
-  modbus.send_modbus_message(message, sizeof(message));
-  if (!receive_modbus_output_response(slave_id, function_code)) return false;
-  //else
-#endif
-  return true;
+  for (int i = 0; i < max_retry; i++) {
+    LOCK;
+    modbus::send_message(message, sizeof(message));
+    uint8_t data[MAX_MESSAGE_LENGTH];
+    int message_size = modbus::receive_message(data);
+    UNLOCK;
+    if (message_size < 0) continue;
+    //else
+    if (message_size < 3/*hdr*/ + 2/*crc*/) {
+      ESP_LOGE(TAG, "Response message too short(%d octets)", message_size);
+      continue;
+    }
+    //else
+    if (data[0] != slave_id) {
+      ESP_LOGE(TAG, "Rresponse slave id mismatch. expected=0x%02x,actual=0x%02x.",
+        (int)slave_id, (int)data[0]);
+      continue;
+    }
+    //else
+    if (data[1] == 0x83/*Error*/) {
+      ESP_LOGE(TAG,"Slave returned error response(0x83). %s",
+        exception_codes[data[2]]);
+      continue;
+    }
+    //else
+    if (data[1] != function_code) {
+      ESP_LOGE(TAG,"Response function code mismatch. expected=0x%02x,actual=0x%02x.",
+        (int)function_code, (int)data[1]);
+        continue;
+    }
+    //else
+    return true;
+  }
+
+  return false;
+}
+
+bool get_basic_device_info(std::map<uint8_t,std::string>& info, int max_retry/*=5*/)
+{
+    uint8_t slave_id = 1;
+    uint8_t message[] = {slave_id, 0x2b, 0x0e, 0x01/*basic info*/,0x00, 0x00, 0x00 };
+    put_crc(message, sizeof(message) - 2);
+
+    for (int i = 0; i < max_retry; i++) {
+      LOCK;
+      send_message(message, sizeof(message));
+      uint8_t data[MAX_MESSAGE_LENGTH];
+      int message_size = receive_message(data);
+      UNLOCK;
+      if (message_size < 0) continue;
+      if (message_size < 3/*hdr*/ + 2/*crc*/) {
+        ESP_LOGE(TAG, "Response message too short(%d octets)", message_size);
+        continue;
+      }
+      if (data[0] != slave_id) {
+        ESP_LOGE(TAG, "Rresponse slave id mismatch. expected=0x%02x,actual=0x%02x.",
+          (int)slave_id, (int)data[0]);
+        continue;
+      }
+      if (data[1] != 0x2b || data[2] != 0x0e || data[3] != 0x01) {
+        ESP_LOGE(TAG, "Function code/field mismatch. expected=0x2b 0x0e 0x01.");
+        continue;
+      }
+      // else
+      uint8_t num_objects = data[7];
+      const uint8_t* pt = data + 8;
+      for (int i = 0; i < num_objects; i++) {
+        if (pt - data + 2 >= message_size) {
+          ESP_LOGE(TAG, "Device info response is too short");
+          return false;
+        }
+        uint8_t object_id = pt[0];
+        uint8_t object_length = pt[1];
+        const uint8_t* object_value = pt + 2;
+        if (pt - data + 2 + object_length >= message_size) {
+          ESP_LOGE(TAG, "Device info response is too short");
+          return false;
+        }
+        info[object_id] = std::string((const char*)object_value, object_length);
+        pt += 2 + object_length;
+      }
+      return true;
+    }
+    return false;
 }
 
 } // namespace modbus

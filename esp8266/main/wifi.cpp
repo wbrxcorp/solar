@@ -67,7 +67,7 @@ void start()
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA) );
     ESP_ERROR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_STA, &config::wifi) );
     ESP_ERROR_CHECK(esp_wifi_start() );
-
+    // https://github.com/espressif/ESP8266_RTOS_SDK/issues/1103
     wifi_event_group = xEventGroupCreate();
     /*EventBits_t bits = */xEventGroupWaitBits(wifi_event_group, 1, pdFALSE, pdFALSE, portMAX_DELAY);
 }
