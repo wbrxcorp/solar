@@ -25,8 +25,13 @@ static const char* exception_codes[] = {
 };
 
 static SemaphoreHandle_t lock;
-#define LOCK          xSemaphoreTake(lock, portMAX_DELAY)
-#define UNLOCK        xSemaphoreGive(lock)
+#ifdef CONFIG_IDF_TARGET_ESP8266
+  #define LOCK
+  #define UNLOCK
+#else
+  #define LOCK          xSemaphoreTake(lock, portMAX_DELAY)
+  #define UNLOCK        xSemaphoreGive(lock)
+#endif
 
 inline static uint8_t HIBYTE(uint16_t word) { return (uint8_t)((word & 0xff00) >> 8); }
 inline static uint8_t LOBYTE(uint16_t word) { return (uint8_t)(word & 0xff); }

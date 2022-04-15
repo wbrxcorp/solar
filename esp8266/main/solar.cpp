@@ -103,30 +103,28 @@ void real_main()
             printf("Product     : %s\n", modbus_device_info.get_product_code());
             printf("Revision    : %s\n", modbus_device_info.get_revision());
         }
-    }
+        epsolar::Settings settings;
+        if (epsolar::read_settings(settings)) {
+            printf("Battery type: %d(%s), %dAh\n", settings.battery_type, settings.battery_type_str(),
+            settings.battery_capacity);
+            if (settings.battery_type == 0/*User defined*/) {
+                printf("  Boost Charging Voltage: %.2fV", settings.boost_voltage/* * multiplier*/);
+                printf("  Float Charging Voltage: %.2fV", settings.float_voltage/* * multiplier*/);
+                printf("  Low Voltage Disconnect: %.2fV", settings.low_voltage_disconnect/* * multiplier*/);
+            }
 
-    epsolar::Settings settings;
-    if (epsolar::read_settings(settings)) {
-        printf("Battery type: %d(%s), %dAh\n", settings.battery_type, settings.battery_type_str(),
-          settings.battery_capacity);
-        if (settings.battery_type == 0/*User defined*/) {
-            printf("  Boost Charging Voltage: %.2fV", settings.boost_voltage/* * multiplier*/);
-            printf("  Float Charging Voltage: %.2fV", settings.float_voltage/* * multiplier*/);
-            printf("  Low Voltage Disconnect: %.2fV", settings.low_voltage_disconnect/* * multiplier*/);
+            printf("Battery real rated voltage: %dV\n", (int)settings.battery_rated_voltage);
+            printf("Temperature compensation coefficient: %dmV/Cecelsius degree/2V\n", (int)settings.temperature_compensation_coefficient);
+        } else {
+            ESP_LOGE(TAG, "Reading battery settings from charge controller failed.");
         }
-
-        printf("Battery real rated voltage: %dV\n", (int)settings.battery_rated_voltage);
-        printf("Temperature compensation coefficient: %dmV/Cecelsius degree/2V\n", (int)settings.temperature_compensation_coefficient);
-    } else {
-        ESP_LOGE(TAG, "Reading battery settings from charge controller failed.");
+        if (modbus::write_query(1, 6, 0x903d/*Load controlling mode*/, (uint16_t)0)) {
+            puts("Load controlling mode set to 0(Manual)");
+        } else ESP_LOGE(TAG, "Error setting load controlling mode(0x903d)");
+        if (modbus::write_query(1, 6, 0x906a/*Default load on/off in manual mode*/, (uint16_t)1)) {
+            puts("Default load on/off in manual mode set to 1(on)");
+        } else ESP_LOGE(TAG, "Error setting default load on/off in manual modee(0x906a)");
     }
-
-    if (modbus::write_query(1, 6, 0x903d/*Load controlling mode*/, (uint16_t)0)) {
-        puts("Load controlling mode set to 0(Manual)");
-    } else ESP_LOGE(TAG, "Error setting load controlling mode(0x903d)");
-    if (modbus::write_query(1, 6, 0x906a/*Default load on/off in manual mode*/, (uint16_t)1)) {
-        puts("Default load on/off in manual mode set to 1(on)");
-    } else ESP_LOGE(TAG, "Error setting default load on/off in manual modee(0x906a)");
 
     if (!cmdline_only_mode && reset_reason != ESP_RST_DEEPSLEEP) {
         cmdline_only_mode = wait_for_escape_key();
@@ -135,6 +133,7 @@ void real_main()
     if (!cmdline_only_mode) {
         wifi::start();
         ESP_ERROR_CHECK( mdns_init() );
+        mdns_hostname_set(config::nodename);
         std::pair<std::string,int> service;
         if (discover_service("_mqtt", "_tcp", service)) {
             ESP_LOGI(TAG, "Service '_mqtt._tcp' discovered: addr=%s, port=%d\n", service.first.c_str(), service.second);
