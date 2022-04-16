@@ -1,5 +1,4 @@
 // solar.cpp
-#include <tuple>
 #include <string>
 #include <cstring>
 #include <stdio.h>
@@ -20,6 +19,7 @@
 #include "wifi.h"
 #include "mqtt.h"
 #include "deepsleep.h"
+#include "service_discovery.h"
 
 static const char* TAG = "solar";
 
@@ -45,39 +45,10 @@ static bool wait_for_escape_key()
     return false;
 }
 
-static bool discover_service(const char* service, const char* proto, std::pair<std::string,int>& result)
-{
-    mdns_result_t* results = NULL;
-    mdns_ip_addr_t* addr_found = NULL;
-    uint16_t port_found = 1883;
-    ESP_ERROR_CHECK(mdns_query_ptr(service, proto, 5000, 1,  &results));
-    auto r = results;
-    while (r && addr_found == NULL) {
-        auto a = r->addr;
-        while (a) {
-            if (a->addr.type == IPADDR_TYPE_V6 || a->addr.type == IPADDR_TYPE_V4) {
-                addr_found = a;
-                port_found = r->port;
-                break;
-            }
-            a = a->next;
-        }
-        r = r -> next;
-    }
-
-    if (addr_found) {
-        result.first = ipaddr_ntoa(&addr_found->addr);
-        result.second = port_found;
-    }
-    mdns_query_results_free(results);
-
-    return addr_found != NULL;
-}
-
 void real_main()
 {
-    printf("SDK version: %s\n", esp_get_idf_version());
-    printf("Build date : %s %s\n", __DATE__, __TIME__);
+    printf("SDK version : %s\n", esp_get_idf_version());
+    printf("Build date  : %s %s\n", __DATE__, __TIME__);
 
     ESP_ERROR_CHECK(nvs_flash_init());
 
@@ -133,11 +104,14 @@ void real_main()
     if (!cmdline_only_mode) {
         wifi::start();
         ESP_ERROR_CHECK( mdns_init() );
-        mdns_hostname_set(config::nodename);
-        std::pair<std::string,int> service;
-        if (discover_service("_mqtt", "_tcp", service)) {
-            ESP_LOGI(TAG, "Service '_mqtt._tcp' discovered: addr=%s, port=%d\n", service.first.c_str(), service.second);
-            mqtt::start_client(service.first.c_str(), service.second);
+        ESP_ERROR_CHECK(mdns_hostname_set(config::nodename));
+        auto services_found = service_discovery::discover("_mqtt", "_tcp", 1);
+        if (services_found.size() > 0) {
+            auto service = *services_found.begin();
+            auto host = service.first.c_str();
+            auto port = service.second;
+            ESP_LOGI(TAG, "Service '_mqtt._tcp' discovered: addr=%s, port=%d\n", host, port);
+            mqtt::start_client(host, port);
         } else {
             ESP_LOGE(TAG, "MQTT service couldn't be resolved");
             deepsleep::sleep_and_restart();
@@ -148,8 +122,12 @@ void real_main()
 
     while(true) {
         auto prompt = std::string(config::nodename) + ">";
-        console::process(prompt.c_str());
+        if (!console::process(prompt.c_str())) break;
     }
+
+    mqtt::stop_client();
+    wifi::stop();
+    puts("System halted");
 }
 
 extern "C" { void app_main() {

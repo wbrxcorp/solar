@@ -60,11 +60,11 @@ void Driver::send_message(const uint8_t* message, size_t size)
   gpio_set_level(rtr_pin, 1); // disable RS485 receiver
   gpio_set_level(rts_pin, 1); // enable RS485 driver
 
+  uint32_t savedLevel = XTOS_DISABLE_ALL_INTERRUPTS;
   for (int i = 0; i < size; i++) {
-    //uint32_t savedLevel = XTOS_DISABLE_ALL_INTERRUPTS;
-    auto orig_prio = uxTaskPriorityGet(NULL);
-    vTaskPrioritySet( NULL, 15);
-    portENTER_CRITICAL();
+    //auto orig_prio = uxTaskPriorityGet(NULL);
+    //vTaskPrioritySet( NULL, 15);
+    //portENTER_CRITICAL();
     uint8_t b = message[i];
     uint32_t wait = m_bitTime;
     uint32_t start = esp_get_cycle_count();
@@ -79,10 +79,10 @@ void Driver::send_message(const uint8_t* message, size_t size)
     // Stop bit
     gpio_set_level(comm_pin, 1);
     WAIT;
-    //XTOS_RESTORE_INTLEVEL(savedLevel);
-    portEXIT_CRITICAL();
-    vTaskPrioritySet(NULL, orig_prio);
   }
+  XTOS_RESTORE_INTLEVEL(savedLevel);
+  //portEXIT_CRITICAL();
+  //vTaskPrioritySet(NULL, orig_prio);
 
   gpio_set_level(rts_pin, 0); // disable RS485 driver
 
@@ -101,10 +101,10 @@ int Driver::receive_message(uint8_t* modbus_message)
   gpio_set_level(rtr_pin, 0); // enable RS485 receiver
   gpio_set_direction(comm_pin, GPIO_MODE_INPUT);
 
-  //uint32_t savedLevel = XTOS_DISABLE_ALL_INTERRUPTS;
-  auto orig_prio = uxTaskPriorityGet(NULL);
-  vTaskPrioritySet( NULL, 15); 
-  portENTER_CRITICAL();
+  uint32_t savedLevel = XTOS_DISABLE_ALL_INTERRUPTS;
+  //auto orig_prio = uxTaskPriorityGet(NULL);
+  //vTaskPrioritySet( NULL, 15); 
+  //portENTER_CRITICAL();
 
   uint32_t startTime = esp_get_cycle_count();
   for (message_size = 0; message_size < modbus::MAX_MESSAGE_LENGTH; message_size++) {
@@ -128,9 +128,9 @@ int Driver::receive_message(uint8_t* modbus_message)
     modbus_message[message_size] = rec;
   }
 out:;
-  portEXIT_CRITICAL();
-  //XTOS_RESTORE_INTLEVEL(savedLevel);
-  vTaskPrioritySet(NULL, orig_prio);
+  //portEXIT_CRITICAL();
+  XTOS_RESTORE_INTLEVEL(savedLevel);
+  //vTaskPrioritySet(NULL, orig_prio);
 
   gpio_set_level(rtr_pin, 1); // disable RS485 receiver
   return message_size;

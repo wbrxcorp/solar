@@ -7,6 +7,7 @@ namespace mqtt {
 
 void event_handler(void *handler_args, esp_event_base_t base, int32_t event_id, void *event_data);
 void start_client(const char* host, int port = 1883);
+void stop_client();
 
 } // namespace mqtt
 

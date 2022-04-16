@@ -6,6 +6,7 @@
 namespace config {
     extern char nodename[16];
     extern wifi_config_t wifi;
+    extern const char* country;
 
     const uint16_t MAX_SLEEP_DURATION = 5 * 60;
     const uint8_t MAX_WIFI_RETRY_COUNT = 5;

@@ -7,6 +7,9 @@
 #include "driver/uart.h"
 #include "linenoise/linenoise.h"
 
+#include "mqtt.h"
+#include "wifi.h"
+
 static int nodename(int argc, char** argv)
 {
     if (argc > 2) {
@@ -73,6 +76,33 @@ static int password(int argc, char** argv)
     return 0;
 }
 
+static int country(int argc, char** argv)
+{
+    if (argc > 2) {
+        puts("Usage:");
+        printf("  %s [country or none]", argv[0]);
+        return 1;
+    }
+    //else
+    if (argc == 1) {
+        printf("%s\n", config::country? config::country : "none");
+        return 0;
+    }
+    //else
+    if (strcmp(argv[1], "none") == 0) {
+        config::country = NULL;
+        return 0;
+    }
+    //else
+    if (strcmp(argv[1], "JP") == 0) {
+        config::country = "JP";
+        return 0;
+    }
+    //else
+    puts("Unknown country code");
+    return 1;
+}
+
 static int save(int argc, char** argv)
 {
     return config::save()? 0 : 1;
@@ -122,6 +152,13 @@ void setup()
     cmd.argtable = NULL;
     ESP_ERROR_CHECK(esp_console_cmd_register(&cmd));
 
+    cmd.command = "country";
+    cmd.help = "get/set WiFi country code";
+    cmd.hint = NULL;
+    cmd.func = country;
+    cmd.argtable = NULL;
+    ESP_ERROR_CHECK(esp_console_cmd_register(&cmd));
+
     cmd.command = "save";
     cmd.help = "save config";
     cmd.hint = NULL;
@@ -135,8 +172,13 @@ bool process(const char* prompt)
     char* line = linenoise(prompt);
     if (line == NULL) return true;
     //else
-    int ret;
     puts("");
+
+    if (strcmp(line, "halt") == 0) {
+        return false; // halt system
+    }
+
+    int ret;
     auto err = esp_console_run(line, &ret);
 
     if (err == ESP_ERR_INVALID_ARG) {

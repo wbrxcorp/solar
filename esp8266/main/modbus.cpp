@@ -23,15 +23,16 @@ static const char* exception_codes[] = {
   "GATEWAY PATH UNAVAILABLE(0x0a)",
   "GATEWAY TARGET DEVICE FAILED TO RESPOND(0x0b)"
 };
-
 static SemaphoreHandle_t lock;
+/*
 #ifdef CONFIG_IDF_TARGET_ESP8266
   #define LOCK
   #define UNLOCK
 #else
+*/
   #define LOCK          xSemaphoreTake(lock, portMAX_DELAY)
   #define UNLOCK        xSemaphoreGive(lock)
-#endif
+//#endif
 
 inline static uint8_t HIBYTE(uint16_t word) { return (uint8_t)((word & 0xff00) >> 8); }
 inline static uint8_t LOBYTE(uint16_t word) { return (uint8_t)(word & 0xff); }

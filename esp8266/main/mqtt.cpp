@@ -185,4 +185,13 @@ void start_client(const char* host, int port/* = 1883*/)
     esp_mqtt_client_start(mqtt_client);
 }
 
+void stop_client()
+{
+    stop_sending_data();
+    if (mqtt_client) {
+        esp_mqtt_client_disconnect(mqtt_client);
+        esp_mqtt_client_stop(mqtt_client);
+    }
+}
+
 } // namespace mqtt

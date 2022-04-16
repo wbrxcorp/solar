@@ -1,3 +1,5 @@
+#include <cstring>
+
 #include "wifi.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/event_groups.h"
@@ -67,9 +69,28 @@ void start()
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA) );
     ESP_ERROR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_STA, &config::wifi) );
     ESP_ERROR_CHECK(esp_wifi_start() );
-    // https://github.com/espressif/ESP8266_RTOS_SDK/issues/1103
+    if (config::country && strcmp(config::country, "JP") == 0) {
+        // https://tech.smartshopping.co.jp/esp8266_rtos_3_4
+        ESP_LOGI(TAG, "Country set to %s", config::country);
+        wifi_country_t country_info;
+        strcpy(country_info.cc, "JP");
+        country_info.schan = 1;
+        country_info.nchan = 13;
+        country_info.policy = WIFI_COUNTRY_POLICY_MANUAL;
+        ESP_ERROR_CHECK(esp_wifi_set_country(&country_info));
+    }
     wifi_event_group = xEventGroupCreate();
     /*EventBits_t bits = */xEventGroupWaitBits(wifi_event_group, 1, pdFALSE, pdFALSE, portMAX_DELAY);
+}
+
+void stop()
+{
+    wifi_mode_t mode;
+    if (esp_wifi_get_mode(&mode) == ESP_OK) {
+        esp_wifi_disconnect();
+        esp_wifi_stop();
+        esp_wifi_deinit();
+    }
 }
 
 }
