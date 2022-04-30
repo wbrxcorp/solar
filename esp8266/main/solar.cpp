@@ -102,6 +102,7 @@ void real_main()
     }
 
     if (!cmdline_only_mode) {
+        tcpip_adapter_init();
         wifi::start();
         ESP_ERROR_CHECK( mdns_init() );
         ESP_ERROR_CHECK(mdns_hostname_set(config::nodename));
