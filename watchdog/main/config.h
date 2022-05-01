@@ -10,6 +10,8 @@ namespace config {
     extern uint32_t timeout;
     extern gpio_num_t gpio_pin;
     extern char ping_host[16];
+    extern uint32_t ping_interval;
+    extern bool use_sleep;
     extern uint32_t sleep_duration;
 
     bool load();

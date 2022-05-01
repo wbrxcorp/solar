@@ -6,6 +6,7 @@
 #include "driver/uart.h"
 #include "linenoise/linenoise.h"
 
+#include "watchdog.h"
 #include "config.h"
 
 static const char* TAG = "console";
@@ -76,6 +77,24 @@ static int ping_host(int argc, char** argv)
     return 0;
 }
 
+static int use_sleep(int argc, char** argv)
+{
+    if (argc > 2) {
+        puts("Usage:");
+        printf("  %s [0|1]", argv[0]);
+        return 1;
+    }
+    //else
+    if (argc == 1) {
+        puts(config::use_sleep? "1" : "0");
+        return 0;
+    }
+    //else
+    
+    config::use_sleep = std::atoi(argv[1]) != 0? true : false;
+    return 0;
+}
+
 namespace console {
 
 SemaphoreHandle_t watchdog_semaphore = NULL;
@@ -129,15 +148,22 @@ void setup()
     cmd.argtable = NULL;
     ESP_ERROR_CHECK(esp_console_cmd_register(&cmd));
 
+    cmd.command = "use_sleep";
+    cmd.help = "get/set sleep flag";
+    cmd.hint = NULL;
+    cmd.func = use_sleep;
+    cmd.argtable = NULL;
+    ESP_ERROR_CHECK(esp_console_cmd_register(&cmd));
+
     cmd.command = "feed";
     cmd.help = "feed watchdog";
     cmd.hint = NULL;
     cmd.func = [](int,char**) {
-        if (!watchdog_semaphore) {
+        if (!semaphore) {
             ESP_LOGE(TAG, "Watchdog semaphore is not set");
             return pdFALSE;
         }
-        return xSemaphoreGive(watchdog_semaphore)? 0 : 1;
+        return xSemaphoreGive(semaphore)? 0 : 1;
     };
     cmd.argtable = NULL;
     ESP_ERROR_CHECK(esp_console_cmd_register(&cmd));
